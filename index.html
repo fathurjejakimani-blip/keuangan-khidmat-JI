@@ -17,60 +17,51 @@
   <!-- App Main Container -->
   <div class="app-container">
 
-    <!-- Auth Section: Clean Login Widget with 6-Digit Keypad -->
+    <!-- Auth Section: Clean Login Widget with Searchbar Account & Perfect Circle Keypad -->
     <section id="authSection" class="auth-section card-navy">
       <div class="card-header">
         <h2 class="auth-title">Keuangan Tim Khidmat</h2>
       </div>
 
-      <form id="authForm" onsubmit="event.preventDefault(); switchUserAccount();">
-        <div class="input-group">
-          <label for="accountSelect">Pilih Akun / Tim</label>
-          <div class="select-wrapper navy-input">
-            <i class="fa-solid fa-users select-icon"></i>
-            <select id="accountSelect" required>
-              <option value="" disabled selected>-- Pilih Akun Anda --</option>
-              <!-- Options populated dynamically -->
-            </select>
-            <i class="fa-solid fa-chevron-down arrow-icon"></i>
-          </div>
+      <!-- Account Selection Searchbar Suggestion -->
+      <div class="input-group autocomplete-group">
+        <label for="accountSearchInput">Pilih Akun / Tim <span class="req">*</span></label>
+        <div class="input-wrapper navy-input">
+          <i class="fa-solid fa-users input-icon"></i>
+          <input type="text" id="accountSearchInput" placeholder="Ketik atau pilih akun tim..." autocomplete="off">
+          <i class="fa-solid fa-chevron-down arrow-icon"></i>
+        </div>
+        <div id="accountSuggestions" class="suggestions-list hidden"></div>
+      </div>
+
+      <!-- 6-Digit PIN Display & Perfect Circle Keypad -->
+      <div class="input-group pin-keypad-group">
+        <label>Masukkan 6 Digit PIN</label>
+        <div class="pin-display">
+          <div class="pin-dot" data-index="0"></div>
+          <div class="pin-dot" data-index="1"></div>
+          <div class="pin-dot" data-index="2"></div>
+          <div class="pin-dot" data-index="3"></div>
+          <div class="pin-dot" data-index="4"></div>
+          <div class="pin-dot" data-index="5"></div>
         </div>
 
-        <!-- 6-Digit PIN Display & Keypad -->
-        <div class="input-group pin-keypad-group">
-          <label>Masukkan 6 Digit PIN</label>
-          <div class="pin-display">
-            <div class="pin-dot" data-index="0"></div>
-            <div class="pin-dot" data-index="1"></div>
-            <div class="pin-dot" data-index="2"></div>
-            <div class="pin-dot" data-index="3"></div>
-            <div class="pin-dot" data-index="4"></div>
-            <div class="pin-dot" data-index="5"></div>
-          </div>
-          <!-- Hidden password input for form submission compatibility -->
-          <input type="password" id="accountPassword" maxlength="6" style="display:none;" required>
-          
-          <!-- Telephone Style 3x4 Dialpad Keypad -->
-          <div class="keypad-grid">
-            <button type="button" class="keypad-btn" data-val="1">1</button>
-            <button type="button" class="keypad-btn" data-val="2">2</button>
-            <button type="button" class="keypad-btn" data-val="3">3</button>
-            <button type="button" class="keypad-btn" data-val="4">4</button>
-            <button type="button" class="keypad-btn" data-val="5">5</button>
-            <button type="button" class="keypad-btn" data-val="6">6</button>
-            <button type="button" class="keypad-btn" data-val="7">7</button>
-            <button type="button" class="keypad-btn" data-val="8">8</button>
-            <button type="button" class="keypad-btn" data-val="9">9</button>
-            <button type="button" class="keypad-btn keypad-btn-blank" disabled></button>
-            <button type="button" class="keypad-btn" data-val="0">0</button>
-            <button type="button" class="keypad-btn keypad-btn-action" id="btnKeypadBackspace"><i class="fa-solid fa-backspace"></i></button>
-          </div>
+        <!-- Telephone Style Dialpad with Perfect Circles (60px x 60px) -->
+        <div class="keypad-grid">
+          <button type="button" class="keypad-btn" data-val="1">1</button>
+          <button type="button" class="keypad-btn" data-val="2">2</button>
+          <button type="button" class="keypad-btn" data-val="3">3</button>
+          <button type="button" class="keypad-btn" data-val="4">4</button>
+          <button type="button" class="keypad-btn" data-val="5">5</button>
+          <button type="button" class="keypad-btn" data-val="6">6</button>
+          <button type="button" class="keypad-btn" data-val="7">7</button>
+          <button type="button" class="keypad-btn" data-val="8">8</button>
+          <button type="button" class="keypad-btn" data-val="9">9</button>
+          <button type="button" class="keypad-btn keypad-btn-blank" disabled></button>
+          <button type="button" class="keypad-btn" data-val="0">0</button>
+          <button type="button" class="keypad-btn keypad-btn-action" id="btnKeypadBackspace"><i class="fa-solid fa-backspace"></i></button>
         </div>
-
-        <button type="submit" id="btnLogin" class="btn-navy btn-primary btn-block">
-          Masuk Akun
-        </button>
-      </form>
+      </div>
     </section>
 
     <!-- Main App Wrapper (Hidden until logged in) -->
@@ -216,7 +207,7 @@
       </div>
     </div>
 
-    <!-- Success Full Overlay (No Checklist Shadow, Detailed Items Recap, Share Button) -->
+    <!-- Success Full Overlay -->
     <div id="successOverlay" class="success-overlay hidden">
       <div class="success-card card-navy" id="receiptCardArea">
         
