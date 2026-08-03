@@ -29,7 +29,7 @@
   --border-radius: 18px;
   --border-radius-sm: 10px;
 
-  --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -125,13 +125,16 @@ body {
   transform: scale(1.15);
 }
 
-/* Fix Keypad Buttons: Perfect 60px Circles */
+/* Fix Keypad Buttons: Ultra Responsive Perfect 60px Circles */
 .keypad-grid {
   display: grid;
   grid-template-columns: repeat(3, 60px);
   justify-content: center;
   gap: 16px 22px;
   margin: 10px auto 0 auto;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .keypad-btn {
@@ -148,21 +151,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: var(--transition-fast);
+  transition: transform 0.08s ease, background 0.08s ease;
   box-shadow: 0 3px 8px rgba(15, 23, 42, 0.05);
+  touch-action: manipulation;
 }
 
-.keypad-btn:hover {
-  background: var(--navy-light);
-  border-color: var(--navy-dark);
-  transform: scale(1.05);
-}
-
-.keypad-btn:active {
-  background: var(--navy-dark);
-  color: #ffffff;
-  border-color: var(--navy-dark);
-  transform: scale(0.95);
+.keypad-btn:active, .keypad-btn.pressed {
+  background: var(--navy-dark) !important;
+  color: #ffffff !important;
+  border-color: var(--navy-dark) !important;
+  transform: scale(0.92) !important;
 }
 
 .keypad-btn-blank {
@@ -341,12 +339,79 @@ body {
 }
 
 .fab-item.btn-pdf i { color: var(--navy-accent); }
+.fab-item.btn-transfer i { color: #d97706; }
+.fab-item.btn-history i { color: #7c3aed; }
 .fab-item.btn-expense i { color: var(--blue-primary); }
 .fab-item.btn-topup i { color: #059669; }
 .fab-item.btn-logout i { color: var(--danger); }
 
 .fab-item:hover i {
   color: #ffffff !important;
+}
+
+/* Sub Balance Info in Transfer Modal */
+.sub-balance-info {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy-accent);
+  margin-top: 4px;
+  display: block;
+}
+
+/* Transaction History List Styling */
+.tx-history-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.tx-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tx-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  transition: var(--transition-fast);
+}
+
+.tx-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tx-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-dark);
+}
+
+.tx-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tx-amount {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tx-amount.income {
+  color: #059669;
+}
+
+.tx-amount.expense {
+  color: #dc2626;
 }
 
 /* Vendor Pemesanan Orders Section */
@@ -1097,7 +1162,7 @@ body {
 }
 
 .modal-card.modal-lg {
-  max-width: 500px;
+  max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
 }
