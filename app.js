@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.2
- * Full Page Riwayat Transaksi with Search & Date Filter, Bulletproof Indonesian Month ISO Normalizer for Vendor Orders & PDF
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.3
+ * Instant Session Persistence, Auto-Closing Animated Checklist Toasts, Multi-Item Vendor Orders, PDF Updates & Clean History Date Grouping
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -113,6 +113,11 @@ const successOverlay = document.getElementById('successOverlay');
 const btnNewTransaction = document.getElementById('btnNewTransaction');
 const btnShareReceipt = document.getElementById('btnShareReceipt');
 
+// Toast Auto Overlay Elements
+const toastOverlay = document.getElementById('toastOverlay');
+const toastTitle = document.getElementById('toastTitle');
+const toastSubtitle = document.getElementById('toastSubtitle');
+
 // Topup Modal
 const topupModal = document.getElementById('topupModal');
 const btnOpenTopup = document.getElementById('btnOpenTopup');
@@ -125,6 +130,9 @@ const btnSubmitTopup = document.getElementById('btnSubmitTopup');
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', async () => {
+  // 1. RESTORE SESSION IMMEDIATELY (Prevents returning to login screen on refresh)
+  checkAndRestoreSession();
+
   setupAccountSearchbar();
   setupEventListeners();
   setupResponsiveKeypad();
@@ -139,24 +147,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   resetItems();
   resetModalItems();
 
+  // 2. Fetch Live Data in background
   await fetchDataFromSpreadsheet();
-  checkAndRestoreSession();
 });
 
-// Check & Restore Active Session across Page Refresh
+// Check & Restore Active Session Synchronously
 function checkAndRestoreSession() {
   const savedUser = localStorage.getItem('ACTIVE_KHIDMAT_USER');
   if (savedUser) {
     try {
       const parsedUser = JSON.parse(savedUser);
-      const matchedAcc = appState.accounts.find(a => a.id.toString().trim() === parsedUser.id.toString().trim() || a.name.toLowerCase() === parsedUser.name.toLowerCase());
-      
-      if (matchedAcc) {
-        appState.activeUser = matchedAcc;
-      } else {
-        appState.activeUser = parsedUser;
-      }
-
+      appState.activeUser = parsedUser;
       applyUserSessionUI();
     } catch (err) {
       console.error('Session restore error:', err);
@@ -175,7 +176,7 @@ function applyUserSessionUI() {
   authSection.classList.add('hidden');
   appFormWrapper.classList.remove('hidden');
   fabContainer.classList.remove('hidden');
-  txHistorySection.classList.add('hidden'); // Ensure history is hidden on landing
+  txHistorySection.classList.add('hidden');
 
   const isVendor = userRole.toLowerCase() === 'vendor';
 
@@ -199,6 +200,17 @@ function applyUserSessionUI() {
     btnOpenTransferModal.classList.remove('hidden');
     btnOpenTxHistoryModal.classList.remove('hidden');
   }
+}
+
+// Auto-closing Toast with Animated Checkmark (2.5 Seconds)
+function showAutoToast(titleText, subtitleText) {
+  toastTitle.textContent = titleText;
+  toastSubtitle.textContent = subtitleText;
+  toastOverlay.classList.remove('hidden');
+
+  setTimeout(() => {
+    toastOverlay.classList.add('hidden');
+  }, 2500);
 }
 
 // Setup Floating Action Button (FAB) Floating Menu
@@ -452,10 +464,10 @@ async function handleTransferSubmit(e) {
 
     transferModal.classList.add('hidden');
     
-    // Clear Feedback Alert requested by User
-    alert(`Transfer Berhasil!\nNominal ${formatSAR(amount)} telah dikirim ke ${receiverName}.`);
+    // Show Animated Checkmark Toast (Auto Closes in 2.5s)
+    showAutoToast("Transfer Berhasil!", `Nominal ${formatSAR(amount)} telah dikirim ke ${receiverName}`);
 
-    fetchDataFromSpreadsheet(); // Refresh live data
+    fetchDataFromSpreadsheet();
 
   } catch (err) {
     console.error('Transfer error:', err);
@@ -473,7 +485,6 @@ function setupTxHistorySection() {
     closeFabMenu();
     if (!appState.activeUser) return;
 
-    // Show full history page, hide main form & orders
     expenseFormSection.classList.add('hidden');
     ordersSection.classList.add('hidden');
     txHistorySection.classList.remove('hidden');
@@ -488,7 +499,7 @@ function setupTxHistorySection() {
 
   btnBackFromHistory.addEventListener('click', () => {
     txHistorySection.classList.add('hidden');
-    applyUserSessionUI(); // Restore main view
+    applyUserSessionUI();
   });
 
   txSearchInput.addEventListener('input', (e) => {
@@ -513,7 +524,6 @@ function renderGroupedTxHistory() {
 
   const activeName = appState.activeUser ? appState.activeUser.name.toLowerCase() : '';
   
-  // Filter transactions for current account (Income, Expense, Transfer In/Out)
   let myTxs = appState.transactions.filter(t => {
     const accMatch = t.akun.toLowerCase() === activeName || (t.rincian && t.rincian.toLowerCase().includes(activeName));
     if (!accMatch) return false;
@@ -544,14 +554,13 @@ function renderGroupedTxHistory() {
     return;
   }
 
-  // Group transactions by Date Header
+  // SINGLE GROUP PER DATE: Group all transactions by ISO Date String
   const groupsByDate = {};
   myTxs.forEach(t => {
     const isoDate = normalizeDateToISO(t.waktu);
-    const displayDate = formatSaudiDateOnly(t.waktu);
     if (!groupsByDate[isoDate]) {
       groupsByDate[isoDate] = {
-        title: displayDate,
+        displayDate: formatSaudiDateOnly(t.waktu),
         items: []
       };
     }
@@ -568,14 +577,13 @@ function renderGroupedTxHistory() {
 
     const groupHeader = document.createElement('div');
     groupHeader.className = 'tx-date-group-header';
-    groupHeader.innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${group.title}`;
+    groupHeader.innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${group.displayDate}`;
     groupDiv.appendChild(groupHeader);
 
     const itemsWrapper = document.createElement('div');
     itemsWrapper.className = 'tx-group-items';
 
     group.items.forEach(t => {
-      // Categorize transaction type (Uang Masuk, Uang Keluar, Transfer)
       let txTypeLabel = 'Uang Keluar';
       let txBadgeClass = 'badge-tx-out';
       let isIncome = false;
@@ -648,7 +656,7 @@ function setupPdfModal() {
   });
 }
 
-// Generate Printable PDF Document Function (Connected to ISO Normalizer)
+// Generate Printable PDF Document Function (With Updated Title & Removed Signatures)
 function generatePdfDocument() {
   const docType = pdfDocType.value;
   const startDate = pdfStartDate.value; // YYYY-MM-DD
@@ -657,7 +665,6 @@ function generatePdfDocument() {
   const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
   const generatedDate = new Date().toLocaleString('id-ID');
 
-  // Filter vendor orders by normalized ISO date range!
   const filteredOrders = appState.orders.filter(o => {
     if (o.akun.toLowerCase() !== vendorName.toLowerCase()) return false;
     const orderIsoDate = normalizeDateToISO(o.tanggal);
@@ -678,6 +685,10 @@ function generatePdfDocument() {
     const rowsHtml = filteredOrders.map((o, idx) => {
       grandTotalOrders += o.jumlah || 0;
       const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
+      
+      // Support multi-item lines in PDF table
+      const productsFormatted = parseMultiItemsText(o.itemProduk, o.qty, o.satuan, o.harga);
+
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
@@ -685,7 +696,7 @@ function generatePdfDocument() {
           <td>${o.grup}</td>
           <td><strong>${o.tujuan}</strong><br><small>Muthowwif: ${o.muthowwif}</small></td>
           <td>${o.lokasi}</td>
-          <td>${o.itemProduk}<br><small>${o.qty} ${o.satuan} @ ${formatSAR(o.harga)}</small></td>
+          <td>${productsFormatted}</td>
           <td style="text-align:right;"><strong>${formatSAR(o.jumlah)}</strong></td>
           <td style="text-align:center;"><span class="badge badge-${o.status.toLowerCase().replace(/\s+/g, '-')}">${o.status}</span></td>
         </tr>
@@ -777,7 +788,7 @@ function generatePdfDocument() {
         body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; }
         .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
         .doc-title { font-family: 'Martel', serif; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
-        .doc-subtitle { font-size: 13px; font-weight: 600; color: #475569; margin: 0; }
+        .doc-subtitle { font-size: 13px; font-weight: 700; color: #1e3a8a; margin: 0; }
         .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; font-size: 13px; }
         .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 11px; text-transform: uppercase; }
         .biodata-item strong { color: #0f172a; }
@@ -792,7 +803,6 @@ function generatePdfDocument() {
         .summary-card { flex: 1; background: #f1f5f9; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; }
         .summary-card span { font-size: 11px; color: #64748b; font-weight: 600; display: block; }
         .summary-card strong { font-family: 'Martel', serif; font-size: 16px; color: #0f172a; }
-        .footer-sign { margin-top: 40px; text-align: right; font-size: 12px; }
         @media print {
           body { padding: 0; }
           .no-print { display: none; }
@@ -802,7 +812,7 @@ function generatePdfDocument() {
     <body>
       <div class="doc-header">
         <h1 class="doc-title">${docType.toUpperCase()}</h1>
-        <p class="doc-subtitle">KEUANGAN KHIDMAT JEJAK IMANI</p>
+        <p class="doc-subtitle">Tim Khidmat jejak imani Saudi Arabia</p>
       </div>
 
       <div class="biodata-grid">
@@ -825,12 +835,6 @@ function generatePdfDocument() {
       </div>
 
       ${tableContentHtml}
-
-      <div class="footer-sign">
-        <p>Makkah / Madinah, ${new Date().toLocaleDateString('id-ID')}</p>
-        <br><br><br>
-        <p><strong>(${vendorName})</strong></p>
-      </div>
 
       <script>
         window.onload = function() {
@@ -1004,6 +1008,7 @@ function renderOrdersList() {
     }
 
     const saudiFormattedTime = formatSaudiDateTime(order.tanggal, order.jam);
+    const multiItemsHtml = renderMultiItemsCard(order.itemProduk, order.qty, order.satuan, order.harga);
 
     card.innerHTML = `
       <div class="order-card-header">
@@ -1032,15 +1037,9 @@ function renderOrdersList() {
           <span class="order-detail-label">Lokasi</span>
           <span class="order-detail-value">${order.lokasi || '-'}</span>
         </div>
-        <div class="order-detail-item">
-          <span class="order-detail-label">Item Produk</span>
-          <span class="order-detail-value">${order.itemProduk || '-'}</span>
-        </div>
         
         <div class="order-product-box">
-          <div>
-            <div style="font-size: 11px; color: #64748b;">Rincian: ${order.qty} ${order.satuan} @ ${formatSAR(order.harga)}</div>
-          </div>
+          ${multiItemsHtml}
           <div class="order-product-price">${formatSAR(order.jumlah)}</div>
         </div>
 
@@ -1056,7 +1055,50 @@ function renderOrdersList() {
   });
 }
 
-// BULLETPROOF ISO Date Normalizer (Handles Indonesian Month Names like "Agustus", "Januari", etc.)
+// Multi-item Parser for Sheet Pemesanan (Support newlines \n in cells)
+function renderMultiItemsCard(itemStr, qtyStr, unitStr, priceStr) {
+  if (!itemStr) return '<div class="order-product-name">-</div>';
+
+  const items = itemStr.toString().split('\n');
+  const qtys = qtyStr ? qtyStr.toString().split('\n') : [];
+  const units = unitStr ? unitStr.toString().split('\n') : [];
+  const prices = priceStr ? priceStr.toString().split('\n') : [];
+
+  if (items.length <= 1) {
+    return `
+      <div>
+        <div class="order-product-name">${itemStr}</div>
+        <div style="font-size: 11px; color: #64748b;">Rincian: ${qtyStr || 1} ${unitStr || 'Porsi'} @ ${formatSAR(priceStr)}</div>
+      </div>
+    `;
+  }
+
+  const rows = items.map((it, idx) => {
+    const q = qtys[idx] || qtys[0] || '1';
+    const u = units[idx] || units[0] || 'Porsi';
+    const p = prices[idx] || prices[0] || '0';
+    return `<div class="multi-item-row">• <strong>${it.trim()}</strong> <small style="color:#64748b">(${q} ${u} @ ${formatSAR(p)})</small></div>`;
+  }).join('');
+
+  return `<div class="multi-items-list">${rows}</div>`;
+}
+
+function parseMultiItemsText(itemStr, qtyStr, unitStr, priceStr) {
+  if (!itemStr) return '-';
+  const items = itemStr.toString().split('\n');
+  const qtys = qtyStr ? qtyStr.toString().split('\n') : [];
+  const units = unitStr ? unitStr.toString().split('\n') : [];
+  const prices = priceStr ? priceStr.toString().split('\n') : [];
+
+  return items.map((it, idx) => {
+    const q = qtys[idx] || qtys[0] || '1';
+    const u = units[idx] || units[0] || 'Porsi';
+    const p = prices[idx] || prices[0] || '0';
+    return `• ${it.trim()} (${q} ${u} @ ${formatSAR(p)})`;
+  }).join('<br>');
+}
+
+// BULLETPROOF ISO Date Normalizer (Extracts Date Part Cleanly from Timestamps & Indonesian Month Names)
 function normalizeDateToISO(rawDateStr) {
   if (!rawDateStr) return '';
   let str = rawDateStr.toString().trim();
@@ -1088,7 +1130,25 @@ function normalizeDateToISO(rawDateStr) {
     }
   }
 
-  // If raw GAS Date object string (e.g. "Tue Aug 04 2026 00:00:00 GMT+0300... Sat Dec 30 1899...")
+  // Handle DD/MM/YYYY or DD/MM/YYYY HH:MM:SS
+  const matchSlashDate = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (matchSlashDate) {
+    const day = matchSlashDate[1].padStart(2, '0');
+    const month = matchSlashDate[2].padStart(2, '0');
+    const year = matchSlashDate[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // Handle YYYY-MM-DD or YYYY-MM-DD HH:MM:SS
+  const matchIsoDate = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (matchIsoDate) {
+    const year = matchIsoDate[1];
+    const month = matchIsoDate[2].padStart(2, '0');
+    const day = matchIsoDate[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // If raw GAS Date object string (e.g. "Tue Aug 04 2026 00:00:00 GMT+0300...")
   if (str.includes('GMT') || str.includes('1899')) {
     const match = str.match(/([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{4})/);
     if (match) {
@@ -1097,24 +1157,6 @@ function normalizeDateToISO(rawDateStr) {
         return d.toISOString().split('T')[0];
       }
     }
-  }
-
-  // YYYY-MM-DD or YYYY/MM/DD
-  if (str.match(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/)) {
-    const parts = str.split('T')[0].split(/[-/]/);
-    const y = parts[0];
-    const m = parts[1].padStart(2, '0');
-    const d = parts[2].padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-
-  // DD/MM/YYYY or DD-MM-YYYY
-  if (str.match(/^\d{1,2}[-/]\d{1,2}[-/]\d{4}/)) {
-    const parts = str.split(/[-/]/);
-    const d = parts[0].padStart(2, '0');
-    const m = parts[1].padStart(2, '0');
-    const y = parts[2];
-    return `${y}-${m}-${d}`;
   }
 
   const d = new Date(str);
@@ -1238,7 +1280,10 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
 
     calculateVendorEstimates();
     renderOrdersList();
-    alert(`Status pemesanan berhasil diubah menjadi "${newStatus}"!`);
+    
+    // Show Animated Checkmark Toast (Auto Closes in 2.5s)
+    showAutoToast("Status Diperbarui!", `Status pemesanan diubah menjadi ${newStatus}`);
+
     fetchDataFromSpreadsheet();
 
   } catch (err) {
@@ -1282,7 +1327,11 @@ async function handleTopupSubmit(e) {
     localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
 
     topupModal.classList.add('hidden');
-    alert(`Berhasil! Saldo kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}.`);
+    
+    // Show Animated Checkmark Toast (Auto Closes in 2.5s)
+    showAutoToast("Isi Saldo Berhasil!", `Kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}`);
+
+    fetchDataFromSpreadsheet();
 
   } catch (err) {
     console.error('Topup error:', err);
