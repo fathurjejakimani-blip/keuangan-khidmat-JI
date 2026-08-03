@@ -67,7 +67,7 @@
     <!-- Main App Wrapper (Hidden until logged in) -->
     <div id="appFormWrapper" class="hidden">
       
-      <!-- Balance & Estimates Card -->
+      <!-- Balance & Estimates Card (Widget Tanpa Tombol Akses Langsung) -->
       <section class="balance-card card-navy">
         <div class="balance-info-group">
           <div class="user-badge">
@@ -88,23 +88,6 @@
               <h2 id="estimatesAmountDisplay" class="estimate-amount">SAR 0.00</h2>
             </div>
           </div>
-        </div>
-
-        <!-- Balance Action Buttons (Icon Only) -->
-        <div class="balance-actions">
-          <!-- Tombol Create/Print PDF (Khusus Vendor) -->
-          <button id="btnOpenPdfModal" class="btn-icon-only btn-pdf hidden" title="Cetak PDF (Rekapitulasi / Laporan Keuangan)">
-            <i class="fa-solid fa-print"></i>
-          </button>
-          <button id="btnOpenExpenseModal" class="btn-icon-only btn-expense-toggle" title="Form Pengeluaran Tim (PopUp Modal)">
-            <i class="fa-solid fa-receipt"></i>
-          </button>
-          <button id="btnOpenTopup" class="btn-icon-only btn-topup" title="Isi Saldo Kas">
-            <i class="fa-solid fa-plus"></i>
-          </button>
-          <button id="btnLogout" class="btn-icon-only btn-secondary" title="Ganti Akun">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i>
-          </button>
         </div>
       </section>
 
@@ -209,7 +192,35 @@
       </section>
     </div>
 
-    <!-- POPUP MODAL: Cetak PDF (Rekapitulasi Pemesanan & Laporan Keuangan) -->
+    <!-- FLOATING ACTION BUTTON (FAB) MENU MENGAMBANG UNTUK SEMUA TOMBOL AKSI -->
+    <div id="fabContainer" class="fab-container hidden">
+      <!-- Sub-menu Mengambang -->
+      <div id="fabMenu" class="fab-menu hidden">
+        <button id="btnOpenPdfModal" class="fab-item btn-pdf hidden" title="Cetak PDF (Rekapitulasi / Laporan Keuangan)">
+          <i class="fa-solid fa-print"></i>
+          <span class="fab-label">Cetak PDF</span>
+        </button>
+        <button id="btnOpenExpenseModal" class="fab-item btn-expense" title="Form Pengeluaran Tim">
+          <i class="fa-solid fa-receipt"></i>
+          <span class="fab-label">Form Pengeluaran</span>
+        </button>
+        <button id="btnOpenTopup" class="fab-item btn-topup" title="Isi Saldo Kas">
+          <i class="fa-solid fa-plus"></i>
+          <span class="fab-label">Isi Saldo Kas</span>
+        </button>
+        <button id="btnLogout" class="fab-item btn-logout" title="Ganti Akun">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span class="fab-label">Ganti Akun</span>
+        </button>
+      </div>
+
+      <!-- Tombol Utama Floating Action Icon Button -->
+      <button id="btnToggleFab" class="fab-main-btn" title="Menu Pilihan Aksi">
+        <i class="fa-solid fa-ellipsis-vertical fab-icon-main"></i>
+      </button>
+    </div>
+
+    <!-- POPUP MODAL: Cetak PDF -->
     <div id="pdfModal" class="modal-backdrop hidden">
       <div class="modal-card card-navy">
         <div class="modal-header">
@@ -218,7 +229,6 @@
         </div>
         <form id="pdfForm">
           <div class="modal-body">
-            <!-- Jenis Dokumen -->
             <div class="input-group">
               <label for="pdfDocType">Pilih Jenis Dokumen <span class="req">*</span></label>
               <div class="select-wrapper navy-input">
@@ -231,7 +241,6 @@
               </div>
             </div>
 
-            <!-- Rentang Tanggal -->
             <div class="input-group">
               <label for="pdfStartDate">Tanggal Mulai <span class="req">*</span></label>
               <div class="input-wrapper navy-input">
@@ -258,7 +267,7 @@
       </div>
     </div>
 
-    <!-- POPUP MODAL: Form Pengeluaran Tim (Bisa dibuka dari icon receipt) -->
+    <!-- POPUP MODAL: Form Pengeluaran Tim -->
     <div id="expenseModal" class="modal-backdrop hidden">
       <div class="modal-card card-navy modal-lg">
         <div class="modal-header">
@@ -267,7 +276,6 @@
         </div>
         <div class="modal-body">
           <form id="modalExpenseForm">
-            <!-- 1. Kategori Laporan -->
             <div class="input-group">
               <label for="modalKategoriLaporan">Kategori Laporan <span class="req">*</span></label>
               <div class="select-wrapper navy-input">
@@ -281,7 +289,6 @@
               </div>
             </div>
 
-            <!-- 2. Nama Grup Keberangkatan -->
             <div id="modalGrupWrapper" class="input-group autocomplete-group">
               <label for="modalNamaGrupInput">Nama Grup Keberangkatan <span class="req">*</span></label>
               <div class="input-wrapper navy-input">
@@ -292,7 +299,6 @@
               <div id="modalGrupSuggestions" class="suggestions-list hidden"></div>
             </div>
 
-            <!-- 3. Nama Kegiatan -->
             <div class="input-group autocomplete-group">
               <label for="modalKegiatanInput">Nama Kegiatan <span class="req">*</span></label>
               <div class="input-wrapper navy-input">
@@ -303,7 +309,6 @@
               <div id="modalKegiatanSuggestions" class="suggestions-list hidden"></div>
             </div>
 
-            <!-- 4. Rincian Item -->
             <div class="items-section">
               <div class="items-header">
                 <h3>Rincian Item Pengeluaran</h3>
@@ -315,7 +320,6 @@
               </button>
             </div>
 
-            <!-- 5. Total Keseluruhan -->
             <div class="grand-total-card navy-panel">
               <div class="total-label">
                 <span>Total Keseluruhan</span>
