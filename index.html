@@ -92,7 +92,7 @@
 
         <!-- Balance Action Buttons (Icon Only) -->
         <div class="balance-actions">
-          <button id="btnToggleFormView" class="btn-icon-only btn-expense-toggle" title="Form Pengeluaran Tim">
+          <button id="btnOpenExpenseModal" class="btn-icon-only btn-expense-toggle" title="Form Pengeluaran Tim (PopUp)">
             <i class="fa-solid fa-receipt"></i>
           </button>
           <button id="btnOpenTopup" class="btn-icon-only btn-topup" title="Isi Saldo Kas">
@@ -107,10 +107,10 @@
       <!-- Spacing Divider -->
       <div class="section-spacer"></div>
 
-      <!-- VENDOR VIEW: Pemesanan Section -->
+      <!-- VENDOR VIEW: Pemesanan Section (Layar Awal Khusus Vendor) -->
       <section id="ordersSection" class="orders-section card-navy hidden">
         <div class="card-header border-bottom flex-header">
-          <h2>Daftar Pemesanan Vendor</h2>
+          <h2>Daftar Pemesanan</h2>
         </div>
 
         <!-- Filter Status Tabs -->
@@ -127,7 +127,7 @@
         </div>
       </section>
 
-      <!-- Main Expense Form (Form Pengeluaran Tim) -->
+      <!-- TIM VIEW: Main Expense Form Section (Layar Awal Khusus Tim) -->
       <section id="expenseFormSection" class="form-section card-navy">
         <div class="card-header border-bottom">
           <h2>Form Pengeluaran Tim</h2>
@@ -203,6 +203,79 @@
       </section>
     </div>
 
+    <!-- POPUP MODAL: Form Pengeluaran (Bisa dibuka dari icon receipt oleh Vendor) -->
+    <div id="expenseModal" class="modal-backdrop hidden">
+      <div class="modal-card card-navy modal-lg">
+        <div class="modal-header">
+          <h3>Form Pengeluaran Tim</h3>
+          <button id="btnCloseExpenseModal" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="modalExpenseForm">
+            <!-- 1. Kategori Laporan -->
+            <div class="input-group">
+              <label for="modalKategoriLaporan">Kategori Laporan <span class="req">*</span></label>
+              <div class="select-wrapper navy-input">
+                <i class="fa-solid fa-layer-group select-icon"></i>
+                <select id="modalKategoriLaporan" required>
+                  <option value="Grup Keberangkatan">Grup Keberangkatan</option>
+                  <option value="Operasional Tim">Operasional Tim</option>
+                  <option value="Vendor">Vendor</option>
+                </select>
+                <i class="fa-solid fa-chevron-down arrow-icon"></i>
+              </div>
+            </div>
+
+            <!-- 2. Nama Grup Keberangkatan -->
+            <div id="modalGrupWrapper" class="input-group autocomplete-group">
+              <label for="modalNamaGrupInput">Nama Grup Keberangkatan <span class="req">*</span></label>
+              <div class="input-wrapper navy-input">
+                <i class="fa-solid fa-plane-departure input-icon"></i>
+                <input type="text" id="modalNamaGrupInput" placeholder="Ketik atau pilih nama grup" autocomplete="off">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              </div>
+              <div id="modalGrupSuggestions" class="suggestions-list hidden"></div>
+            </div>
+
+            <!-- 3. Nama Kegiatan -->
+            <div class="input-group autocomplete-group">
+              <label for="modalKegiatanInput">Nama Kegiatan <span class="req">*</span></label>
+              <div class="input-wrapper navy-input">
+                <i class="fa-solid fa-calendar-check input-icon"></i>
+                <input type="text" id="modalKegiatanInput" placeholder="Ketik atau pilih kegiatan" autocomplete="off" required>
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              </div>
+              <div id="modalKegiatanSuggestions" class="suggestions-list hidden"></div>
+            </div>
+
+            <!-- 4. Rincian Item -->
+            <div class="items-section">
+              <div class="items-header">
+                <h3>Rincian Item Pengeluaran</h3>
+                <span class="badge-count" id="modalItemCountBadge">1 Item</span>
+              </div>
+              <div id="modalItemsContainer" class="items-container"></div>
+              <button type="button" id="modalBtnAddItem" class="btn-navy btn-add">
+                <i class="fa-solid fa-plus-circle"></i> Tambah Item Pengeluaran
+              </button>
+            </div>
+
+            <!-- 5. Total Keseluruhan -->
+            <div class="grand-total-card navy-panel">
+              <div class="total-label">
+                <span>Total Keseluruhan</span>
+              </div>
+              <div id="modalGrandTotalDisplay" class="total-amount">SAR 0.00</div>
+            </div>
+
+            <button type="submit" id="modalBtnSubmitForm" class="btn-navy btn-primary btn-block btn-lg">
+              Submit & Catat Pengeluaran
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal Topup Saldo -->
     <div id="topupModal" class="modal-backdrop hidden">
       <div class="modal-card card-navy">
@@ -249,7 +322,7 @@
     <div id="successOverlay" class="success-overlay hidden">
       <div class="success-card card-navy" id="receiptCardArea">
         
-        <!-- Checklist Animated Icon -->
+        <!-- Checklist Animated Icon (No Shadow) -->
         <div class="checkmark-wrapper">
           <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
             <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
@@ -298,7 +371,7 @@
         <!-- Success Action Row -->
         <div class="success-actions">
           <button id="btnNewTransaction" class="btn-navy btn-primary flex-grow">
-            Input Pengeluaran Baru
+            Selesai / Transaksi Baru
           </button>
           <button id="btnShareReceipt" class="btn-icon-only btn-share" title="Bagikan Hasil Transaksi">
             <i class="fa-solid fa-share-nodes"></i>
