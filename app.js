@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v4.1
- * Refined Vendor PopUp Expense Form & Order Automation
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v4.2
+ * Refined Role-based Landing Screen & PopUp Expense Form
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -56,7 +56,7 @@ const itemCountBadge = document.getElementById('itemCountBadge');
 const grandTotalDisplay = document.getElementById('grandTotalDisplay');
 const btnSubmitForm = document.getElementById('btnSubmitForm');
 
-// PopUp Modal Form Elements (for Vendor Users)
+// PopUp Modal Form Elements (for Vendor Users & PopUp Access)
 const modalKategoriLaporan = document.getElementById('modalKategoriLaporan');
 const modalGrupWrapper = document.getElementById('modalGrupWrapper');
 const modalNamaGrupInput = document.getElementById('modalNamaGrupInput');
@@ -135,7 +135,7 @@ function renderAccountSuggestions(accList) {
     const div = document.createElement('div');
     div.className = 'suggestion-item';
     div.innerHTML = `
-      <i class="fa-solid ${acc.jenisAkun === 'Vendor' ? 'fa-store' : 'fa-user-circle'}"></i> 
+      <i class="fa-solid ${acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'vendor' ? 'fa-store' : 'fa-user-circle'}"></i> 
       <span>${acc.name} <small style="color:#64748b">(${acc.jenisAkun || 'Tim'})</small></span>
     `;
     div.addEventListener('click', () => {
@@ -204,27 +204,31 @@ function verifyAndLoginAuto() {
   if (appState.selectedAccount.pin === appState.enteredPin) {
     appState.activeUser = appState.selectedAccount;
     activeAccountName.textContent = appState.activeUser.name;
-    activeAccountType.textContent = appState.activeUser.jenisAkun || 'Tim';
+    
+    const userRole = appState.activeUser.jenisAkun ? appState.activeUser.jenisAkun.toString().trim() : 'Tim';
+    activeAccountType.textContent = userRole;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
 
     authSection.classList.add('hidden');
     appFormWrapper.classList.remove('hidden');
 
-    // CONFIGURE LAYOUT ACCORDING TO ACCOUNT ROLE:
-    // If Vendor -> Initial Screen is Pemesanan Orders View!
-    if (appState.activeUser.jenisAkun === 'Vendor') {
+    const isVendor = userRole.toLowerCase() === 'vendor';
+
+    if (isVendor) {
+      // FOR VENDOR ACCOUNTS:
+      // 1. Initial screen is Pemesanan (Orders View)!
+      // 2. Inline expense form is hidden! (Expense form is opened via PopUp Modal only)
       estimatesBox.classList.remove('hidden');
       ordersSection.classList.remove('hidden');
       expenseFormSection.classList.add('hidden');
-      btnOpenExpenseModal.classList.remove('hidden');
       calculateVendorEstimates();
       renderOrdersList();
     } else {
-      // If Tim -> Initial Screen is Expense Form View!
+      // FOR TIM ACCOUNTS:
+      // Initial screen is Expense Form View
       estimatesBox.classList.add('hidden');
       ordersSection.classList.add('hidden');
       expenseFormSection.classList.remove('hidden');
-      btnOpenExpenseModal.classList.remove('hidden');
     }
   } else {
     alert('PIN / Password salah! Silakan coba lagi.');
@@ -248,7 +252,8 @@ function setupEventListeners() {
   // PopUp Expense Modal Trigger (Receipt Icon Button)
   btnOpenExpenseModal.addEventListener('click', () => {
     resetModalItems();
-    modalKategoriLaporan.value = appState.activeUser.jenisAkun === 'Vendor' ? 'Vendor' : 'Grup Keberangkatan';
+    const isVendor = appState.activeUser && appState.activeUser.jenisAkun && appState.activeUser.jenisAkun.toLowerCase() === 'vendor';
+    modalKategoriLaporan.value = isVendor ? 'Vendor' : 'Grup Keberangkatan';
     modalKategoriLaporan.dispatchEvent(new Event('change'));
     expenseModal.classList.remove('hidden');
   });
@@ -316,7 +321,7 @@ function setupEventListeners() {
 
 // Vendor Pemesanan System
 function calculateVendorEstimates() {
-  if (!appState.activeUser || appState.activeUser.jenisAkun !== 'Vendor') return;
+  if (!appState.activeUser || !appState.activeUser.jenisAkun || appState.activeUser.jenisAkun.toLowerCase() !== 'vendor') return;
 
   const vendorOrders = appState.orders.filter(o => o.akun.toLowerCase() === appState.activeUser.name.toLowerCase() && o.status === 'Pesanan Baru');
   const totalEstimate = vendorOrders.reduce((sum, o) => sum + (o.jumlah || 0), 0);
@@ -427,7 +432,7 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       body: JSON.stringify(payload)
     });
 
-    const orderIndex = appState.orders.findIndex(o => o.id === orderId);
+    const orderIndex = appState.orders.findIndex(o => o.id.toString().trim() === orderId.toString().trim());
     if (orderIndex !== -1) {
       appState.orders[orderIndex].status = newStatus;
       
@@ -493,7 +498,7 @@ async function handleTopupSubmit(e) {
   }
 }
 
-// Inline Form Dynamic Items (for Tim Users)
+// Inline Form Dynamic Items
 function resetItems() {
   appState.items = [];
   itemsContainer.innerHTML = '';
@@ -561,7 +566,7 @@ function addItemRow() {
   calculateGrandTotal();
 }
 
-// Modal Form Dynamic Items (for PopUp Expense Form)
+// Modal Form Dynamic Items
 function resetModalItems() {
   appState.modalItems = [];
   modalItemsContainer.innerHTML = '';
