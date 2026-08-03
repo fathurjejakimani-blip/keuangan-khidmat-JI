@@ -196,6 +196,7 @@
     <div id="fabContainer" class="fab-container hidden">
       <!-- Sub-menu Mengambang -->
       <div id="fabMenu" class="fab-menu hidden">
+        <!-- Khusus Akun Tim -->
         <button id="btnOpenTransferModal" class="fab-item btn-transfer" title="Transfer Kas Akun">
           <i class="fa-solid fa-money-bill-transfer"></i>
           <span class="fab-label">Transfer Saldo Kas</span>
@@ -206,11 +207,13 @@
           <span class="fab-label">Riwayat Transaksi</span>
         </button>
 
+        <!-- Khusus Akun Vendor -->
         <button id="btnOpenPdfModal" class="fab-item btn-pdf hidden" title="Cetak PDF">
           <i class="fa-solid fa-print"></i>
           <span class="fab-label">Cetak PDF</span>
         </button>
         
+        <!-- Semua Akun -->
         <button id="btnOpenExpenseModal" class="fab-item btn-expense" title="Form Pengeluaran Tim">
           <i class="fa-solid fa-receipt"></i>
           <span class="fab-label">Form Pengeluaran</span>
@@ -233,7 +236,7 @@
       </button>
     </div>
 
-    <!-- POPUP MODAL: Transfer Kas (Khusus Tim / General) -->
+    <!-- POPUP MODAL: Transfer Kas (Khusus Tim) -->
     <div id="transferModal" class="modal-backdrop hidden">
       <div class="modal-card card-navy">
         <div class="modal-header">
@@ -294,7 +297,7 @@
       </div>
     </div>
 
-    <!-- POPUP MODAL: Riwayat Transaksi (Laporan Keluar Masuk) -->
+    <!-- POPUP MODAL: Riwayat Transaksi -->
     <div id="txHistoryModal" class="modal-backdrop hidden">
       <div class="modal-card card-navy modal-lg">
         <div class="modal-header">
