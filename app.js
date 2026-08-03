@@ -1,15 +1,19 @@
 /**
  * Keuangan Khidmat Jejak Imani - Frontend App Logic
+ * Currency: SAR (Saudi Riyal)
+ * Theme: Glassmorphism
  */
+
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
 
 // State Management
 const appState = {
-  gasUrl: localStorage.getItem('JI_GAS_URL') || '',
+  gasUrl: localStorage.getItem('JI_GAS_URL') || DEFAULT_GAS_URL,
   activeUser: null,
   accounts: [
-    { id: 'acc1', name: 'Tim Khidmat 1', pin: '1234', saldo: 15500000 },
-    { id: 'acc2', name: 'Tim Operasional', pin: '5678', saldo: 25000000 },
-    { id: 'acc3', name: 'Bendahara Utama', pin: '8888', saldo: 100000000 }
+    { id: 'acc1', name: 'Tim Khidmat 1', pin: '1234', saldo: 15000 },
+    { id: 'acc2', name: 'Tim Operasional', pin: '5678', saldo: 25000 },
+    { id: 'acc3', name: 'Bendahara Utama', pin: '8888', saldo: 100000 }
   ],
   masterGroups: [
     "Umrah Syawal 1446H - Khidmat 01",
@@ -64,6 +68,7 @@ const btnSubmitForm = document.getElementById('btnSubmitForm');
 const successOverlay = document.getElementById('successOverlay');
 const btnNewTransaction = document.getElementById('btnNewTransaction');
 
+// Config Modal
 const configModal = document.getElementById('configModal');
 const btnOpenConfig = document.getElementById('btnOpenConfig');
 const btnCloseConfig = document.getElementById('btnCloseConfig');
@@ -71,6 +76,16 @@ const btnSaveConfig = document.getElementById('btnSaveConfig');
 const btnResetConfig = document.getElementById('btnResetConfig');
 const gasUrlInput = document.getElementById('gasUrlInput');
 const connectionStatus = document.getElementById('connectionStatus');
+
+// Topup Modal
+const topupModal = document.getElementById('topupModal');
+const btnOpenTopup = document.getElementById('btnOpenTopup');
+const btnCloseTopup = document.getElementById('btnCloseTopup');
+const topupForm = document.getElementById('topupForm');
+const topupAccountName = document.getElementById('topupAccountName');
+const topupAmountInput = document.getElementById('topupAmountInput');
+const topupNoteInput = document.getElementById('topupNoteInput');
+const btnSubmitTopup = document.getElementById('btnSubmitTopup');
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
@@ -83,19 +98,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Setup Configuration & API Status
 function initApiConfig() {
-  if (appState.gasUrl) {
-    gasUrlInput.value = appState.gasUrl;
-    updateStatusBadge(true);
-    fetchDataFromSpreadsheet();
-  } else {
-    updateStatusBadge(false);
-  }
+  gasUrlInput.value = appState.gasUrl;
+  updateStatusBadge(true);
+  fetchDataFromSpreadsheet();
 }
 
 function updateStatusBadge(isConnected) {
   if (isConnected) {
     connectionStatus.className = 'status-badge mode-connected';
-    connectionStatus.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Terhubung Spreadsheet';
+    connectionStatus.innerHTML = '<i class="fa-solid fa-link"></i> Terhubung Spreadsheet Real-time';
   } else {
     connectionStatus.className = 'status-badge mode-demo';
     connectionStatus.innerHTML = '<i class="fa-solid fa-flask"></i> Mode Demo (Lokal)';
@@ -127,7 +138,7 @@ function setupEventListeners() {
       updateStatusBadge(true);
       fetchDataFromSpreadsheet();
       configModal.classList.add('hidden');
-      alert('URL Google Apps Script berhasil disimpan!');
+      alert('URL Google Apps Script disimpan!');
     } else {
       alert('Masukkan URL Web App Apps Script yang valid.');
     }
@@ -135,12 +146,25 @@ function setupEventListeners() {
 
   btnResetConfig.addEventListener('click', () => {
     localStorage.removeItem('JI_GAS_URL');
-    appState.gasUrl = '';
-    gasUrlInput.value = '';
-    updateStatusBadge(false);
+    appState.gasUrl = DEFAULT_GAS_URL;
+    gasUrlInput.value = DEFAULT_GAS_URL;
+    updateStatusBadge(true);
+    fetchDataFromSpreadsheet();
     configModal.classList.add('hidden');
-    alert('Mode switched to Demo Local Mode.');
+    alert('URL di-reset ke URL Default Apps Script.');
   });
+
+  // Top-up Modal
+  btnOpenTopup.addEventListener('click', () => {
+    if (!appState.activeUser) return;
+    topupAccountName.value = appState.activeUser.name;
+    topupAmountInput.value = '';
+    topupNoteInput.value = '';
+    topupModal.classList.remove('hidden');
+  });
+  btnCloseTopup.addEventListener('click', () => topupModal.classList.add('hidden'));
+
+  topupForm.addEventListener('submit', handleTopupSubmit);
 
   // Password toggle
   document.getElementById('togglePasswordBtn').addEventListener('click', () => {
@@ -197,7 +221,7 @@ function switchUserAccount() {
   // Success Auth
   appState.activeUser = account;
   activeAccountName.textContent = account.name;
-  activeBalanceDisplay.textContent = formatRupiah(account.saldo);
+  activeBalanceDisplay.textContent = formatSAR(account.saldo);
 
   authSection.classList.add('hidden');
   appFormWrapper.classList.remove('hidden');
@@ -208,6 +232,54 @@ function logoutAccount() {
   accountPassword.value = '';
   appFormWrapper.classList.add('hidden');
   authSection.classList.remove('hidden');
+}
+
+// Top-up Balance Handler
+async function handleTopupSubmit(e) {
+  e.preventDefault();
+
+  const amount = parseFloat(topupAmountInput.value);
+  if (isNaN(amount) || amount <= 0) {
+    alert('Masukkan jumlah saldo top-up yang valid.');
+    return;
+  }
+
+  const note = topupNoteInput.value.trim() || 'Isi Saldo Kas Tim';
+
+  btnSubmitTopup.disabled = true;
+  btnSubmitTopup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses Top-up...';
+
+  const payload = {
+    action: 'topupBalance',
+    accountName: appState.activeUser.name,
+    amount: amount,
+    keterangan: note
+  };
+
+  try {
+    if (appState.gasUrl) {
+      await fetch(appState.gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    // Local state update
+    appState.activeUser.saldo += amount;
+    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+
+    topupModal.classList.add('hidden');
+    alert(`Berhasil! Saldo kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}. Cell Spreadsheet telah diperbarui.`);
+
+  } catch (err) {
+    console.error('Topup error:', err);
+    alert('Terjadi kesalahan saat menambah saldo: ' + err.message);
+  } finally {
+    btnSubmitTopup.disabled = false;
+    btnSubmitTopup.innerHTML = '<i class="fa-solid fa-plus-circle"></i> Tambahkan Saldo Sekarang';
+  }
 }
 
 // Items Handling & Dynamic Calculations
@@ -250,11 +322,11 @@ function addItemRow() {
         </div>
       </div>
 
-      <!-- Harga Satuan -->
+      <!-- Harga Satuan SAR -->
       <div class="input-group">
-        <label>Harga Satuan (Rp)</label>
+        <label>Harga Satuan (SAR)</label>
         <div class="input-wrapper input-sm">
-          <input type="number" min="0" placeholder="0" class="item-harga" value="" oninput="updateItemData(${itemIndex}, 'hargaSatuan', this.value)" required>
+          <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="" oninput="updateItemData(${itemIndex}, 'hargaSatuan', this.value)" required>
         </div>
       </div>
 
@@ -268,9 +340,9 @@ function addItemRow() {
 
       <!-- Subtotal Jumlah -->
       <div class="input-group full-width">
-        <label>Jumlah Subtotal (Rp)</label>
+        <label>Jumlah Subtotal (SAR)</label>
         <div class="input-wrapper input-sm">
-          <input type="text" class="item-jumlah amount-disabled" value="Rp 0" disabled readonly>
+          <input type="text" class="item-jumlah amount-disabled" value="SAR 0.00" disabled readonly>
         </div>
       </div>
     </div>
@@ -314,9 +386,9 @@ function reRenderItems() {
         </div>
 
         <div class="input-group">
-          <label>Harga Satuan (Rp)</label>
+          <label>Harga Satuan (SAR)</label>
           <div class="input-wrapper input-sm">
-            <input type="number" min="0" placeholder="0" class="item-harga" value="${item.hargaSatuan || ''}" oninput="updateItemData(${idx}, 'hargaSatuan', this.value)" required>
+            <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="${item.hargaSatuan || ''}" oninput="updateItemData(${idx}, 'hargaSatuan', this.value)" required>
           </div>
         </div>
 
@@ -328,9 +400,9 @@ function reRenderItems() {
         </div>
 
         <div class="input-group full-width">
-          <label>Jumlah Subtotal (Rp)</label>
+          <label>Jumlah Subtotal (SAR)</label>
           <div class="input-wrapper input-sm">
-            <input type="text" class="item-jumlah amount-disabled" value="${formatRupiah(item.jumlah)}" disabled readonly>
+            <input type="text" class="item-jumlah amount-disabled" value="${formatSAR(item.jumlah)}" disabled readonly>
           </div>
         </div>
       </div>
@@ -364,7 +436,7 @@ window.updateItemData = function(index, field, value) {
   const card = itemsContainer.querySelector(`.item-card[data-index="${index}"]`);
   if (card) {
     const jumlahInput = card.querySelector('.item-jumlah');
-    if (jumlahInput) jumlahInput.value = formatRupiah(subtotal);
+    if (jumlahInput) jumlahInput.value = formatSAR(subtotal);
   }
 
   calculateGrandTotal();
@@ -376,7 +448,7 @@ function updateItemCountBadge() {
 
 function calculateGrandTotal() {
   const total = appState.items.reduce((sum, item) => sum + (item.jumlah || 0), 0);
-  grandTotalDisplay.textContent = formatRupiah(total);
+  grandTotalDisplay.textContent = formatSAR(total);
   return total;
 }
 
@@ -458,17 +530,17 @@ async function handleFormSubmit(e) {
 
   const totalExpense = calculateGrandTotal();
   if (totalExpense <= 0) {
-    alert('Total pengeluaran harus lebih dari Rp 0.');
+    alert('Total pengeluaran harus lebih dari SAR 0.00');
     return;
   }
 
   if (appState.activeUser.saldo < totalExpense) {
-    const proceed = confirm(`Peringatan: Total pengeluaran (${formatRupiah(totalExpense)}) melebihi saldo kas saat ini (${formatRupiah(appState.activeUser.saldo)}). Tetap proses?`);
+    const proceed = confirm(`Peringatan: Total pengeluaran (${formatSAR(totalExpense)}) melebihi saldo kas saat ini (${formatSAR(appState.activeUser.saldo)}). Tetap proses?`);
     if (!proceed) return;
   }
 
   btnSubmitForm.disabled = true;
-  btnSubmitForm.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
+  btnSubmitForm.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan ke Spreadsheet...';
 
   const category = kategoriLaporan.value;
   const groupName = category === 'Grup Keberangkatan' ? namaGrupInput.value.trim() : '-';
@@ -490,7 +562,6 @@ async function handleFormSubmit(e) {
 
   try {
     if (appState.gasUrl) {
-      // Post to Google Apps Script Web App
       await fetch(appState.gasUrl, {
         method: 'POST',
         mode: 'no-cors',
@@ -501,7 +572,7 @@ async function handleFormSubmit(e) {
 
     // Local state update
     appState.activeUser.saldo -= totalExpense;
-    activeBalanceDisplay.textContent = formatRupiah(appState.activeUser.saldo);
+    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
 
     // Populate Recap Modal
     document.getElementById('recapAccount').textContent = appState.activeUser.name;
@@ -515,8 +586,8 @@ async function handleFormSubmit(e) {
     }
 
     document.getElementById('recapKegiatan').textContent = kegiatanName;
-    document.getElementById('recapTotal').textContent = `- ${formatRupiah(totalExpense)}`;
-    document.getElementById('recapRemainingBalance').textContent = formatRupiah(appState.activeUser.saldo);
+    document.getElementById('recapTotal').textContent = `- ${formatSAR(totalExpense)}`;
+    document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
 
     // Show Success Full Overlay
     successOverlay.classList.remove('hidden');
@@ -562,19 +633,20 @@ async function fetchDataFromSpreadsheet() {
       const refreshedAcc = appState.accounts.find(a => a.id === appState.activeUser.id);
       if (refreshedAcc) {
         appState.activeUser.saldo = refreshedAcc.saldo;
-        activeBalanceDisplay.textContent = formatRupiah(refreshedAcc.saldo);
+        activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
       }
     }
   } catch (e) {
-    console.log('Fetch from GAS notice (fallback mode active):', e);
+    console.log('Fetch notice:', e);
   }
 }
 
-// Helper: Format Rupiah
-function formatRupiah(num) {
-  return new Intl.NumberFormat('id-ID', {
+// Helper: Format SAR Currency
+function formatSAR(num) {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0
-  }).format(num || 0);
+    currency: 'SAR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num || 0).replace('SAR', 'SAR ');
 }
