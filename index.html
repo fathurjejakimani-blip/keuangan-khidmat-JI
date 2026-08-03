@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keuangan Khidmat Jejak Imani - Pencatatan Pengeluaran</title>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-badge">
+        <i class="fa-solid fa-kaaba brand-icon"></i>
+      </div>
+      <h1 class="app-title">Keuangan Khidmat</h1>
+      <p class="app-subtitle">Jejak Imani • Pencatatan Pengeluaran Tim</p>
+      
+      <!-- GAS Connection Indicator & Config Toggle -->
+      <div class="api-config-bar">
+        <span id="connectionStatus" class="status-badge mode-demo">
+          <i class="fa-solid fa-flask"></i> Mode Demo (Lokal)
+        </span>
+        <button id="btnOpenConfig" class="btn-icon-soft" title="Pengaturan URL Spreadsheet">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- App Content Wrapper -->
+    <main class="main-content">
+
+      <!-- Modal Configuration Web App URL -->
+      <div id="configModal" class="modal-backdrop hidden">
+        <div class="modal-card neumorph-card">
+          <div class="modal-header">
+            <h3><i class="fa-solid fa-link"></i> Hubungkan Google Sheets</h3>
+            <button id="btnCloseConfig" class="btn-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="help-text">Masukkan URL Google Apps Script Web App yang telah dideploy untuk menghubungkan data langsung secara real-time.</p>
+            <div class="input-group">
+              <label for="gasUrlInput">URL Web App Apps Script</label>
+              <div class="input-wrapper">
+                <i class="fa-solid fa-globe input-icon"></i>
+                <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="btnSaveConfig" class="btn-neumorph btn-primary">Simpan Connection</button>
+            <button id="btnResetConfig" class="btn-neumorph btn-secondary">Gunakan Mode Demo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auth Section: Choose Account & Password -->
+      <section id="authSection" class="auth-section neumorph-card">
+        <div class="card-header">
+          <div class="icon-circle">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <h2>Masuk Akun Tim</h2>
+          <p>Pilih akun dan masukkan PIN/Password untuk melihat saldo & mencatat transaksi</p>
+        </div>
+
+        <form id="authForm" onsubmit="event.preventDefault(); switchUserAccount();">
+          <div class="input-group">
+            <label for="accountSelect">Pilih Akun / Tim</label>
+            <div class="select-wrapper neumorph-input">
+              <i class="fa-solid fa-users select-icon"></i>
+              <select id="accountSelect" required>
+                <option value="" disabled selected>-- Pilih Akun Anda --</option>
+                <!-- Options populated dynamically -->
+              </select>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="accountPassword">PIN / Password</label>
+            <div class="input-wrapper neumorph-input">
+              <i class="fa-solid fa-key input-icon"></i>
+              <input type="password" id="accountPassword" placeholder="Masukkan PIN/Password" required>
+              <button type="button" id="togglePasswordBtn" class="btn-eye">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" id="btnLogin" class="btn-neumorph btn-primary btn-block">
+            <i class="fa-solid fa-right-to-bracket"></i> Masuk Akun
+          </button>
+        </form>
+      </section>
+
+      <!-- Main Expense Form (Hidden until logged in) -->
+      <div id="appFormWrapper" class="hidden">
+        
+        <!-- Balance Display Card -->
+        <section class="balance-card neumorph-card">
+          <div class="balance-info">
+            <div class="user-badge">
+              <i class="fa-solid fa-user-check"></i>
+              <span id="activeAccountName">Tim Khidmat Operasional</span>
+            </div>
+            <p class="balance-label">Sisa Saldo Kas Tim</p>
+            <h2 id="activeBalanceDisplay" class="balance-amount">Rp 0</h2>
+          </div>
+          <button id="btnLogout" class="btn-neumorph btn-small btn-secondary" title="Keluar / Ganti Akun">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Ganti
+          </button>
+        </section>
+
+        <!-- Form Pengeluaran -->
+        <section class="form-section neumorph-card">
+          <div class="card-header border-bottom">
+            <div class="icon-circle">
+              <i class="fa-solid fa-receipt"></i>
+            </div>
+            <h2>Form Pengeluaran Tim</h2>
+            <p>Isi rincian pengeluaran secara akurat</p>
+          </div>
+
+          <form id="expenseForm">
+            <!-- 1. Kategori Laporan -->
+            <div class="input-group">
+              <label for="kategoriLaporan">Kategori Laporan <span class="req">*</span></label>
+              <div class="select-wrapper neumorph-input">
+                <i class="fa-solid fa-layer-group select-icon"></i>
+                <select id="kategoriLaporan" required>
+                  <option value="Grup Keberangkatan">Grup Keberangkatan</option>
+                  <option value="Operasional Tim">Operasional Tim</option>
+                </select>
+                <i class="fa-solid fa-chevron-down arrow-icon"></i>
+              </div>
+            </div>
+
+            <!-- 2. Nama Grup Keberangkatan (Conditional) -->
+            <div id="grupKeberangkatanWrapper" class="input-group autocomplete-group">
+              <label for="namaGrupInput">Nama Grup Keberangkatan <span class="req">*</span></label>
+              <div class="input-wrapper neumorph-input">
+                <i class="fa-solid fa-plane-departure input-icon"></i>
+                <input type="text" id="namaGrupInput" placeholder="Ketik atau pilih nama grup (misal: Umrah Syawal 1446H)" autocomplete="off">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              </div>
+              <div id="grupSuggestions" class="suggestions-list hidden"></div>
+            </div>
+
+            <!-- 3. Nama Kegiatan -->
+            <div class="input-group autocomplete-group">
+              <label for="kegiatanInput">Nama Kegiatan <span class="req">*</span></label>
+              <div class="input-wrapper neumorph-input">
+                <i class="fa-solid fa-calendar-check input-icon"></i>
+                <input type="text" id="kegiatanInput" placeholder="Ketik atau pilih kegiatan (misal: Handling Bandara, Snack Bus)" autocomplete="off" required>
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              </div>
+              <div id="kegiatanSuggestions" class="suggestions-list hidden"></div>
+            </div>
+
+            <!-- 4. Rincian Item -->
+            <div class="items-section">
+              <div class="items-header">
+                <h3><i class="fa-solid fa-list-check"></i> Rincian Item Pengeluaran</h3>
+                <span class="badge-count" id="itemCountBadge">1 Item</span>
+              </div>
+
+              <!-- Container where dynamic items are injected -->
+              <div id="itemsContainer" class="items-container">
+                <!-- Item rows will be rendered here via JS -->
+              </div>
+
+              <button type="button" id="btnAddItem" class="btn-neumorph btn-add">
+                <i class="fa-solid fa-plus-circle"></i> Tambah Item Pengeluaran
+              </button>
+            </div>
+
+            <!-- 5. Total Keseluruhan -->
+            <div class="grand-total-card neumorph-inset">
+              <div class="total-label">
+                <span>Total Keseluruhan</span>
+                <small>Auto SUM dari seluruh item</small>
+              </div>
+              <div id="grandTotalDisplay" class="total-amount">Rp 0</div>
+            </div>
+
+            <!-- 6. Tombol Submit -->
+            <button type="submit" id="btnSubmitForm" class="btn-neumorph btn-primary btn-block btn-lg">
+              <i class="fa-solid fa-paper-plane"></i> Submit & Catat Pengeluaran
+            </button>
+          </form>
+        </section>
+      </div>
+
+    </main>
+
+    <!-- Success Screen (Full Overlay) -->
+    <div id="successOverlay" class="success-overlay hidden">
+      <div class="success-card neumorph-card">
+        <!-- Checklist Animated Icon -->
+        <div class="checkmark-wrapper">
+          <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+          </svg>
+        </div>
+        
+        <h2 class="success-title">Transaksi Berhasil Dicatat!</h2>
+        <p class="success-subtitle">Pengeluaran telah tersimpan di Spreadsheet dan saldo kas tim telah diperbarui.</p>
+
+        <div class="recap-card neumorph-inset">
+          <div class="recap-row">
+            <span>Akun Tim:</span>
+            <strong id="recapAccount">-</strong>
+          </div>
+          <div class="recap-row">
+            <span>Kategori:</span>
+            <strong id="recapCategory">-</strong>
+          </div>
+          <div id="recapGroupRow" class="recap-row">
+            <span>Grup:</span>
+            <strong id="recapGroup">-</strong>
+          </div>
+          <div class="recap-row">
+            <span>Kegiatan:</span>
+            <strong id="recapKegiatan">-</strong>
+          </div>
+          <div class="recap-row highlight">
+            <span>Total Pengeluaran:</span>
+            <strong id="recapTotal" class="amount-minus">-</strong>
+          </div>
+          <div class="recap-row">
+            <span>Sisa Saldo Terbaru:</span>
+            <strong id="recapRemainingBalance" class="amount-remaining">-</strong>
+          </div>
+        </div>
+
+        <button id="btnNewTransaction" class="btn-neumorph btn-primary btn-block btn-lg">
+          <i class="fa-solid fa-plus"></i> Input Pengeluaran Baru
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
