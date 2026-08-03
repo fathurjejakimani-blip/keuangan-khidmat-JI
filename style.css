@@ -299,10 +299,15 @@ body {
   background: var(--navy-medium);
 }
 
-.btn-expense-toggle.active {
+.btn-expense-toggle {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--blue-primary);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.btn-expense-toggle:hover {
   background: var(--blue-primary);
   color: #ffffff;
-  border-color: var(--blue-primary);
 }
 
 /* Vendor Pemesanan Orders Section */
@@ -952,7 +957,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
@@ -964,6 +969,12 @@ body {
 .modal-card {
   width: 100%;
   max-width: 440px;
+}
+
+.modal-card.modal-lg {
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-header {
