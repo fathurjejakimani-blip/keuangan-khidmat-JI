@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v4.2
- * PDF Document Generator, Date Filter, Stacked Details & Order Automation
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v4.3
+ * Session Persistence, Floating Action Button (FAB), and Saudi Time Formatting
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -34,6 +34,11 @@ const activeBalanceDisplay = document.getElementById('activeBalanceDisplay');
 
 const estimatesBox = document.getElementById('estimatesBox');
 const estimatesAmountDisplay = document.getElementById('estimatesAmountDisplay');
+
+// Floating Action Button (FAB) Elements
+const fabContainer = document.getElementById('fabContainer');
+const btnToggleFab = document.getElementById('btnToggleFab');
+const fabMenu = document.getElementById('fabMenu');
 
 const btnOpenPdfModal = document.getElementById('btnOpenPdfModal');
 const pdfModal = document.getElementById('pdfModal');
@@ -95,8 +100,7 @@ const topupNoteInput = document.getElementById('topupNoteInput');
 const btnSubmitTopup = document.getElementById('btnSubmitTopup');
 
 // Initialize Application
-document.addEventListener('DOMContentLoaded', () => {
-  fetchDataFromSpreadsheet();
+document.addEventListener('DOMContentLoaded', async () => {
   setupAccountSearchbar();
   setupEventListeners();
   setupKeypad();
@@ -105,11 +109,90 @@ document.addEventListener('DOMContentLoaded', () => {
   setupStatusFilterTabs();
   setupDateFilter();
   setupPdfModal();
+  setupFabMenu();
   resetItems();
   resetModalItems();
+
+  await fetchDataFromSpreadsheet();
+  checkAndRestoreSession();
 });
 
-// Setup Account Searchbar Suggestion
+// Check & Restore Active Session across Page Refresh
+function checkAndRestoreSession() {
+  const savedUser = localStorage.getItem('ACTIVE_KHIDMAT_USER');
+  if (savedUser) {
+    try {
+      const parsedUser = JSON.parse(savedUser);
+      const matchedAcc = appState.accounts.find(a => a.id.toString().trim() === parsedUser.id.toString().trim() || a.name.toLowerCase() === parsedUser.name.toLowerCase());
+      
+      if (matchedAcc) {
+        appState.activeUser = matchedAcc;
+      } else {
+        appState.activeUser = parsedUser;
+      }
+
+      applyUserSessionUI();
+    } catch (err) {
+      console.error('Session restore error:', err);
+    }
+  }
+}
+
+function applyUserSessionUI() {
+  if (!appState.activeUser) return;
+
+  activeAccountName.textContent = appState.activeUser.name;
+  const userRole = appState.activeUser.jenisAkun ? appState.activeUser.jenisAkun.toString().trim() : 'Tim';
+  activeAccountType.textContent = userRole;
+  activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+
+  authSection.classList.add('hidden');
+  appFormWrapper.classList.remove('hidden');
+  fabContainer.classList.remove('hidden');
+
+  const isVendor = userRole.toLowerCase() === 'vendor';
+
+  if (isVendor) {
+    estimatesBox.classList.remove('hidden');
+    ordersSection.classList.remove('hidden');
+    expenseFormSection.classList.add('hidden');
+    btnOpenPdfModal.classList.remove('hidden');
+    calculateVendorEstimates();
+    renderOrdersList();
+  } else {
+    estimatesBox.classList.add('hidden');
+    ordersSection.classList.add('hidden');
+    expenseFormSection.classList.remove('hidden');
+    btnOpenPdfModal.classList.add('hidden');
+  }
+}
+
+// Setup Floating Action Button (FAB) Floating Menu
+function setupFabMenu() {
+  btnToggleFab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = fabMenu.classList.contains('hidden');
+    if (isHidden) {
+      fabMenu.classList.remove('hidden');
+      btnToggleFab.classList.add('active');
+    } else {
+      closeFabMenu();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!fabContainer.contains(e.target)) {
+      closeFabMenu();
+    }
+  });
+}
+
+function closeFabMenu() {
+  fabMenu.classList.add('hidden');
+  btnToggleFab.classList.remove('active');
+}
+
+// Account Searchbar Autocomplete
 function setupAccountSearchbar() {
   accountSearchInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
@@ -200,7 +283,7 @@ function updatePinDots() {
   });
 }
 
-// Auto Login Verification
+// Auto Login Verification & Persist Session
 function verifyAndLoginAuto() {
   if (!appState.selectedAccount) {
     const match = appState.accounts.find(a => a.name.toLowerCase() === accountSearchInput.value.trim().toLowerCase());
@@ -216,34 +299,8 @@ function verifyAndLoginAuto() {
 
   if (appState.selectedAccount.pin === appState.enteredPin) {
     appState.activeUser = appState.selectedAccount;
-    activeAccountName.textContent = appState.activeUser.name;
-    
-    const userRole = appState.activeUser.jenisAkun ? appState.activeUser.jenisAkun.toString().trim() : 'Tim';
-    activeAccountType.textContent = userRole;
-    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-
-    authSection.classList.add('hidden');
-    appFormWrapper.classList.remove('hidden');
-
-    const isVendor = userRole.toLowerCase() === 'vendor';
-
-    if (isVendor) {
-      // VENDOR ROLE:
-      // Initial screen is Pemesanan (Orders View)!
-      estimatesBox.classList.remove('hidden');
-      ordersSection.classList.remove('hidden');
-      expenseFormSection.classList.add('hidden');
-      btnOpenPdfModal.classList.remove('hidden');
-      calculateVendorEstimates();
-      renderOrdersList();
-    } else {
-      // TIM ROLE:
-      // Initial screen is Expense Form View
-      estimatesBox.classList.add('hidden');
-      ordersSection.classList.add('hidden');
-      expenseFormSection.classList.remove('hidden');
-      btnOpenPdfModal.classList.add('hidden');
-    }
+    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
+    applyUserSessionUI();
   } else {
     alert('PIN / Password salah! Silakan coba lagi.');
     appState.enteredPin = '';
@@ -256,7 +313,10 @@ function logoutAccount() {
   appState.selectedAccount = null;
   appState.enteredPin = '';
   accountSearchInput.value = '';
+  localStorage.removeItem('ACTIVE_KHIDMAT_USER');
   updatePinDots();
+  closeFabMenu();
+  fabContainer.classList.add('hidden');
   appFormWrapper.classList.add('hidden');
   authSection.classList.remove('hidden');
 }
@@ -264,9 +324,9 @@ function logoutAccount() {
 // PDF Export Modal Setup
 function setupPdfModal() {
   btnOpenPdfModal.addEventListener('click', () => {
+    closeFabMenu();
     if (!appState.activeUser) return;
 
-    // Set default date range (Current month)
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const today = now.toISOString().split('T')[0];
@@ -295,7 +355,6 @@ function generatePdfDocument() {
   const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
   const generatedDate = new Date().toLocaleString('id-ID');
 
-  // Filter vendor orders by date range
   const filteredOrders = appState.orders.filter(o => {
     if (o.akun.toLowerCase() !== vendorName.toLowerCase()) return false;
     if (!o.tanggal) return true;
@@ -317,7 +376,7 @@ function generatePdfDocument() {
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td><strong>${o.id}</strong><br><small>${o.tanggal} ${o.jam}</small></td>
+          <td><strong>${o.id}</strong><br><small>${formatSaudiDateTime(o.tanggal, o.jam)}</small></td>
           <td>${o.grup}</td>
           <td><strong>${o.tujuan}</strong><br><small>Muthowwif: ${o.muthowwif}</small></td>
           <td>${o.lokasi}</td>
@@ -355,7 +414,6 @@ function generatePdfDocument() {
       </table>
     `;
   } else {
-    // Dokumen "Laporan Keuangan"
     let totalUangKeluar = 0;
     const completedOrders = filteredOrders.filter(o => o.status === 'Selesai');
     
@@ -364,7 +422,7 @@ function generatePdfDocument() {
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${o.tanggal} ${o.jam}</td>
+          <td>${formatSaudiDateTime(o.tanggal, o.jam)}</td>
           <td><strong>${o.id}</strong> - ${o.tujuan} (${o.grup})</td>
           <td>Vendor / Selesai</td>
           <td style="text-align:right;">-</td>
@@ -483,7 +541,7 @@ function generatePdfDocument() {
   pdfModal.classList.add('hidden');
 }
 
-// Setup Date Filter on Orders Header
+// Date Filter Setup
 function setupDateFilter() {
   orderDateFilter.addEventListener('change', (e) => {
     appState.selectedDateFilter = e.target.value;
@@ -500,6 +558,7 @@ function setupDateFilter() {
 // Event Listeners
 function setupEventListeners() {
   btnOpenExpenseModal.addEventListener('click', () => {
+    closeFabMenu();
     resetModalItems();
     const isVendor = appState.activeUser && appState.activeUser.jenisAkun && appState.activeUser.jenisAkun.toLowerCase() === 'vendor';
     modalKategoriLaporan.value = isVendor ? 'Vendor' : 'Grup Keberangkatan';
@@ -512,6 +571,7 @@ function setupEventListeners() {
   });
 
   btnOpenTopup.addEventListener('click', () => {
+    closeFabMenu();
     if (!appState.activeUser) return;
     topupAccountName.value = appState.activeUser.name;
     topupAmountInput.value = '';
@@ -620,7 +680,6 @@ function renderOrdersList() {
     } else if (order.status === 'Proses') {
       actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-complete-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')"><i class="fa-solid fa-flag-checkered"></i> Selesaikan Pemesanan</button>`;
     } else {
-      // Completed Status Action: Include Share Icon Button
       actionBtnHtml = `
         <span style="font-size: 12px; font-weight: 700; color: #047857;"><i class="fa-solid fa-circle-check"></i> Selesai</span>
         <button type="button" class="btn-icon-only btn-share-completed" title="Bagikan Ringkasan Transaksi" onclick="handleShareCompletedOrder('${order.id}')">
@@ -629,10 +688,18 @@ function renderOrdersList() {
       `;
     }
 
+    const saudiFormattedTime = formatSaudiDateTime(order.tanggal, order.jam);
+
     card.innerHTML = `
       <div class="order-card-header">
-        <!-- Prominent / Larger Title for Tujuan Kegiatan -->
-        <h3 class="order-title">${order.tujuan}</h3>
+        <div>
+          <!-- Judul Kegiatan -->
+          <h3 class="order-title">${order.tujuan}</h3>
+          <!-- Format Waktu Saudi Langsung di Bawah Judul Kegiatan -->
+          <div class="order-time-sub">
+            <i class="fa-solid fa-clock"></i> ${saudiFormattedTime}
+          </div>
+        </div>
         <span class="order-status-badge ${statusClass}">${order.status}</span>
       </div>
 
@@ -651,14 +718,13 @@ function renderOrdersList() {
           <span class="order-detail-value">${order.lokasi || '-'}</span>
         </div>
         <div class="order-detail-item">
-          <span class="order-detail-label">Waktu</span>
-          <span class="order-detail-value">${order.tanggal} ${order.jam}</span>
+          <span class="order-detail-label">Item Produk</span>
+          <span class="order-detail-value">${order.itemProduk || '-'}</span>
         </div>
         
         <div class="order-product-box">
           <div>
-            <div class="order-product-name">${order.itemProduk}</div>
-            <div style="font-size: 11px; color: #64748b;">${order.qty} ${order.satuan} @ ${formatSAR(order.harga)}</div>
+            <div style="font-size: 11px; color: #64748b;">Rincian: ${order.qty} ${order.satuan} @ ${formatSAR(order.harga)}</div>
           </div>
           <div class="order-product-price">${formatSAR(order.jumlah)}</div>
         </div>
@@ -675,17 +741,41 @@ function renderOrdersList() {
   });
 }
 
+// Helper: Format Date & Time to Saudi Format (e.g. "04 Agustus 2026 | 06:30")
+function formatSaudiDateTime(dateStr, timeStr) {
+  if (!dateStr) return '-';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parts[2];
+
+      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const monthName = months[monthIdx] || parts[1];
+
+      const cleanTime = timeStr ? timeStr.toString().trim() : '00:00';
+      return `${day} ${monthName} ${year} | ${cleanTime}`;
+    }
+  } catch (e) {
+    console.log('Time format notice:', e);
+  }
+  return `${dateStr} ${timeStr || ''}`;
+}
+
 window.handleShareCompletedOrder = function(orderId) {
   const order = appState.orders.find(o => o.id.toString().trim() === orderId.toString().trim());
   if (!order) return;
 
+  const saudiTime = formatSaudiDateTime(order.tanggal, order.jam);
+
   const shareText = `🧾 *PEMESANAN VENDOR SELESAI*\n\n` +
     `📌 *Tujuan Kegiatan:* ${order.tujuan}\n` +
+    `🕒 *Waktu:* ${saudiTime}\n` +
     `👤 *Vendor:* ${order.akun}\n` +
     `✈️ *Grup:* ${order.grup}\n` +
     `👳 *Muthowwif:* ${order.muthowwif}\n` +
     `📍 *Lokasi:* ${order.lokasi}\n` +
-    `📅 *Waktu:* ${order.tanggal} ${order.jam}\n` +
     `📦 *Item:* ${order.itemProduk} (${order.qty} ${order.satuan} @ ${formatSAR(order.harga)})\n` +
     `💰 *TOTAL JUMLAH:* ${formatSAR(order.jumlah)}\n` +
     `✅ *Status:* SELESAI\n\n` +
@@ -728,13 +818,14 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       if (newStatus === 'Selesai') {
         appState.activeUser.saldo -= appState.orders[orderIndex].jumlah;
         activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+        localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
     }
 
     calculateVendorEstimates();
     renderOrdersList();
     alert(`Status pemesanan berhasil diubah menjadi "${newStatus}"!`);
-    fetchDataFromSpreadsheet(); // Refresh live data
+    fetchDataFromSpreadsheet();
 
   } catch (err) {
     console.error('Update status error:', err);
@@ -774,6 +865,7 @@ async function handleTopupSubmit(e) {
 
     appState.activeUser.saldo += amount;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
 
     topupModal.classList.add('hidden');
     alert(`Berhasil! Saldo kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}.`);
@@ -1258,6 +1350,7 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
 
     appState.activeUser.saldo -= totalExpense;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
 
     document.getElementById('recapAccount').textContent = appState.activeUser.name;
     document.getElementById('recapCategory').textContent = category;
@@ -1341,10 +1434,11 @@ async function fetchDataFromSpreadsheet() {
     if (data.orders && data.orders.length > 0) appState.orders = data.orders;
 
     if (appState.activeUser) {
-      const refreshedAcc = appState.accounts.find(a => a.id === appState.activeUser.id);
+      const refreshedAcc = appState.accounts.find(a => a.id.toString().trim() === appState.activeUser.id.toString().trim());
       if (refreshedAcc) {
         appState.activeUser.saldo = refreshedAcc.saldo;
         activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
+        localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
       calculateVendorEstimates();
       renderOrdersList();
