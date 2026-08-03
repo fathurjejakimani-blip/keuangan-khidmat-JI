@@ -1,27 +1,26 @@
 /**
- * Keuangan Khidmat Jejak Imani - Frontend App Logic
- * Currency: SAR (Saudi Riyal)
- * Theme: Glassmorphism
+ * Keuangan Tim Khidmat - Frontend Logic
+ * Theme: White & Subtle Navy Blue
+ * Hardcoded API URL: Direct Spreadsheet Connection
  */
 
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
 
 // State Management
 const appState = {
-  gasUrl: localStorage.getItem('JI_GAS_URL') || DEFAULT_GAS_URL,
   activeUser: null,
+  enteredPin: '',
   accounts: [
-    { id: 'acc1', name: 'Tim Khidmat 1', pin: '1234', saldo: 15000 },
-    { id: 'acc2', name: 'Tim Operasional', pin: '5678', saldo: 25000 },
-    { id: 'acc3', name: 'Bendahara Utama', pin: '8888', saldo: 100000 }
+    { id: 'acc1', name: 'Tim Khidmat 1', pin: '123456', saldo: 15000 },
+    { id: 'acc2', name: 'Tim Operasional', pin: '654321', saldo: 25000 },
+    { id: 'acc3', name: 'Bendahara Utama', pin: '888888', saldo: 100000 }
   ],
   masterGroups: [
     "Umrah Syawal 1446H - Khidmat 01",
     "Umrah Syawal 1446H - Khidmat 02",
     "Umrah Ramadan Last 10 Days",
     "Haji Plus Furoda 2025",
-    "Umrah Executive VVIP",
-    "Grup Keberangkatan Transit Jeddah"
+    "Umrah Executive VVIP"
   ],
   masterActivities: [
     "Handling & Porter Bandara Soekarno Hatta",
@@ -29,11 +28,9 @@ const appState = {
     "Handling Baggage Hotel Makkah",
     "Sewa Shuttle Bus Extra",
     "Biaya Medical Emergency Jamaah",
-    "Transportasi Ziarah Madinah",
-    "Perlengkapan Spanduk & Id Card",
-    "Tips Driver & Mutawwif"
+    "Transportasi Ziarah Madinah"
   ],
-  categories: [
+  masterCategories: [
     "Konsumsi",
     "Transportasi",
     "Logistik & Perlengkapan",
@@ -67,15 +64,7 @@ const btnSubmitForm = document.getElementById('btnSubmitForm');
 
 const successOverlay = document.getElementById('successOverlay');
 const btnNewTransaction = document.getElementById('btnNewTransaction');
-
-// Config Modal
-const configModal = document.getElementById('configModal');
-const btnOpenConfig = document.getElementById('btnOpenConfig');
-const btnCloseConfig = document.getElementById('btnCloseConfig');
-const btnSaveConfig = document.getElementById('btnSaveConfig');
-const btnResetConfig = document.getElementById('btnResetConfig');
-const gasUrlInput = document.getElementById('gasUrlInput');
-const connectionStatus = document.getElementById('connectionStatus');
+const btnShareReceipt = document.getElementById('btnShareReceipt');
 
 // Topup Modal
 const topupModal = document.getElementById('topupModal');
@@ -89,29 +78,13 @@ const btnSubmitTopup = document.getElementById('btnSubmitTopup');
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
-  initApiConfig();
+  fetchDataFromSpreadsheet();
   populateAccountsDropdown();
   setupEventListeners();
+  setupKeypad();
   setupAutocomplete();
   resetItems();
 });
-
-// Setup Configuration & API Status
-function initApiConfig() {
-  gasUrlInput.value = appState.gasUrl;
-  updateStatusBadge(true);
-  fetchDataFromSpreadsheet();
-}
-
-function updateStatusBadge(isConnected) {
-  if (isConnected) {
-    connectionStatus.className = 'status-badge mode-connected';
-    connectionStatus.innerHTML = '<i class="fa-solid fa-link"></i> Terhubung Spreadsheet Real-time';
-  } else {
-    connectionStatus.className = 'status-badge mode-demo';
-    connectionStatus.innerHTML = '<i class="fa-solid fa-flask"></i> Mode Demo (Lokal)';
-  }
-}
 
 // Populate Accounts Dropdown
 function populateAccountsDropdown() {
@@ -126,34 +99,6 @@ function populateAccountsDropdown() {
 
 // Event Listeners
 function setupEventListeners() {
-  // Config Modal
-  btnOpenConfig.addEventListener('click', () => configModal.classList.remove('hidden'));
-  btnCloseConfig.addEventListener('click', () => configModal.classList.add('hidden'));
-  
-  btnSaveConfig.addEventListener('click', () => {
-    const url = gasUrlInput.value.trim();
-    if (url) {
-      localStorage.setItem('JI_GAS_URL', url);
-      appState.gasUrl = url;
-      updateStatusBadge(true);
-      fetchDataFromSpreadsheet();
-      configModal.classList.add('hidden');
-      alert('URL Google Apps Script disimpan!');
-    } else {
-      alert('Masukkan URL Web App Apps Script yang valid.');
-    }
-  });
-
-  btnResetConfig.addEventListener('click', () => {
-    localStorage.removeItem('JI_GAS_URL');
-    appState.gasUrl = DEFAULT_GAS_URL;
-    gasUrlInput.value = DEFAULT_GAS_URL;
-    updateStatusBadge(true);
-    fetchDataFromSpreadsheet();
-    configModal.classList.add('hidden');
-    alert('URL di-reset ke URL Default Apps Script.');
-  });
-
   // Top-up Modal
   btnOpenTopup.addEventListener('click', () => {
     if (!appState.activeUser) return;
@@ -166,13 +111,7 @@ function setupEventListeners() {
 
   topupForm.addEventListener('submit', handleTopupSubmit);
 
-  // Password toggle
-  document.getElementById('togglePasswordBtn').addEventListener('click', () => {
-    const type = accountPassword.type === 'password' ? 'text' : 'password';
-    accountPassword.type = type;
-  });
-
-  // Category Toggle
+  // Category Laporan Toggle
   kategoriLaporan.addEventListener('change', (e) => {
     if (e.target.value === 'Grup Keberangkatan') {
       grupKeberangkatanWrapper.classList.remove('hidden');
@@ -189,7 +128,7 @@ function setupEventListeners() {
     addItemRow();
   });
 
-  // Logout
+  // Logout / Switch Account
   document.getElementById('btnLogout').addEventListener('click', logoutAccount);
 
   // Form Submit
@@ -200,12 +139,49 @@ function setupEventListeners() {
     successOverlay.classList.add('hidden');
     resetForm();
   });
+
+  // Share Receipt Button
+  btnShareReceipt.addEventListener('click', handleShareReceipt);
+}
+
+// 6-Digit Keypad Handler
+function setupKeypad() {
+  const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
+  const btnBackspace = document.getElementById('btnKeypadBackspace');
+
+  keypadBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (appState.enteredPin.length < 6) {
+        appState.enteredPin += btn.dataset.val;
+        updatePinDots();
+      }
+    });
+  });
+
+  btnBackspace.addEventListener('click', () => {
+    if (appState.enteredPin.length > 0) {
+      appState.enteredPin = appState.enteredPin.slice(0, -1);
+      updatePinDots();
+    }
+  });
+}
+
+function updatePinDots() {
+  const dots = document.querySelectorAll('.pin-dot');
+  dots.forEach((dot, idx) => {
+    if (idx < appState.enteredPin.length) {
+      dot.classList.add('filled');
+    } else {
+      dot.classList.remove('filled');
+    }
+  });
+  accountPassword.value = appState.enteredPin;
 }
 
 // Authentication Handlers
 function switchUserAccount() {
   const selectedId = accountSelect.value;
-  const pinInput = accountPassword.value.trim();
+  const pinInput = appState.enteredPin.trim();
 
   const account = appState.accounts.find(a => a.id === selectedId);
   if (!account) {
@@ -215,6 +191,8 @@ function switchUserAccount() {
 
   if (account.pin !== pinInput) {
     alert('PIN / Password salah! Silakan coba lagi.');
+    appState.enteredPin = '';
+    updatePinDots();
     return;
   }
 
@@ -229,7 +207,8 @@ function switchUserAccount() {
 
 function logoutAccount() {
   appState.activeUser = null;
-  accountPassword.value = '';
+  appState.enteredPin = '';
+  updatePinDots();
   appFormWrapper.classList.add('hidden');
   authSection.classList.remove('hidden');
 }
@@ -247,7 +226,7 @@ async function handleTopupSubmit(e) {
   const note = topupNoteInput.value.trim() || 'Isi Saldo Kas Tim';
 
   btnSubmitTopup.disabled = true;
-  btnSubmitTopup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses Top-up...';
+  btnSubmitTopup.textContent = 'Memproses...';
 
   const payload = {
     action: 'topupBalance',
@@ -257,32 +236,30 @@ async function handleTopupSubmit(e) {
   };
 
   try {
-    if (appState.gasUrl) {
-      await fetch(appState.gasUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    }
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
     // Local state update
     appState.activeUser.saldo += amount;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
 
     topupModal.classList.add('hidden');
-    alert(`Berhasil! Saldo kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}. Cell Spreadsheet telah diperbarui.`);
+    alert(`Berhasil! Saldo kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}.`);
 
   } catch (err) {
     console.error('Topup error:', err);
     alert('Terjadi kesalahan saat menambah saldo: ' + err.message);
   } finally {
     btnSubmitTopup.disabled = false;
-    btnSubmitTopup.innerHTML = '<i class="fa-solid fa-plus-circle"></i> Tambahkan Saldo Sekarang';
+    btnSubmitTopup.textContent = 'Tambahkan Saldo Sekarang';
   }
 }
 
-// Items Handling & Dynamic Calculations
+// Dynamic Items Handling & Autocomplete Category
 function resetItems() {
   appState.items = [];
   itemsContainer.innerHTML = '';
@@ -291,10 +268,10 @@ function resetItems() {
 
 function addItemRow() {
   const itemIndex = appState.items.length;
+  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
   const itemData = {
     id: Date.now() + Math.random(),
-    kategori: appState.categories[0],
-    nama: '',
+    kategori: defaultCategory,
     hargaSatuan: 0,
     qty: 1,
     jumlah: 0
@@ -308,18 +285,18 @@ function addItemRow() {
   card.innerHTML = `
     <div class="item-card-header">
       <span class="item-number">Item #${itemIndex + 1}</span>
-      ${appState.items.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeItemRow(${itemIndex})"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+      ${appState.items.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeItemRow(${itemIndex})"><i class="fa-solid fa-xmark"></i></button>` : ''}
     </div>
     <div class="item-grid">
-      <!-- Kategori Item -->
-      <div class="input-group full-width">
-        <label>Kategori Item</label>
-        <div class="select-wrapper input-sm">
-          <select class="item-kategori" onchange="updateItemData(${itemIndex}, 'kategori', this.value)">
-            ${appState.categories.map(c => `<option value="${c}">${c}</option>`).join('')}
-          </select>
-          <i class="fa-solid fa-chevron-down arrow-icon"></i>
+      <!-- Searchbar Suggestion for Kategori Item (Connected to Sheet Master Kolom C) -->
+      <div class="input-group full-width autocomplete-group">
+        <label>Kategori Item <span class="req">*</span></label>
+        <div class="input-wrapper input-sm">
+          <i class="fa-solid fa-tags input-icon"></i>
+          <input type="text" class="item-kategori-input" value="${defaultCategory}" placeholder="Pilih / ketik kategori item" autocomplete="off" required>
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
         </div>
+        <div class="suggestions-list hidden item-cat-suggestions"></div>
       </div>
 
       <!-- Harga Satuan SAR -->
@@ -332,7 +309,7 @@ function addItemRow() {
 
       <!-- QTY -->
       <div class="input-group">
-        <label>QTY / Jumlah</label>
+        <label>QTY</label>
         <div class="input-wrapper input-sm">
           <input type="number" min="1" placeholder="1" class="item-qty" value="1" oninput="updateItemData(${itemIndex}, 'qty', this.value)" required>
         </div>
@@ -349,8 +326,48 @@ function addItemRow() {
   `;
 
   itemsContainer.appendChild(card);
+  setupItemCategoryAutocomplete(card, itemIndex);
   updateItemCountBadge();
   calculateGrandTotal();
+}
+
+function setupItemCategoryAutocomplete(cardElement, index) {
+  const catInput = cardElement.querySelector('.item-kategori-input');
+  const catSuggestions = cardElement.querySelector('.item-cat-suggestions');
+
+  if (!catInput || !catSuggestions) return;
+
+  catInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    appState.items[index].kategori = e.target.value;
+
+    if (!query) {
+      catSuggestions.classList.add('hidden');
+      return;
+    }
+
+    const filtered = appState.masterCategories.filter(c => c.toLowerCase().includes(query));
+    renderSuggestions(catSuggestions, filtered, (val) => {
+      catInput.value = val;
+      appState.items[index].kategori = val;
+      catSuggestions.classList.add('hidden');
+    });
+  });
+
+  catInput.addEventListener('focus', () => {
+    const filtered = appState.masterCategories;
+    renderSuggestions(catSuggestions, filtered, (val) => {
+      catInput.value = val;
+      appState.items[index].kategori = val;
+      catSuggestions.classList.add('hidden');
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!catInput.contains(e.target) && !catSuggestions.contains(e.target)) {
+      catSuggestions.classList.add('hidden');
+    }
+  });
 }
 
 window.removeItemRow = function(index) {
@@ -372,17 +389,17 @@ function reRenderItems() {
     card.innerHTML = `
       <div class="item-card-header">
         <span class="item-number">Item #${idx + 1}</span>
-        ${currentItems.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeItemRow(${idx})"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+        ${currentItems.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeItemRow(${idx})"><i class="fa-solid fa-xmark"></i></button>` : ''}
       </div>
       <div class="item-grid">
-        <div class="input-group full-width">
-          <label>Kategori Item</label>
-          <div class="select-wrapper input-sm">
-            <select class="item-kategori" onchange="updateItemData(${idx}, 'kategori', this.value)">
-              ${appState.categories.map(c => `<option value="${c}" ${c === item.kategori ? 'selected' : ''}>${c}</option>`).join('')}
-            </select>
-            <i class="fa-solid fa-chevron-down arrow-icon"></i>
+        <div class="input-group full-width autocomplete-group">
+          <label>Kategori Item <span class="req">*</span></label>
+          <div class="input-wrapper input-sm">
+            <i class="fa-solid fa-tags input-icon"></i>
+            <input type="text" class="item-kategori-input" value="${item.kategori || ''}" placeholder="Pilih / ketik kategori item" autocomplete="off" required>
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
           </div>
+          <div class="suggestions-list hidden item-cat-suggestions"></div>
         </div>
 
         <div class="input-group">
@@ -393,7 +410,7 @@ function reRenderItems() {
         </div>
 
         <div class="input-group">
-          <label>QTY / Jumlah</label>
+          <label>QTY</label>
           <div class="input-wrapper input-sm">
             <input type="number" min="1" placeholder="1" class="item-qty" value="${item.qty || 1}" oninput="updateItemData(${idx}, 'qty', this.value)" required>
           </div>
@@ -409,6 +426,7 @@ function reRenderItems() {
     `;
     itemsContainer.appendChild(card);
     appState.items.push(item);
+    setupItemCategoryAutocomplete(card, idx);
   });
 
   updateItemCountBadge();
@@ -422,8 +440,6 @@ window.updateItemData = function(index, field, value) {
     appState.items[index].hargaSatuan = parseFloat(value) || 0;
   } else if (field === 'qty') {
     appState.items[index].qty = parseInt(value) || 1;
-  } else if (field === 'kategori') {
-    appState.items[index].kategori = value;
   }
 
   // Calculate Subtotal (Harga Satuan * QTY)
@@ -496,7 +512,6 @@ function setupAutocomplete() {
     }
   });
 
-  // Close suggestions when clicking outside
   document.addEventListener('click', (e) => {
     if (!namaGrupInput.contains(e.target) && !grupSuggestions.contains(e.target)) {
       grupSuggestions.classList.add('hidden');
@@ -540,7 +555,7 @@ async function handleFormSubmit(e) {
   }
 
   btnSubmitForm.disabled = true;
-  btnSubmitForm.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan ke Spreadsheet...';
+  btnSubmitForm.textContent = 'Menyimpan...';
 
   const category = kategoriLaporan.value;
   const groupName = category === 'Grup Keberangkatan' ? namaGrupInput.value.trim() : '-';
@@ -561,14 +576,12 @@ async function handleFormSubmit(e) {
   };
 
   try {
-    if (appState.gasUrl) {
-      await fetch(appState.gasUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    }
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
     // Local state update
     appState.activeUser.saldo -= totalExpense;
@@ -586,6 +599,20 @@ async function handleFormSubmit(e) {
     }
 
     document.getElementById('recapKegiatan').textContent = kegiatanName;
+
+    // Populate Detailed Item Breakdown
+    const recapItemsList = document.getElementById('recapItemsList');
+    recapItemsList.innerHTML = '';
+    appState.items.forEach((it, i) => {
+      const row = document.createElement('div');
+      row.className = 'breakdown-item-row';
+      row.innerHTML = `
+        <span>${i + 1}. ${it.kategori}</span>
+        <span class="qty-price">${it.qty}x ${formatSAR(it.hargaSatuan)} = <strong>${formatSAR(it.jumlah)}</strong></span>
+      `;
+      recapItemsList.appendChild(row);
+    });
+
     document.getElementById('recapTotal').textContent = `- ${formatSAR(totalExpense)}`;
     document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
 
@@ -597,7 +624,44 @@ async function handleFormSubmit(e) {
     alert('Terjadi kesalahan saat menyimpan transaksi: ' + error.message);
   } finally {
     btnSubmitForm.disabled = false;
-    btnSubmitForm.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit & Catat Pengeluaran';
+    btnSubmitForm.textContent = 'Submit & Catat Pengeluaran';
+  }
+}
+
+// Share Receipt Feature
+function handleShareReceipt() {
+  const account = appState.activeUser ? appState.activeUser.name : 'Tim Khidmat';
+  const category = kategoriLaporan.value;
+  const group = category === 'Grup Keberangkatan' ? namaGrupInput.value.trim() : '-';
+  const kegiatan = kegiatanInput.value.trim();
+  const total = grandTotalDisplay.textContent;
+  const dateStr = new Date().toLocaleString('id-ID');
+
+  let itemsSummary = '';
+  appState.items.forEach((it, idx) => {
+    itemsSummary += `${idx + 1}. ${it.kategori}: ${it.qty}x @ ${formatSAR(it.hargaSatuan)} = ${formatSAR(it.jumlah)}\n`;
+  });
+
+  const receiptText = `🧾 *BUKTI PENGELUARAN TIM KHIDMAT*\n\n` +
+    `👤 *Akun:* ${account}\n` +
+    `📅 *Waktu:* ${dateStr}\n` +
+    `📂 *Kategori:* ${category}\n` +
+    (category === 'Grup Keberangkatan' ? `✈️ *Grup:* ${group}\n` : '') +
+    `📌 *Kegiatan:* ${kegiatan}\n\n` +
+    `📝 *Rincian Item:*\n${itemsSummary}\n` +
+    `💰 *TOTAL PENGELUARAN:* ${total}\n` +
+    `💳 *Sisa Saldo:* ${activeBalanceDisplay.textContent}\n\n` +
+    `_Dicatat via Keuangan Tim Khidmat_`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: 'Bukti Pengeluaran Tim Khidmat',
+      text: receiptText
+    }).catch(err => console.log('Share error:', err));
+  } else {
+    navigator.clipboard.writeText(receiptText).then(() => {
+      alert('Teks ringkasan bukti transaksi telah disalin ke clipboard! Anda bisa membagikannya via WhatsApp.');
+    }).catch(err => alert('Detail Transaksi:\n\n' + receiptText));
   }
 }
 
@@ -611,10 +675,8 @@ function resetForm() {
 
 // Fetch live data from Google Apps Script Web App
 async function fetchDataFromSpreadsheet() {
-  if (!appState.gasUrl) return;
-
   try {
-    const res = await fetch(`${appState.gasUrl}?action=getData`);
+    const res = await fetch(`${GAS_URL}?action=getData`);
     const data = await res.json();
 
     if (data.accounts && data.accounts.length > 0) {
@@ -627,8 +689,10 @@ async function fetchDataFromSpreadsheet() {
     if (data.activities && data.activities.length > 0) {
       appState.masterActivities = data.activities;
     }
+    if (data.categories && data.categories.length > 0) {
+      appState.masterCategories = data.categories;
+    }
 
-    // If currently logged in user, refresh their balance from live data
     if (appState.activeUser) {
       const refreshedAcc = appState.accounts.find(a => a.id === appState.activeUser.id);
       if (refreshedAcc) {
