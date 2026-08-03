@@ -1,7 +1,7 @@
 /**
  * Keuangan Tim Khidmat - Frontend Logic
  * Theme: White & Subtle Navy Blue
- * Hardcoded API URL: Direct Spreadsheet Connection
+ * Spreadsheet Centered API Integration (Live Apps Script Data)
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -9,42 +9,22 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV
 // State Management
 const appState = {
   activeUser: null,
+  selectedAccount: null,
   enteredPin: '',
-  accounts: [
-    { id: 'acc1', name: 'Tim Khidmat 1', pin: '123456', saldo: 15000 },
-    { id: 'acc2', name: 'Tim Operasional', pin: '654321', saldo: 25000 },
-    { id: 'acc3', name: 'Bendahara Utama', pin: '888888', saldo: 100000 }
-  ],
-  masterGroups: [
-    "Umrah Syawal 1446H - Khidmat 01",
-    "Umrah Syawal 1446H - Khidmat 02",
-    "Umrah Ramadan Last 10 Days",
-    "Haji Plus Furoda 2025",
-    "Umrah Executive VVIP"
-  ],
-  masterActivities: [
-    "Handling & Porter Bandara Soekarno Hatta",
-    "Snack & Konsumsi Bus Jamaah",
-    "Handling Baggage Hotel Makkah",
-    "Sewa Shuttle Bus Extra",
-    "Biaya Medical Emergency Jamaah",
-    "Transportasi Ziarah Madinah"
-  ],
-  masterCategories: [
-    "Konsumsi",
-    "Transportasi",
-    "Logistik & Perlengkapan",
-    "Akomodasi & Hotel",
-    "Lain-lain"
-  ],
+  accounts: [],
+  masterGroups: [],
+  masterActivities: [],
+  masterCategories: [],
   items: []
 };
 
 // DOM Elements
 const authSection = document.getElementById('authSection');
 const appFormWrapper = document.getElementById('appFormWrapper');
-const accountSelect = document.getElementById('accountSelect');
-const accountPassword = document.getElementById('accountPassword');
+
+const accountSearchInput = document.getElementById('accountSearchInput');
+const accountSuggestions = document.getElementById('accountSuggestions');
+
 const activeAccountName = document.getElementById('activeAccountName');
 const activeBalanceDisplay = document.getElementById('activeBalanceDisplay');
 
@@ -79,22 +59,142 @@ const btnSubmitTopup = document.getElementById('btnSubmitTopup');
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   fetchDataFromSpreadsheet();
-  populateAccountsDropdown();
+  setupAccountSearchbar();
   setupEventListeners();
   setupKeypad();
-  setupAutocomplete();
+  setupFormAutocomplete();
   resetItems();
 });
 
-// Populate Accounts Dropdown
-function populateAccountsDropdown() {
-  accountSelect.innerHTML = '<option value="" disabled selected>-- Pilih Akun Anda --</option>';
-  appState.accounts.forEach(acc => {
-    const opt = document.createElement('option');
-    opt.value = acc.id;
-    opt.textContent = acc.name;
-    accountSelect.appendChild(opt);
+// Setup Account Searchbar Suggestion ("Pilih Akun / Tim")
+function setupAccountSearchbar() {
+  accountSearchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    appState.selectedAccount = null; // Reset selection until clicked from list
+    appState.enteredPin = '';
+    updatePinDots();
+
+    if (!query) {
+      accountSuggestions.classList.add('hidden');
+      return;
+    }
+
+    const filtered = appState.accounts.filter(acc => acc.name.toLowerCase().includes(query));
+    renderAccountSuggestions(filtered);
   });
+
+  accountSearchInput.addEventListener('focus', () => {
+    renderAccountSuggestions(appState.accounts);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!accountSearchInput.contains(e.target) && !accountSuggestions.contains(e.target)) {
+      accountSuggestions.classList.add('hidden');
+    }
+  });
+}
+
+function renderAccountSuggestions(accList) {
+  if (!accList || accList.length === 0) {
+    accountSuggestions.classList.add('hidden');
+    return;
+  }
+
+  accountSuggestions.innerHTML = '';
+  accList.forEach(acc => {
+    const div = document.createElement('div');
+    div.className = 'suggestion-item';
+    div.innerHTML = `<i class="fa-solid fa-user-circle"></i> <span>${acc.name}</span>`;
+    div.addEventListener('click', () => {
+      accountSearchInput.value = acc.name;
+      appState.selectedAccount = acc;
+      accountSuggestions.classList.add('hidden');
+      // Reset PIN on account change
+      appState.enteredPin = '';
+      updatePinDots();
+    });
+    accountSuggestions.appendChild(div);
+  });
+  accountSuggestions.classList.remove('hidden');
+}
+
+// 6-Digit Keypad & Auto Login
+function setupKeypad() {
+  const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
+  const btnBackspace = document.getElementById('btnKeypadBackspace');
+
+  keypadBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (appState.enteredPin.length < 6) {
+        appState.enteredPin += btn.dataset.val;
+        updatePinDots();
+
+        // Auto Login when 6th digit is pressed!
+        if (appState.enteredPin.length === 6) {
+          setTimeout(verifyAndLoginAuto, 150);
+        }
+      }
+    });
+  });
+
+  btnBackspace.addEventListener('click', () => {
+    if (appState.enteredPin.length > 0) {
+      appState.enteredPin = appState.enteredPin.slice(0, -1);
+      updatePinDots();
+    }
+  });
+}
+
+function updatePinDots() {
+  const dots = document.querySelectorAll('.pin-dot');
+  dots.forEach((dot, idx) => {
+    if (idx < appState.enteredPin.length) {
+      dot.classList.add('filled');
+    } else {
+      dot.classList.remove('filled');
+    }
+  });
+}
+
+// Auto Login Verification Function
+function verifyAndLoginAuto() {
+  if (!appState.selectedAccount) {
+    // Attempt match by exact input text if user didn't click suggestion
+    const match = appState.accounts.find(a => a.name.toLowerCase() === accountSearchInput.value.trim().toLowerCase());
+    if (match) {
+      appState.selectedAccount = match;
+    } else {
+      alert('Pilih Akun / Tim yang valid terlebih dahulu.');
+      appState.enteredPin = '';
+      updatePinDots();
+      return;
+    }
+  }
+
+  if (appState.selectedAccount.pin === appState.enteredPin) {
+    // PIN correct -> Login success!
+    appState.activeUser = appState.selectedAccount;
+    activeAccountName.textContent = appState.activeUser.name;
+    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+
+    authSection.classList.add('hidden');
+    appFormWrapper.classList.remove('hidden');
+  } else {
+    // Incorrect PIN
+    alert('PIN / Password salah! Silakan coba lagi.');
+    appState.enteredPin = '';
+    updatePinDots();
+  }
+}
+
+function logoutAccount() {
+  appState.activeUser = null;
+  appState.selectedAccount = null;
+  appState.enteredPin = '';
+  accountSearchInput.value = '';
+  updatePinDots();
+  appFormWrapper.classList.add('hidden');
+  authSection.classList.remove('hidden');
 }
 
 // Event Listeners
@@ -142,75 +242,6 @@ function setupEventListeners() {
 
   // Share Receipt Button
   btnShareReceipt.addEventListener('click', handleShareReceipt);
-}
-
-// 6-Digit Keypad Handler
-function setupKeypad() {
-  const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
-  const btnBackspace = document.getElementById('btnKeypadBackspace');
-
-  keypadBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (appState.enteredPin.length < 6) {
-        appState.enteredPin += btn.dataset.val;
-        updatePinDots();
-      }
-    });
-  });
-
-  btnBackspace.addEventListener('click', () => {
-    if (appState.enteredPin.length > 0) {
-      appState.enteredPin = appState.enteredPin.slice(0, -1);
-      updatePinDots();
-    }
-  });
-}
-
-function updatePinDots() {
-  const dots = document.querySelectorAll('.pin-dot');
-  dots.forEach((dot, idx) => {
-    if (idx < appState.enteredPin.length) {
-      dot.classList.add('filled');
-    } else {
-      dot.classList.remove('filled');
-    }
-  });
-  accountPassword.value = appState.enteredPin;
-}
-
-// Authentication Handlers
-function switchUserAccount() {
-  const selectedId = accountSelect.value;
-  const pinInput = appState.enteredPin.trim();
-
-  const account = appState.accounts.find(a => a.id === selectedId);
-  if (!account) {
-    alert('Pilih akun terlebih dahulu.');
-    return;
-  }
-
-  if (account.pin !== pinInput) {
-    alert('PIN / Password salah! Silakan coba lagi.');
-    appState.enteredPin = '';
-    updatePinDots();
-    return;
-  }
-
-  // Success Auth
-  appState.activeUser = account;
-  activeAccountName.textContent = account.name;
-  activeBalanceDisplay.textContent = formatSAR(account.saldo);
-
-  authSection.classList.add('hidden');
-  appFormWrapper.classList.remove('hidden');
-}
-
-function logoutAccount() {
-  appState.activeUser = null;
-  appState.enteredPin = '';
-  updatePinDots();
-  appFormWrapper.classList.add('hidden');
-  authSection.classList.remove('hidden');
 }
 
 // Top-up Balance Handler
@@ -468,8 +499,8 @@ function calculateGrandTotal() {
   return total;
 }
 
-// Autocomplete Logic for Group & Activity
-function setupAutocomplete() {
+// Form Autocomplete Logic for Group & Activity
+function setupFormAutocomplete() {
   // Group Autocomplete
   namaGrupInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
@@ -523,7 +554,7 @@ function setupAutocomplete() {
 }
 
 function renderSuggestions(container, items, onSelect) {
-  if (items.length === 0) {
+  if (!items || items.length === 0) {
     container.classList.add('hidden');
     return;
   }
@@ -657,7 +688,7 @@ function handleShareReceipt() {
     navigator.share({
       title: 'Bukti Pengeluaran Tim Khidmat',
       text: receiptText
-    }).catch(err => console.log('Share error:', err));
+    }).catch(err => console.log('Share notice:', err));
   } else {
     navigator.clipboard.writeText(receiptText).then(() => {
       alert('Teks ringkasan bukti transaksi telah disalin ke clipboard! Anda bisa membagikannya via WhatsApp.');
@@ -681,7 +712,6 @@ async function fetchDataFromSpreadsheet() {
 
     if (data.accounts && data.accounts.length > 0) {
       appState.accounts = data.accounts;
-      populateAccountsDropdown();
     }
     if (data.groups && data.groups.length > 0) {
       appState.masterGroups = data.groups;
