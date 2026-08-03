@@ -47,7 +47,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 24px 16px 40px 16px;
+  padding: 24px 16px 80px 16px;
 }
 
 /* App Container */
@@ -260,65 +260,93 @@ body {
   color: var(--blue-primary);
 }
 
-.balance-actions {
+/* FLOATING ACTION BUTTON (FAB) FLOATING MENU STYLING */
+.fab-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 990;
   display: flex;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
 }
 
-/* Icon-Only Buttons */
-.btn-icon-only {
-  width: 38px;
-  height: 38px;
+.fab-main-btn {
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: var(--navy-dark);
+  background: var(--navy-dark);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+  font-size: 22px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  transition: var(--transition-fast);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn-icon-only:hover {
-  background: var(--navy-dark);
-  color: #ffffff;
-  border-color: var(--navy-dark);
-}
-
-.btn-pdf {
-  background: rgba(30, 58, 138, 0.1);
-  color: var(--navy-accent);
-  border: 1px solid rgba(30, 58, 138, 0.3);
-}
-
-.btn-pdf:hover {
-  background: var(--navy-accent);
-  color: #ffffff;
-}
-
-.btn-topup {
-  background: var(--navy-dark);
-  color: #ffffff;
-  border-color: var(--navy-dark);
-}
-
-.btn-topup:hover {
+.fab-main-btn.active {
+  transform: rotate(90deg);
   background: var(--navy-medium);
 }
 
-.btn-expense-toggle {
-  background: rgba(37, 99, 235, 0.1);
-  color: var(--blue-primary);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+.fab-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  animation: fabFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn-expense-toggle:hover {
-  background: var(--blue-primary);
+@keyframes fabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fab-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 30px;
+  padding: 10px 16px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-dark);
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.fab-item:hover {
+  background: var(--navy-dark);
   color: #ffffff;
+  border-color: var(--navy-dark);
+  transform: scale(1.04);
+}
+
+.fab-item i {
+  font-size: 15px;
+}
+
+.fab-item.btn-pdf i { color: var(--navy-accent); }
+.fab-item.btn-expense i { color: var(--blue-primary); }
+.fab-item.btn-topup i { color: #059669; }
+.fab-item.btn-logout i { color: var(--danger); }
+
+.fab-item:hover i {
+  color: #ffffff !important;
 }
 
 /* Vendor Pemesanan Orders Section */
@@ -435,6 +463,22 @@ body {
   line-height: 1.3;
 }
 
+/* Subtitle Waktu Saudi langsung di bawah Tujuan Kegiatan */
+.order-time-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-time-sub i {
+  color: var(--navy-accent);
+  font-size: 11px;
+}
+
 .order-status-badge {
   font-size: 11px;
   font-weight: 700;
@@ -487,7 +531,6 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: var(--navy-dark);
-
 }
 
 .order-product-box {
@@ -1091,7 +1134,7 @@ body {
 
 @media (max-width: 480px) {
   body {
-    padding: 12px 10px 24px 10px;
+    padding: 12px 10px 80px 10px;
   }
 
   .card-navy {
@@ -1118,5 +1161,10 @@ body {
 
   .item-grid {
     grid-template-columns: 1fr;
+  }
+
+  .fab-container {
+    bottom: 16px;
+    right: 16px;
   }
 }
