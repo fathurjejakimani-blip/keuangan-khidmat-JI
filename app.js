@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.3
- * Instant Session Persistence, Auto-Closing Animated Checklist Toasts, Multi-Item Vendor Orders, PDF Updates & Clean History Date Grouping
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.4
+ * Fixed Vendor Multi-Item Alignment (Harga & QTY), PDF Subtitle Martel Font, Incoming Transfers & Type Filter Tabs
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -20,6 +20,7 @@ const appState = {
   selectedDateFilter: '',
   txSearchQuery: '',
   txDateFilterVal: '',
+  txTypeFilterVal: 'Semua',
   items: [],
   modalItems: []
 };
@@ -478,7 +479,7 @@ async function handleTransferSubmit(e) {
   }
 }
 
-// RIWAYAT TRANSAKSI KAS - FULL PAGE SECTION LOGIC
+// RIWAYAT TRANSAKSI KAS - FULL PAGE SECTION LOGIC WITH TYPE FILTER TABS & INCOMING TRANSFERS
 function setupTxHistorySection() {
   btnOpenTxHistoryModal.addEventListener('click', (e) => {
     if (e) e.stopPropagation();
@@ -493,6 +494,12 @@ function setupTxHistorySection() {
     txDateFilter.value = '';
     appState.txSearchQuery = '';
     appState.txDateFilterVal = '';
+    appState.txTypeFilterVal = 'Semua';
+
+    // Reset tabs active state
+    const typeTabs = document.querySelectorAll('.tx-type-tabs .tx-tab-btn');
+    typeTabs.forEach(t => t.classList.remove('active'));
+    if (typeTabs[0]) typeTabs[0].classList.add('active');
 
     renderGroupedTxHistory();
   });
@@ -517,6 +524,17 @@ function setupTxHistorySection() {
     appState.txDateFilterVal = '';
     renderGroupedTxHistory();
   });
+
+  // Transaction Type Tabs (Semua, Uang Masuk, Uang Keluar, Transfer)
+  const typeTabs = document.querySelectorAll('.tx-type-tabs .tx-tab-btn');
+  typeTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      typeTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      appState.txTypeFilterVal = tab.dataset.txtype;
+      renderGroupedTxHistory();
+    });
+  });
 }
 
 function renderGroupedTxHistory() {
@@ -524,8 +542,14 @@ function renderGroupedTxHistory() {
 
   const activeName = appState.activeUser ? appState.activeUser.name.toLowerCase() : '';
   
+  // Filter transactions including Incoming Transfers from other accounts
   let myTxs = appState.transactions.filter(t => {
-    const accMatch = t.akun.toLowerCase() === activeName || (t.rincian && t.rincian.toLowerCase().includes(activeName));
+    const isSender = t.akun.toLowerCase() === activeName;
+    const isReceiver = (t.kegiatan && t.kegiatan.toLowerCase().includes('transfer ke ' + activeName)) || 
+                       (t.rincian && t.rincian.toLowerCase().includes(activeName)) ||
+                       (t.namaGrup && t.namaGrup.toLowerCase() === activeName);
+
+    const accMatch = isSender || isReceiver;
     if (!accMatch) return false;
 
     // Search query filter
@@ -544,11 +568,52 @@ function renderGroupedTxHistory() {
     return true;
   });
 
-  if (myTxs.length === 0) {
+  // Map each transaction item to determine its exact Type Category
+  const categorizedTxs = myTxs.map(t => {
+    let txTypeLabel = 'Uang Keluar';
+    let txBadgeClass = 'badge-tx-out';
+    let isIncome = false;
+    let categoryGroup = 'Uang Keluar';
+
+    if (t.kategori === 'Isi Saldo' || t.kategori === 'Kas Masuk') {
+      txTypeLabel = 'Uang Masuk';
+      txBadgeClass = 'badge-tx-in';
+      isIncome = true;
+      categoryGroup = 'Uang Masuk';
+    } else if (t.kategori === 'Transfer') {
+      if (t.akun.toLowerCase() === activeName) {
+        txTypeLabel = 'Transfer Out';
+        txBadgeClass = 'badge-tx-trf';
+        isIncome = false;
+        categoryGroup = 'Transfer';
+      } else {
+        txTypeLabel = 'Uang Masuk (Transfer)';
+        txBadgeClass = 'badge-tx-in';
+        isIncome = true;
+        categoryGroup = 'Uang Masuk';
+      }
+    }
+
+    return {
+      ...t,
+      txTypeLabel,
+      txBadgeClass,
+      isIncome,
+      categoryGroup
+    };
+  });
+
+  // Type Filter Tabs Filtering
+  let filteredTxs = categorizedTxs;
+  if (appState.txTypeFilterVal !== 'Semua') {
+    filteredTxs = categorizedTxs.filter(t => t.categoryGroup === appState.txTypeFilterVal);
+  }
+
+  if (filteredTxs.length === 0) {
     txHistoryContainer.innerHTML = `
       <div style="text-align: center; padding: 40px 20px; color: #64748b; font-size: 13px;">
         <i class="fa-solid fa-receipt" style="font-size: 32px; margin-bottom: 10px; display: block; color: #cbd5e1;"></i>
-        Tidak ada data riwayat transaksi kas yang ditemukan.
+        Tidak ada data riwayat transaksi kas untuk filter ini.
       </div>
     `;
     return;
@@ -556,7 +621,7 @@ function renderGroupedTxHistory() {
 
   // SINGLE GROUP PER DATE: Group all transactions by ISO Date String
   const groupsByDate = {};
-  myTxs.forEach(t => {
+  filteredTxs.forEach(t => {
     const isoDate = normalizeDateToISO(t.waktu);
     if (!groupsByDate[isoDate]) {
       groupsByDate[isoDate] = {
@@ -584,28 +649,8 @@ function renderGroupedTxHistory() {
     itemsWrapper.className = 'tx-group-items';
 
     group.items.forEach(t => {
-      let txTypeLabel = 'Uang Keluar';
-      let txBadgeClass = 'badge-tx-out';
-      let isIncome = false;
-
-      if (t.kategori === 'Isi Saldo' || t.kategori === 'Kas Masuk') {
-        txTypeLabel = 'Uang Masuk';
-        txBadgeClass = 'badge-tx-in';
-        isIncome = true;
-      } else if (t.kategori === 'Transfer') {
-        if (t.akun.toLowerCase() === activeName) {
-          txTypeLabel = 'Transfer';
-          txBadgeClass = 'badge-tx-trf';
-          isIncome = false;
-        } else {
-          txTypeLabel = 'Uang Masuk (Transfer)';
-          txBadgeClass = 'badge-tx-in';
-          isIncome = true;
-        }
-      }
-
-      const amountSign = isIncome ? '+' : '-';
-      const amountClass = isIncome ? 'income' : 'expense';
+      const amountSign = t.isIncome ? '+' : '-';
+      const amountClass = t.isIncome ? 'income' : 'expense';
 
       const card = document.createElement('div');
       card.className = 'tx-card';
@@ -613,7 +658,7 @@ function renderGroupedTxHistory() {
       card.innerHTML = `
         <div class="tx-card-left">
           <div class="tx-badge-row">
-            <span class="badge-tx-type ${txBadgeClass}">${txTypeLabel}</span>
+            <span class="badge-tx-type ${t.txBadgeClass}">${t.txTypeLabel}</span>
             <span class="tx-meta">${t.waktu}</span>
           </div>
           <div class="tx-title">${t.kegiatan || t.kategori}</div>
@@ -656,7 +701,7 @@ function setupPdfModal() {
   });
 }
 
-// Generate Printable PDF Document Function (With Updated Title & Removed Signatures)
+// Generate Printable PDF Document Function (With Martel Font for "jejak imani")
 function generatePdfDocument() {
   const docType = pdfDocType.value;
   const startDate = pdfStartDate.value; // YYYY-MM-DD
@@ -788,7 +833,8 @@ function generatePdfDocument() {
         body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; }
         .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
         .doc-title { font-family: 'Martel', serif; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
-        .doc-subtitle { font-size: 13px; font-weight: 700; color: #1e3a8a; margin: 0; }
+        .doc-subtitle { font-size: 14px; font-weight: 600; color: #1e3a8a; margin: 0; }
+        .doc-subtitle .font-martel { font-family: 'Martel', serif; font-weight: 700; color: #0f172a; }
         .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; font-size: 13px; }
         .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 11px; text-transform: uppercase; }
         .biodata-item strong { color: #0f172a; }
@@ -812,7 +858,7 @@ function generatePdfDocument() {
     <body>
       <div class="doc-header">
         <h1 class="doc-title">${docType.toUpperCase()}</h1>
-        <p class="doc-subtitle">Tim Khidmat jejak imani Saudi Arabia</p>
+        <p class="doc-subtitle">Tim Khidmat <span class="font-martel">jejak imani</span> Saudi Arabia</p>
       </div>
 
       <div class="biodata-grid">
@@ -1055,20 +1101,28 @@ function renderOrdersList() {
   });
 }
 
-// Multi-item Parser for Sheet Pemesanan (Support newlines \n in cells)
+// Multi-line Cell Sanitizer (Handles \r\n and removes whitespace)
+function splitMultiLineCell(val) {
+  if (val === null || val === undefined) return [];
+  return val.toString().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(s => s.trim()).filter(s => s !== '');
+}
+
+// Multi-item Parser for Sheet Pemesanan (Guarantees ALL 4 COLUMNS: Item, Satuan, Harga, QTY align 100%)
 function renderMultiItemsCard(itemStr, qtyStr, unitStr, priceStr) {
   if (!itemStr) return '<div class="order-product-name">-</div>';
 
-  const items = itemStr.toString().split('\n');
-  const qtys = qtyStr ? qtyStr.toString().split('\n') : [];
-  const units = unitStr ? unitStr.toString().split('\n') : [];
-  const prices = priceStr ? priceStr.toString().split('\n') : [];
+  const items = splitMultiLineCell(itemStr);
+  const qtys = splitMultiLineCell(qtyStr);
+  const units = splitMultiLineCell(unitStr);
+  const prices = splitMultiLineCell(priceStr);
 
   if (items.length <= 1) {
+    const rawPrice = prices[0] || priceStr || '0';
+    const numPrice = parseFloat(rawPrice.toString().replace(/[^0-9.-]+/g, '')) || 0;
     return `
       <div>
         <div class="order-product-name">${itemStr}</div>
-        <div style="font-size: 11px; color: #64748b;">Rincian: ${qtyStr || 1} ${unitStr || 'Porsi'} @ ${formatSAR(priceStr)}</div>
+        <div style="font-size: 11px; color: #64748b;">Rincian: ${qtyStr || 1} ${unitStr || 'Porsi'} @ ${formatSAR(numPrice)}</div>
       </div>
     `;
   }
@@ -1076,8 +1130,10 @@ function renderMultiItemsCard(itemStr, qtyStr, unitStr, priceStr) {
   const rows = items.map((it, idx) => {
     const q = qtys[idx] || qtys[0] || '1';
     const u = units[idx] || units[0] || 'Porsi';
-    const p = prices[idx] || prices[0] || '0';
-    return `<div class="multi-item-row">• <strong>${it.trim()}</strong> <small style="color:#64748b">(${q} ${u} @ ${formatSAR(p)})</small></div>`;
+    const rawPrice = prices[idx] || prices[0] || '0';
+    const numPrice = parseFloat(rawPrice.toString().replace(/[^0-9.-]+/g, '')) || 0;
+
+    return `<div class="multi-item-row">• <strong>${it}</strong> <small style="color:#64748b">(${q} ${u} @ ${formatSAR(numPrice)})</small></div>`;
   }).join('');
 
   return `<div class="multi-items-list">${rows}</div>`;
@@ -1085,16 +1141,18 @@ function renderMultiItemsCard(itemStr, qtyStr, unitStr, priceStr) {
 
 function parseMultiItemsText(itemStr, qtyStr, unitStr, priceStr) {
   if (!itemStr) return '-';
-  const items = itemStr.toString().split('\n');
-  const qtys = qtyStr ? qtyStr.toString().split('\n') : [];
-  const units = unitStr ? unitStr.toString().split('\n') : [];
-  const prices = priceStr ? priceStr.toString().split('\n') : [];
+  const items = splitMultiLineCell(itemStr);
+  const qtys = splitMultiLineCell(qtyStr);
+  const units = splitMultiLineCell(unitStr);
+  const prices = splitMultiLineCell(priceStr);
 
   return items.map((it, idx) => {
     const q = qtys[idx] || qtys[0] || '1';
     const u = units[idx] || units[0] || 'Porsi';
-    const p = prices[idx] || prices[0] || '0';
-    return `• ${it.trim()} (${q} ${u} @ ${formatSAR(p)})`;
+    const rawPrice = prices[idx] || prices[0] || '0';
+    const numPrice = parseFloat(rawPrice.toString().replace(/[^0-9.-]+/g, '')) || 0;
+
+    return `• ${it} (${q} ${u} @ ${formatSAR(numPrice)})`;
   }).join('<br>');
 }
 
