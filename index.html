@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Keuangan Khidmat Jejak Imani - Pencatatan Pengeluaran</title>
-  <!-- Google Fonts: Mulish (Body & UI) & Martel (Headings & Currency) -->
+  <title>Keuangan Tim Khidmat</title>
+  <!-- Google Fonts: Mulish (Body & UI) & Martel (Headings & Numbers) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Martel:wght@400;600;700;800&family=Mulish:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,244 +14,213 @@
 </head>
 <body>
 
-  <!-- Ambient Ambient Gradient Background Blobs for Glassmorphism Effect -->
-  <div class="glass-ambient-bg">
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
-  </div>
-
+  <!-- App Main Container -->
   <div class="app-container">
-    <!-- Header (No Logo) -->
-    <header class="app-header">
-      <h1 class="app-title">Keuangan Khidmat</h1>
-      <p class="app-subtitle">Jejak Imani • Pencatatan Pengeluaran Tim</p>
-      
-      <!-- Connection Indicator -->
-      <div class="api-config-bar">
-        <span id="connectionStatus" class="status-badge mode-connected">
-          <i class="fa-solid fa-link"></i> Terhubung Spreadsheet Real-time
-        </span>
-        <button id="btnOpenConfig" class="btn-icon-glass" title="Pengaturan URL Spreadsheet">
-          <i class="fa-solid fa-gear"></i>
+
+    <!-- Auth Section: Clean Login Widget with 6-Digit Keypad -->
+    <section id="authSection" class="auth-section card-navy">
+      <div class="card-header">
+        <h2 class="auth-title">Keuangan Tim Khidmat</h2>
+      </div>
+
+      <form id="authForm" onsubmit="event.preventDefault(); switchUserAccount();">
+        <div class="input-group">
+          <label for="accountSelect">Pilih Akun / Tim</label>
+          <div class="select-wrapper navy-input">
+            <i class="fa-solid fa-users select-icon"></i>
+            <select id="accountSelect" required>
+              <option value="" disabled selected>-- Pilih Akun Anda --</option>
+              <!-- Options populated dynamically -->
+            </select>
+            <i class="fa-solid fa-chevron-down arrow-icon"></i>
+          </div>
+        </div>
+
+        <!-- 6-Digit PIN Display & Keypad -->
+        <div class="input-group pin-keypad-group">
+          <label>Masukkan 6 Digit PIN</label>
+          <div class="pin-display">
+            <div class="pin-dot" data-index="0"></div>
+            <div class="pin-dot" data-index="1"></div>
+            <div class="pin-dot" data-index="2"></div>
+            <div class="pin-dot" data-index="3"></div>
+            <div class="pin-dot" data-index="4"></div>
+            <div class="pin-dot" data-index="5"></div>
+          </div>
+          <!-- Hidden password input for form submission compatibility -->
+          <input type="password" id="accountPassword" maxlength="6" style="display:none;" required>
+          
+          <!-- Telephone Style 3x4 Dialpad Keypad -->
+          <div class="keypad-grid">
+            <button type="button" class="keypad-btn" data-val="1">1</button>
+            <button type="button" class="keypad-btn" data-val="2">2</button>
+            <button type="button" class="keypad-btn" data-val="3">3</button>
+            <button type="button" class="keypad-btn" data-val="4">4</button>
+            <button type="button" class="keypad-btn" data-val="5">5</button>
+            <button type="button" class="keypad-btn" data-val="6">6</button>
+            <button type="button" class="keypad-btn" data-val="7">7</button>
+            <button type="button" class="keypad-btn" data-val="8">8</button>
+            <button type="button" class="keypad-btn" data-val="9">9</button>
+            <button type="button" class="keypad-btn keypad-btn-blank" disabled></button>
+            <button type="button" class="keypad-btn" data-val="0">0</button>
+            <button type="button" class="keypad-btn keypad-btn-action" id="btnKeypadBackspace"><i class="fa-solid fa-backspace"></i></button>
+          </div>
+        </div>
+
+        <button type="submit" id="btnLogin" class="btn-navy btn-primary btn-block">
+          Masuk Akun
         </button>
-      </div>
-    </header>
+      </form>
+    </section>
 
-    <!-- App Content Wrapper -->
-    <main class="main-content">
-
-      <!-- Modal Configuration Web App URL -->
-      <div id="configModal" class="modal-backdrop hidden">
-        <div class="modal-card glass-card">
-          <div class="modal-header">
-            <h3><i class="fa-solid fa-link"></i> Google Sheets Connection</h3>
-            <button id="btnCloseConfig" class="btn-close">&times;</button>
+    <!-- Main App Wrapper (Hidden until logged in) -->
+    <div id="appFormWrapper" class="hidden">
+      
+      <!-- Balance Card -->
+      <section class="balance-card card-navy">
+        <div class="balance-info">
+          <div class="user-badge">
+            <i class="fa-solid fa-user-check"></i>
+            <span id="activeAccountName">Tim Khidmat Operasional</span>
           </div>
-          <div class="modal-body">
-            <p class="help-text">URL Apps Script terhubung secara otomatis ke Spreadsheet Anda.</p>
-            <div class="input-group">
-              <label for="gasUrlInput">URL Web App Apps Script</label>
-              <div class="input-wrapper glass-input">
-                <i class="fa-solid fa-globe input-icon"></i>
-                <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button id="btnSaveConfig" class="btn-glass btn-primary">Simpan Connection</button>
-            <button id="btnResetConfig" class="btn-glass btn-secondary">Reset Default</button>
-          </div>
+          <p class="balance-label">Sisa Saldo Kas Tim</p>
+          <h2 id="activeBalanceDisplay" class="balance-amount">SAR 0.00</h2>
         </div>
-      </div>
-
-      <!-- Modal Isi Saldo (Top-up Balance) -->
-      <div id="topupModal" class="modal-backdrop hidden">
-        <div class="modal-card glass-card">
-          <div class="modal-header">
-            <h3><i class="fa-solid fa-wallet"></i> Isi Saldo Kas Tim</h3>
-            <button id="btnCloseTopup" class="btn-close">&times;</button>
-          </div>
-          <form id="topupForm">
-            <div class="modal-body">
-              <p class="help-text">Saldo yang diisi akan otomatis mengubah cell saldo di Spreadsheet sesuai akun yang aktif.</p>
-              
-              <div class="input-group">
-                <label>Akun Terpilih</label>
-                <div class="input-wrapper glass-input disabled-input">
-                  <i class="fa-solid fa-user-check input-icon"></i>
-                  <input type="text" id="topupAccountName" readonly disabled>
-                </div>
-              </div>
-
-              <div class="input-group">
-                <label for="topupAmountInput">Jumlah Saldo Ditambahkan (SAR) <span class="req">*</span></label>
-                <div class="input-wrapper glass-input">
-                  <span class="currency-prefix">SAR</span>
-                  <input type="number" id="topupAmountInput" min="1" step="any" placeholder="0.00" required>
-                </div>
-              </div>
-
-              <div class="input-group">
-                <label for="topupNoteInput">Keterangan / Catatan (Opsional)</label>
-                <div class="input-wrapper glass-input">
-                  <i class="fa-solid fa-pen-to-square input-icon"></i>
-                  <input type="text" id="topupNoteInput" placeholder="Misal: Kas tambahan dari kantor pusat">
-                </div>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="submit" id="btnSubmitTopup" class="btn-glass btn-primary btn-block">
-                <i class="fa-solid fa-plus-circle"></i> Tambahkan Saldo Sekarang
-              </button>
-            </div>
-          </form>
+        <div class="balance-actions">
+          <button id="btnOpenTopup" class="btn-icon-only btn-topup" title="Isi Saldo Kas">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button id="btnLogout" class="btn-icon-only btn-secondary" title="Ganti Akun">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
         </div>
-      </div>
+      </section>
 
-      <!-- Auth Section: Choose Account & Password -->
-      <section id="authSection" class="auth-section glass-card">
-        <div class="card-header">
-          <h2>Masuk Akun Tim</h2>
-          <p>Pilih akun dan masukkan PIN/Password untuk melihat saldo & mencatat transaksi</p>
+      <!-- Spacing Divider -->
+      <div class="section-spacer"></div>
+
+      <!-- Main Expense Form -->
+      <section class="form-section card-navy">
+        <div class="card-header border-bottom">
+          <h2>Form Pengeluaran Tim</h2>
         </div>
 
-        <form id="authForm" onsubmit="event.preventDefault(); switchUserAccount();">
+        <form id="expenseForm">
+          <!-- 1. Kategori Laporan -->
           <div class="input-group">
-            <label for="accountSelect">Pilih Akun / Tim</label>
-            <div class="select-wrapper glass-input">
-              <i class="fa-solid fa-users select-icon"></i>
-              <select id="accountSelect" required>
-                <option value="" disabled selected>-- Pilih Akun Anda --</option>
-                <!-- Options populated dynamically -->
+            <label for="kategoriLaporan">Kategori Laporan <span class="req">*</span></label>
+            <div class="select-wrapper navy-input">
+              <i class="fa-solid fa-layer-group select-icon"></i>
+              <select id="kategoriLaporan" required>
+                <option value="Grup Keberangkatan">Grup Keberangkatan</option>
+                <option value="Operasional Tim">Operasional Tim</option>
               </select>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
           </div>
 
-          <div class="input-group">
-            <label for="accountPassword">PIN / Password</label>
-            <div class="input-wrapper glass-input">
-              <i class="fa-solid fa-key input-icon"></i>
-              <input type="password" id="accountPassword" placeholder="Masukkan PIN/Password" required>
-              <button type="button" id="togglePasswordBtn" class="btn-eye">
-                <i class="fa-solid fa-eye"></i>
-              </button>
+          <!-- 2. Nama Grup Keberangkatan (Conditional Autocomplete) -->
+          <div id="grupKeberangkatanWrapper" class="input-group autocomplete-group">
+            <label for="namaGrupInput">Nama Grup Keberangkatan <span class="req">*</span></label>
+            <div class="input-wrapper navy-input">
+              <i class="fa-solid fa-plane-departure input-icon"></i>
+              <input type="text" id="namaGrupInput" placeholder="Ketik atau pilih nama grup" autocomplete="off">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
             </div>
+            <div id="grupSuggestions" class="suggestions-list hidden"></div>
           </div>
 
-          <button type="submit" id="btnLogin" class="btn-glass btn-primary btn-block">
-            <i class="fa-solid fa-right-to-bracket"></i> Masuk Akun
+          <!-- 3. Nama Kegiatan (Autocomplete) -->
+          <div class="input-group autocomplete-group">
+            <label for="kegiatanInput">Nama Kegiatan <span class="req">*</span></label>
+            <div class="input-wrapper navy-input">
+              <i class="fa-solid fa-calendar-check input-icon"></i>
+              <input type="text" id="kegiatanInput" placeholder="Ketik atau pilih kegiatan" autocomplete="off" required>
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            </div>
+            <div id="kegiatanSuggestions" class="suggestions-list hidden"></div>
+          </div>
+
+          <!-- 4. Rincian Item (Searchbar Suggestion per Item Category) -->
+          <div class="items-section">
+            <div class="items-header">
+              <h3>Rincian Item Pengeluaran</h3>
+              <span class="badge-count" id="itemCountBadge">1 Item</span>
+            </div>
+
+            <!-- Dynamic Items Container -->
+            <div id="itemsContainer" class="items-container">
+              <!-- Item cards rendered dynamically -->
+            </div>
+
+            <button type="button" id="btnAddItem" class="btn-navy btn-add">
+              <i class="fa-solid fa-plus-circle"></i> Tambah Item Pengeluaran
+            </button>
+          </div>
+
+          <!-- 5. Total Keseluruhan -->
+          <div class="grand-total-card navy-panel">
+            <div class="total-label">
+              <span>Total Keseluruhan</span>
+            </div>
+            <div id="grandTotalDisplay" class="total-amount">SAR 0.00</div>
+          </div>
+
+          <!-- 6. Tombol Submit (Text Only) -->
+          <button type="submit" id="btnSubmitForm" class="btn-navy btn-primary btn-block btn-lg">
+            Submit & Catat Pengeluaran
           </button>
         </form>
       </section>
+    </div>
 
-      <!-- Main Expense Form (Hidden until logged in) -->
-      <div id="appFormWrapper" class="hidden">
-        
-        <!-- Balance Display Card + Isi Saldo Button -->
-        <section class="balance-card glass-card">
-          <div class="balance-info">
-            <div class="user-badge">
-              <i class="fa-solid fa-user-check"></i>
-              <span id="activeAccountName">Tim Khidmat Operasional</span>
-            </div>
-            <p class="balance-label">Sisa Saldo Kas Tim</p>
-            <h2 id="activeBalanceDisplay" class="balance-amount">SAR 0.00</h2>
-          </div>
-          <div class="balance-actions">
-            <button id="btnOpenTopup" class="btn-glass btn-small btn-topup" title="Isi / Tambah Saldo">
-              <i class="fa-solid fa-wallet"></i> + Isi Saldo
-            </button>
-            <button id="btnLogout" class="btn-glass btn-small btn-secondary" title="Keluar / Ganti Akun">
-              <i class="fa-solid fa-arrow-right-from-bracket"></i> Ganti
-            </button>
-          </div>
-        </section>
-
-        <!-- Form Pengeluaran -->
-        <section class="form-section glass-card">
-          <div class="card-header border-bottom">
-            <h2>Form Pengeluaran Tim</h2>
-            <p>Isi rincian pengeluaran secara akurat dalam mata uang SAR</p>
-          </div>
-
-          <form id="expenseForm">
-            <!-- 1. Kategori Laporan -->
+    <!-- Modal Topup Saldo -->
+    <div id="topupModal" class="modal-backdrop hidden">
+      <div class="modal-card card-navy">
+        <div class="modal-header">
+          <h3>Isi Saldo Kas Tim</h3>
+          <button id="btnCloseTopup" class="btn-close">&times;</button>
+        </div>
+        <form id="topupForm">
+          <div class="modal-body">
             <div class="input-group">
-              <label for="kategoriLaporan">Kategori Laporan <span class="req">*</span></label>
-              <div class="select-wrapper glass-input">
-                <i class="fa-solid fa-layer-group select-icon"></i>
-                <select id="kategoriLaporan" required>
-                  <option value="Grup Keberangkatan">Grup Keberangkatan</option>
-                  <option value="Operasional Tim">Operasional Tim</option>
-                </select>
-                <i class="fa-solid fa-chevron-down arrow-icon"></i>
+              <label>Akun Terpilih</label>
+              <div class="input-wrapper navy-input disabled-input">
+                <i class="fa-solid fa-user-check input-icon"></i>
+                <input type="text" id="topupAccountName" readonly disabled>
               </div>
             </div>
 
-            <!-- 2. Nama Grup Keberangkatan (Conditional) -->
-            <div id="grupKeberangkatanWrapper" class="input-group autocomplete-group">
-              <label for="namaGrupInput">Nama Grup Keberangkatan <span class="req">*</span></label>
-              <div class="input-wrapper glass-input">
-                <i class="fa-solid fa-plane-departure input-icon"></i>
-                <input type="text" id="namaGrupInput" placeholder="Ketik atau pilih nama grup (misal: Umrah Syawal 1446H)" autocomplete="off">
-                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <div class="input-group">
+              <label for="topupAmountInput">Jumlah Saldo Ditambahkan (SAR) <span class="req">*</span></label>
+              <div class="input-wrapper navy-input">
+                <span class="currency-prefix">SAR</span>
+                <input type="number" id="topupAmountInput" min="1" step="any" placeholder="0.00" required>
               </div>
-              <div id="grupSuggestions" class="suggestions-list hidden"></div>
             </div>
 
-            <!-- 3. Nama Kegiatan -->
-            <div class="input-group autocomplete-group">
-              <label for="kegiatanInput">Nama Kegiatan <span class="req">*</span></label>
-              <div class="input-wrapper glass-input">
-                <i class="fa-solid fa-calendar-check input-icon"></i>
-                <input type="text" id="kegiatanInput" placeholder="Ketik atau pilih kegiatan (misal: Handling Bandara, Snack Bus)" autocomplete="off" required>
-                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <div class="input-group">
+              <label for="topupNoteInput">Keterangan / Catatan (Opsional)</label>
+              <div class="input-wrapper navy-input">
+                <i class="fa-solid fa-pen-to-square input-icon"></i>
+                <input type="text" id="topupNoteInput" placeholder="Misal: Penambahan kas dari pusat">
               </div>
-              <div id="kegiatanSuggestions" class="suggestions-list hidden"></div>
             </div>
-
-            <!-- 4. Rincian Item -->
-            <div class="items-section">
-              <div class="items-header">
-                <h3><i class="fa-solid fa-list-check"></i> Rincian Item Pengeluaran</h3>
-                <span class="badge-count" id="itemCountBadge">1 Item</span>
-              </div>
-
-              <!-- Container where dynamic items are injected -->
-              <div id="itemsContainer" class="items-container">
-                <!-- Item rows will be rendered here via JS -->
-              </div>
-
-              <button type="button" id="btnAddItem" class="btn-glass btn-add">
-                <i class="fa-solid fa-plus-circle"></i> Tambah Item Pengeluaran
-              </button>
-            </div>
-
-            <!-- 5. Total Keseluruhan (SAR) -->
-            <div class="grand-total-card glass-panel">
-              <div class="total-label">
-                <span>Total Keseluruhan</span>
-                <small>Auto SUM seluruh item (SAR)</small>
-              </div>
-              <div id="grandTotalDisplay" class="total-amount">SAR 0.00</div>
-            </div>
-
-            <!-- 6. Tombol Submit -->
-            <button type="submit" id="btnSubmitForm" class="btn-glass btn-primary btn-block btn-lg">
-              <i class="fa-solid fa-paper-plane"></i> Submit & Catat Pengeluaran
+          </div>
+          <div class="modal-footer">
+            <button type="submit" id="btnSubmitTopup" class="btn-navy btn-primary btn-block">
+              Tambahkan Saldo Sekarang
             </button>
-          </form>
-        </section>
+          </div>
+        </form>
       </div>
+    </div>
 
-    </main>
-
-    <!-- Success Screen (Full Overlay) -->
+    <!-- Success Full Overlay (No Checklist Shadow, Detailed Items Recap, Share Button) -->
     <div id="successOverlay" class="success-overlay hidden">
-      <div class="success-card glass-card">
-        <!-- Checklist Animated Icon -->
+      <div class="success-card card-navy" id="receiptCardArea">
+        
+        <!-- Checklist Animated Icon (No Shadow) -->
         <div class="checkmark-wrapper">
           <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
             <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
@@ -260,9 +229,8 @@
         </div>
         
         <h2 class="success-title">Transaksi Berhasil Dicatat!</h2>
-        <p class="success-subtitle">Pengeluaran tersimpan di Spreadsheet dan saldo kas (SAR) otomatis terpotong.</p>
 
-        <div class="recap-card glass-panel">
+        <div class="recap-card navy-panel">
           <div class="recap-row">
             <span>Akun Tim:</span>
             <strong id="recapAccount">-</strong>
@@ -279,6 +247,15 @@
             <span>Kegiatan:</span>
             <strong id="recapKegiatan">-</strong>
           </div>
+
+          <!-- Rincian Item Breakdown List -->
+          <div class="recap-items-breakdown">
+            <div class="breakdown-title">Rincian Item:</div>
+            <div id="recapItemsList" class="breakdown-list">
+              <!-- Item rows populated dynamically -->
+            </div>
+          </div>
+
           <div class="recap-row highlight">
             <span>Total Pengeluaran:</span>
             <strong id="recapTotal" class="amount-minus">-</strong>
@@ -289,9 +266,15 @@
           </div>
         </div>
 
-        <button id="btnNewTransaction" class="btn-glass btn-primary btn-block btn-lg">
-          <i class="fa-solid fa-plus"></i> Input Pengeluaran Baru
-        </button>
+        <!-- Success Action Row -->
+        <div class="success-actions">
+          <button id="btnNewTransaction" class="btn-navy btn-primary flex-grow">
+            Input Pengeluaran Baru
+          </button>
+          <button id="btnShareReceipt" class="btn-icon-only btn-share" title="Bagikan Hasil Transaksi">
+            <i class="fa-solid fa-share-nodes"></i>
+          </button>
+        </div>
       </div>
     </div>
 
