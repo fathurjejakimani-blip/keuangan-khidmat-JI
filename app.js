@@ -1,7 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic
- * Theme: White & Subtle Navy Blue
- * Integrated Spreadsheet API & Vendor Orders System
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v4.1
+ * Refined Vendor PopUp Expense Form & Order Automation
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -17,7 +16,8 @@ const appState = {
   masterCategories: [],
   orders: [],
   selectedStatusFilter: 'Semua',
-  items: []
+  items: [],
+  modalItems: []
 };
 
 // DOM Elements
@@ -34,24 +34,40 @@ const activeBalanceDisplay = document.getElementById('activeBalanceDisplay');
 const estimatesBox = document.getElementById('estimatesBox');
 const estimatesAmountDisplay = document.getElementById('estimatesAmountDisplay');
 
-const btnToggleFormView = document.getElementById('btnToggleFormView');
+const btnOpenExpenseModal = document.getElementById('btnOpenExpenseModal');
+const expenseModal = document.getElementById('expenseModal');
+const btnCloseExpenseModal = document.getElementById('btnCloseExpenseModal');
+const modalExpenseForm = document.getElementById('modalExpenseForm');
+
 const ordersSection = document.getElementById('ordersSection');
 const ordersContainer = document.getElementById('ordersContainer');
 const expenseFormSection = document.getElementById('expenseFormSection');
 
+// Inline Form Elements (for Tim Users)
 const kategoriLaporan = document.getElementById('kategoriLaporan');
 const grupKeberangkatanWrapper = document.getElementById('grupKeberangkatanWrapper');
 const namaGrupInput = document.getElementById('namaGrupInput');
 const grupSuggestions = document.getElementById('grupSuggestions');
-
 const kegiatanInput = document.getElementById('kegiatanInput');
 const kegiatanSuggestions = document.getElementById('kegiatanSuggestions');
-
 const itemsContainer = document.getElementById('itemsContainer');
 const btnAddItem = document.getElementById('btnAddItem');
 const itemCountBadge = document.getElementById('itemCountBadge');
 const grandTotalDisplay = document.getElementById('grandTotalDisplay');
 const btnSubmitForm = document.getElementById('btnSubmitForm');
+
+// PopUp Modal Form Elements (for Vendor Users)
+const modalKategoriLaporan = document.getElementById('modalKategoriLaporan');
+const modalGrupWrapper = document.getElementById('modalGrupWrapper');
+const modalNamaGrupInput = document.getElementById('modalNamaGrupInput');
+const modalGrupSuggestions = document.getElementById('modalGrupSuggestions');
+const modalKegiatanInput = document.getElementById('modalKegiatanInput');
+const modalKegiatanSuggestions = document.getElementById('modalKegiatanSuggestions');
+const modalItemsContainer = document.getElementById('modalItemsContainer');
+const modalBtnAddItem = document.getElementById('modalBtnAddItem');
+const modalItemCountBadge = document.getElementById('modalItemCountBadge');
+const modalGrandTotalDisplay = document.getElementById('modalGrandTotalDisplay');
+const modalBtnSubmitForm = document.getElementById('modalBtnSubmitForm');
 
 const successOverlay = document.getElementById('successOverlay');
 const btnNewTransaction = document.getElementById('btnNewTransaction');
@@ -74,8 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   setupKeypad();
   setupFormAutocomplete();
+  setupModalAutocomplete();
   setupStatusFilterTabs();
   resetItems();
+  resetModalItems();
 });
 
 // Setup Account Searchbar Suggestion ("Pilih Akun / Tim")
@@ -169,7 +187,7 @@ function updatePinDots() {
   });
 }
 
-// Auto Login Verification Function
+// Auto Login Verification
 function verifyAndLoginAuto() {
   if (!appState.selectedAccount) {
     const match = appState.accounts.find(a => a.name.toLowerCase() === accountSearchInput.value.trim().toLowerCase());
@@ -192,20 +210,21 @@ function verifyAndLoginAuto() {
     authSection.classList.add('hidden');
     appFormWrapper.classList.remove('hidden');
 
-    // Configure View according to Account Type (Vendor vs Tim)
+    // CONFIGURE LAYOUT ACCORDING TO ACCOUNT ROLE:
+    // If Vendor -> Initial Screen is Pemesanan Orders View!
     if (appState.activeUser.jenisAkun === 'Vendor') {
       estimatesBox.classList.remove('hidden');
       ordersSection.classList.remove('hidden');
       expenseFormSection.classList.add('hidden');
-      btnToggleFormView.classList.remove('hidden');
-      btnToggleFormView.classList.remove('active');
+      btnOpenExpenseModal.classList.remove('hidden');
       calculateVendorEstimates();
       renderOrdersList();
     } else {
+      // If Tim -> Initial Screen is Expense Form View!
       estimatesBox.classList.add('hidden');
       ordersSection.classList.add('hidden');
       expenseFormSection.classList.remove('hidden');
-      btnToggleFormView.classList.add('hidden');
+      btnOpenExpenseModal.classList.remove('hidden');
     }
   } else {
     alert('PIN / Password salah! Silakan coba lagi.');
@@ -226,17 +245,16 @@ function logoutAccount() {
 
 // Event Listeners
 function setupEventListeners() {
-  // Toggle Expense Form View for Vendors
-  btnToggleFormView.addEventListener('click', () => {
-    if (expenseFormSection.classList.contains('hidden')) {
-      expenseFormSection.classList.remove('hidden');
-      ordersSection.classList.add('hidden');
-      btnToggleFormView.classList.add('active');
-    } else {
-      expenseFormSection.classList.add('hidden');
-      ordersSection.classList.remove('hidden');
-      btnToggleFormView.classList.remove('active');
-    }
+  // PopUp Expense Modal Trigger (Receipt Icon Button)
+  btnOpenExpenseModal.addEventListener('click', () => {
+    resetModalItems();
+    modalKategoriLaporan.value = appState.activeUser.jenisAkun === 'Vendor' ? 'Vendor' : 'Grup Keberangkatan';
+    modalKategoriLaporan.dispatchEvent(new Event('change'));
+    expenseModal.classList.remove('hidden');
+  });
+
+  btnCloseExpenseModal.addEventListener('click', () => {
+    expenseModal.classList.add('hidden');
   });
 
   // Top-up Modal
@@ -251,7 +269,7 @@ function setupEventListeners() {
 
   topupForm.addEventListener('submit', handleTopupSubmit);
 
-  // Category Laporan Toggle
+  // Category Laporan Toggle (Inline)
   kategoriLaporan.addEventListener('change', (e) => {
     if (e.target.value === 'Grup Keberangkatan') {
       grupKeberangkatanWrapper.classList.remove('hidden');
@@ -263,16 +281,28 @@ function setupEventListeners() {
     }
   });
 
-  // Add Item
-  btnAddItem.addEventListener('click', () => {
-    addItemRow();
+  // Category Laporan Toggle (Modal)
+  modalKategoriLaporan.addEventListener('change', (e) => {
+    if (e.target.value === 'Grup Keberangkatan') {
+      modalGrupWrapper.classList.remove('hidden');
+      modalNamaGrupInput.setAttribute('required', 'true');
+    } else {
+      modalGrupWrapper.classList.add('hidden');
+      modalNamaGrupInput.removeAttribute('required');
+      modalNamaGrupInput.value = '';
+    }
   });
 
-  // Logout / Switch Account
+  // Add Item
+  btnAddItem.addEventListener('click', () => addItemRow());
+  modalBtnAddItem.addEventListener('click', () => addModalItemRow());
+
+  // Logout
   document.getElementById('btnLogout').addEventListener('click', logoutAccount);
 
-  // Form Submit
-  document.getElementById('expenseForm').addEventListener('submit', handleFormSubmit);
+  // Form Submit (Inline & Modal)
+  expenseForm.addEventListener('submit', handleFormSubmit);
+  modalExpenseForm.addEventListener('submit', handleModalFormSubmit);
 
   // New Transaction Button
   btnNewTransaction.addEventListener('click', () => {
@@ -288,7 +318,7 @@ function setupEventListeners() {
 function calculateVendorEstimates() {
   if (!appState.activeUser || appState.activeUser.jenisAkun !== 'Vendor') return;
 
-  const vendorOrders = appState.orders.filter(o => o.akun === appState.activeUser.name && o.status === 'Pesanan Baru');
+  const vendorOrders = appState.orders.filter(o => o.akun.toLowerCase() === appState.activeUser.name.toLowerCase() && o.status === 'Pesanan Baru');
   const totalEstimate = vendorOrders.reduce((sum, o) => sum + (o.jumlah || 0), 0);
   estimatesAmountDisplay.textContent = formatSAR(totalEstimate);
 }
@@ -310,7 +340,6 @@ function renderOrdersList() {
 
   ordersContainer.innerHTML = '';
   
-  // Filter orders for the logged-in vendor account
   let vendorOrders = appState.orders.filter(o => o.akun.toLowerCase() === appState.activeUser.name.toLowerCase());
 
   if (appState.selectedStatusFilter !== 'Semua') {
@@ -379,7 +408,7 @@ function renderOrdersList() {
 
 window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   const confirmMsg = newStatus === 'Selesai' 
-    ? 'Menyelesaikan pemesanan akan otomatis mencatat pengeluaran di Spreadsheet dan memotong saldo akun Anda. Lanjutkan?'
+    ? 'Menyelesaikan pemesanan akan otomatis mencatat pengeluaran di Sheet Pengeluaran dan memotong saldo akun Anda. Lanjutkan?'
     : 'Konfirmasi pemesanan ini dan ubah status menjadi Proses?';
 
   if (!confirm(confirmMsg)) return;
@@ -398,7 +427,6 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       body: JSON.stringify(payload)
     });
 
-    // Update local state
     const orderIndex = appState.orders.findIndex(o => o.id === orderId);
     if (orderIndex !== -1) {
       appState.orders[orderIndex].status = newStatus;
@@ -412,7 +440,7 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
     calculateVendorEstimates();
     renderOrdersList();
     alert(`Status pemesanan berhasil diubah menjadi "${newStatus}"!`);
-    fetchDataFromSpreadsheet(); // Background refresh
+    fetchDataFromSpreadsheet(); // Refresh live data
 
   } catch (err) {
     console.error('Update status error:', err);
@@ -450,7 +478,6 @@ async function handleTopupSubmit(e) {
       body: JSON.stringify(payload)
     });
 
-    // Local state update
     appState.activeUser.saldo += amount;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
 
@@ -466,11 +493,11 @@ async function handleTopupSubmit(e) {
   }
 }
 
-// Dynamic Items Handling & Autocomplete Category
+// Inline Form Dynamic Items (for Tim Users)
 function resetItems() {
   appState.items = [];
   itemsContainer.innerHTML = '';
-  addItemRow(); // default 1 row
+  addItemRow();
 }
 
 function addItemRow() {
@@ -495,7 +522,6 @@ function addItemRow() {
       ${appState.items.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeItemRow(${itemIndex})"><i class="fa-solid fa-xmark"></i></button>` : ''}
     </div>
     <div class="item-grid">
-      <!-- Searchbar Suggestion for Kategori Item (Connected to Sheet Master Kolom C) -->
       <div class="input-group full-width autocomplete-group">
         <label>Kategori Item <span class="req">*</span></label>
         <div class="input-wrapper input-sm">
@@ -506,7 +532,6 @@ function addItemRow() {
         <div class="suggestions-list hidden item-cat-suggestions"></div>
       </div>
 
-      <!-- Harga Satuan SAR -->
       <div class="input-group">
         <label>Harga Satuan (SAR)</label>
         <div class="input-wrapper input-sm">
@@ -514,7 +539,6 @@ function addItemRow() {
         </div>
       </div>
 
-      <!-- QTY -->
       <div class="input-group">
         <label>QTY</label>
         <div class="input-wrapper input-sm">
@@ -522,7 +546,6 @@ function addItemRow() {
         </div>
       </div>
 
-      <!-- Subtotal Jumlah -->
       <div class="input-group full-width">
         <label>Jumlah Subtotal (SAR)</label>
         <div class="input-wrapper input-sm">
@@ -533,12 +556,80 @@ function addItemRow() {
   `;
 
   itemsContainer.appendChild(card);
-  setupItemCategoryAutocomplete(card, itemIndex);
+  setupItemCategoryAutocomplete(card, itemIndex, appState.items);
   updateItemCountBadge();
   calculateGrandTotal();
 }
 
-function setupItemCategoryAutocomplete(cardElement, index) {
+// Modal Form Dynamic Items (for PopUp Expense Form)
+function resetModalItems() {
+  appState.modalItems = [];
+  modalItemsContainer.innerHTML = '';
+  addModalItemRow();
+}
+
+function addModalItemRow() {
+  const idx = appState.modalItems.length;
+  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
+  const itemData = {
+    id: Date.now() + Math.random(),
+    kategori: defaultCategory,
+    hargaSatuan: 0,
+    qty: 1,
+    jumlah: 0
+  };
+  appState.modalItems.push(itemData);
+
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.dataset.index = idx;
+
+  card.innerHTML = `
+    <div class="item-card-header">
+      <span class="item-number">Item #${idx + 1}</span>
+      ${appState.modalItems.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeModalItemRow(${idx})"><i class="fa-solid fa-xmark"></i></button>` : ''}
+    </div>
+    <div class="item-grid">
+      <div class="input-group full-width autocomplete-group">
+        <label>Kategori Item <span class="req">*</span></label>
+        <div class="input-wrapper input-sm">
+          <i class="fa-solid fa-tags input-icon"></i>
+          <input type="text" class="item-kategori-input" value="${defaultCategory}" placeholder="Pilih / ketik kategori item" autocomplete="off" required>
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        </div>
+        <div class="suggestions-list hidden item-cat-suggestions"></div>
+      </div>
+
+      <div class="input-group">
+        <label>Harga Satuan (SAR)</label>
+        <div class="input-wrapper input-sm">
+          <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="" oninput="updateModalItemData(${idx}, 'hargaSatuan', this.value)" required>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>QTY</label>
+        <div class="input-wrapper input-sm">
+          <input type="number" min="1" placeholder="1" class="item-qty" value="1" oninput="updateModalItemData(${idx}, 'qty', this.value)" required>
+        </div>
+      </div>
+
+      <div class="input-group full-width">
+        <label>Jumlah Subtotal (SAR)</label>
+        <div class="input-wrapper input-sm">
+          <input type="text" class="item-jumlah amount-disabled" value="SAR 0.00" disabled readonly>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modalItemsContainer.appendChild(card);
+  setupItemCategoryAutocomplete(card, idx, appState.modalItems);
+  updateModalItemCountBadge();
+  calculateModalGrandTotal();
+}
+
+function setupItemCategoryAutocomplete(cardElement, index, targetArray) {
   const catInput = cardElement.querySelector('.item-kategori-input');
   const catSuggestions = cardElement.querySelector('.item-cat-suggestions');
 
@@ -546,7 +637,7 @@ function setupItemCategoryAutocomplete(cardElement, index) {
 
   catInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
-    appState.items[index].kategori = e.target.value;
+    targetArray[index].kategori = e.target.value;
 
     if (!query) {
       catSuggestions.classList.add('hidden');
@@ -556,7 +647,7 @@ function setupItemCategoryAutocomplete(cardElement, index) {
     const filtered = appState.masterCategories.filter(c => c.toLowerCase().includes(query));
     renderSuggestions(catSuggestions, filtered, (val) => {
       catInput.value = val;
-      appState.items[index].kategori = val;
+      targetArray[index].kategori = val;
       catSuggestions.classList.add('hidden');
     });
   });
@@ -565,7 +656,7 @@ function setupItemCategoryAutocomplete(cardElement, index) {
     const filtered = appState.masterCategories;
     renderSuggestions(catSuggestions, filtered, (val) => {
       catInput.value = val;
-      appState.items[index].kategori = val;
+      targetArray[index].kategori = val;
       catSuggestions.classList.add('hidden');
     });
   });
@@ -581,6 +672,12 @@ window.removeItemRow = function(index) {
   if (appState.items.length <= 1) return;
   appState.items.splice(index, 1);
   reRenderItems();
+};
+
+window.removeModalItemRow = function(index) {
+  if (appState.modalItems.length <= 1) return;
+  appState.modalItems.splice(index, 1);
+  reRenderModalItems();
 };
 
 function reRenderItems() {
@@ -633,11 +730,68 @@ function reRenderItems() {
     `;
     itemsContainer.appendChild(card);
     appState.items.push(item);
-    setupItemCategoryAutocomplete(card, idx);
+    setupItemCategoryAutocomplete(card, idx, appState.items);
   });
 
   updateItemCountBadge();
   calculateGrandTotal();
+};
+
+function reRenderModalItems() {
+  modalItemsContainer.innerHTML = '';
+  const currentItems = [...appState.modalItems];
+  appState.modalItems = [];
+
+  currentItems.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.dataset.index = idx;
+
+    card.innerHTML = `
+      <div class="item-card-header">
+        <span class="item-number">Item #${idx + 1}</span>
+        ${currentItems.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeModalItemRow(${idx})"><i class="fa-solid fa-xmark"></i></button>` : ''}
+      </div>
+      <div class="item-grid">
+        <div class="input-group full-width autocomplete-group">
+          <label>Kategori Item <span class="req">*</span></label>
+          <div class="input-wrapper input-sm">
+            <i class="fa-solid fa-tags input-icon"></i>
+            <input type="text" class="item-kategori-input" value="${item.kategori || ''}" placeholder="Pilih / ketik kategori item" autocomplete="off" required>
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          </div>
+          <div class="suggestions-list hidden item-cat-suggestions"></div>
+        </div>
+
+        <div class="input-group">
+          <label>Harga Satuan (SAR)</label>
+          <div class="input-wrapper input-sm">
+            <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="${item.hargaSatuan || ''}" oninput="updateModalItemData(${idx}, 'hargaSatuan', this.value)" required>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>QTY</label>
+          <div class="input-wrapper input-sm">
+            <input type="number" min="1" placeholder="1" class="item-qty" value="${item.qty || 1}" oninput="updateModalItemData(${idx}, 'qty', this.value)" required>
+          </div>
+        </div>
+
+        <div class="input-group full-width">
+          <label>Jumlah Subtotal (SAR)</label>
+          <div class="input-wrapper input-sm">
+            <input type="text" class="item-jumlah amount-disabled" value="${formatSAR(item.jumlah)}" disabled readonly>
+          </div>
+        </div>
+      </div>
+    `;
+    modalItemsContainer.appendChild(card);
+    appState.modalItems.push(item);
+    setupItemCategoryAutocomplete(card, idx, appState.modalItems);
+  });
+
+  updateModalItemCountBadge();
+  calculateModalGrandTotal();
 };
 
 window.updateItemData = function(index, field, value) {
@@ -649,13 +803,11 @@ window.updateItemData = function(index, field, value) {
     appState.items[index].qty = parseInt(value) || 1;
   }
 
-  // Calculate Subtotal (Harga Satuan * QTY)
   const harga = appState.items[index].hargaSatuan;
   const qty = appState.items[index].qty;
   const subtotal = harga * qty;
   appState.items[index].jumlah = subtotal;
 
-  // Update DOM subtotal
   const card = itemsContainer.querySelector(`.item-card[data-index="${index}"]`);
   if (card) {
     const jumlahInput = card.querySelector('.item-jumlah');
@@ -665,8 +817,35 @@ window.updateItemData = function(index, field, value) {
   calculateGrandTotal();
 };
 
+window.updateModalItemData = function(index, field, value) {
+  if (!appState.modalItems[index]) return;
+
+  if (field === 'hargaSatuan') {
+    appState.modalItems[index].hargaSatuan = parseFloat(value) || 0;
+  } else if (field === 'qty') {
+    appState.modalItems[index].qty = parseInt(value) || 1;
+  }
+
+  const harga = appState.modalItems[index].hargaSatuan;
+  const qty = appState.modalItems[index].qty;
+  const subtotal = harga * qty;
+  appState.modalItems[index].jumlah = subtotal;
+
+  const card = modalItemsContainer.querySelector(`.item-card[data-index="${index}"]`);
+  if (card) {
+    const jumlahInput = card.querySelector('.item-jumlah');
+    if (jumlahInput) jumlahInput.value = formatSAR(subtotal);
+  }
+
+  calculateModalGrandTotal();
+};
+
 function updateItemCountBadge() {
   itemCountBadge.textContent = `${appState.items.length} Item`;
+}
+
+function updateModalItemCountBadge() {
+  modalItemCountBadge.textContent = `${appState.modalItems.length} Item`;
 }
 
 function calculateGrandTotal() {
@@ -675,57 +854,42 @@ function calculateGrandTotal() {
   return total;
 }
 
-// Form Autocomplete Logic for Group & Activity
+function calculateModalGrandTotal() {
+  const total = appState.modalItems.reduce((sum, item) => sum + (item.jumlah || 0), 0);
+  modalGrandTotalDisplay.textContent = formatSAR(total);
+  return total;
+}
+
+// Autocomplete Setup
 function setupFormAutocomplete() {
-  // Group Autocomplete
   namaGrupInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
-    if (!query) {
-      grupSuggestions.classList.add('hidden');
-      return;
-    }
-
+    if (!query) { grupSuggestions.classList.add('hidden'); return; }
     const filtered = appState.masterGroups.filter(g => g.toLowerCase().includes(query));
-    renderSuggestions(grupSuggestions, filtered, (val) => {
-      namaGrupInput.value = val;
-      grupSuggestions.classList.add('hidden');
-    });
+    renderSuggestions(grupSuggestions, filtered, (val) => { namaGrupInput.value = val; grupSuggestions.classList.add('hidden'); });
   });
 
-  namaGrupInput.addEventListener('focus', () => {
-    if (namaGrupInput.value.trim()) {
-      namaGrupInput.dispatchEvent(new Event('input'));
-    }
-  });
-
-  // Activity Autocomplete
   kegiatanInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
-    if (!query) {
-      kegiatanSuggestions.classList.add('hidden');
-      return;
-    }
-
+    if (!query) { kegiatanSuggestions.classList.add('hidden'); return; }
     const filtered = appState.masterActivities.filter(a => a.toLowerCase().includes(query));
-    renderSuggestions(kegiatanSuggestions, filtered, (val) => {
-      kegiatanInput.value = val;
-      kegiatanSuggestions.classList.add('hidden');
-    });
+    renderSuggestions(kegiatanSuggestions, filtered, (val) => { kegiatanInput.value = val; kegiatanSuggestions.classList.add('hidden'); });
+  });
+}
+
+function setupModalAutocomplete() {
+  modalNamaGrupInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    if (!query) { modalGrupSuggestions.classList.add('hidden'); return; }
+    const filtered = appState.masterGroups.filter(g => g.toLowerCase().includes(query));
+    renderSuggestions(modalGrupSuggestions, filtered, (val) => { modalNamaGrupInput.value = val; modalGrupSuggestions.classList.add('hidden'); });
   });
 
-  kegiatanInput.addEventListener('focus', () => {
-    if (kegiatanInput.value.trim()) {
-      kegiatanInput.dispatchEvent(new Event('input'));
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!namaGrupInput.contains(e.target) && !grupSuggestions.contains(e.target)) {
-      grupSuggestions.classList.add('hidden');
-    }
-    if (!kegiatanInput.contains(e.target) && !kegiatanSuggestions.contains(e.target)) {
-      kegiatanSuggestions.classList.add('hidden');
-    }
+  modalKegiatanInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    if (!query) { modalKegiatanSuggestions.classList.add('hidden'); return; }
+    const filtered = appState.masterActivities.filter(a => a.toLowerCase().includes(query));
+    renderSuggestions(modalKegiatanSuggestions, filtered, (val) => { modalKegiatanInput.value = val; modalKegiatanSuggestions.classList.add('hidden'); });
   });
 }
 
@@ -746,11 +910,20 @@ function renderSuggestions(container, items, onSelect) {
   container.classList.remove('hidden');
 }
 
-// Form Submission & Success Overlay
+// Form Submissions
 async function handleFormSubmit(e) {
   e.preventDefault();
+  await processExpenseSubmit(kategoriLaporan.value, namaGrupInput.value, kegiatanInput.value, appState.items, btnSubmitForm);
+}
 
-  const totalExpense = calculateGrandTotal();
+async function handleModalFormSubmit(e) {
+  e.preventDefault();
+  await processExpenseSubmit(modalKategoriLaporan.value, modalNamaGrupInput.value, modalKegiatanInput.value, appState.modalItems, modalBtnSubmitForm);
+  expenseModal.classList.add('hidden');
+}
+
+async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray, buttonEl) {
+  const totalExpense = itemsArray.reduce((sum, item) => sum + (item.jumlah || 0), 0);
   if (totalExpense <= 0) {
     alert('Total pengeluaran harus lebih dari SAR 0.00');
     return;
@@ -761,12 +934,11 @@ async function handleFormSubmit(e) {
     if (!proceed) return;
   }
 
-  btnSubmitForm.disabled = true;
-  btnSubmitForm.textContent = 'Menyimpan...';
+  buttonEl.disabled = true;
+  buttonEl.textContent = 'Menyimpan...';
 
-  const category = kategoriLaporan.value;
-  const groupName = category === 'Grup Keberangkatan' ? namaGrupInput.value.trim() : '-';
-  const kegiatanName = kegiatanInput.value.trim();
+  const groupName = category === 'Grup Keberangkatan' ? rawGroup.trim() : '-';
+  const kegiatanName = rawKegiatan.trim();
 
   const payload = {
     action: 'addExpense',
@@ -775,7 +947,7 @@ async function handleFormSubmit(e) {
     kategoriLaporan: category,
     namaGrup: groupName,
     namaKegiatan: kegiatanName,
-    items: appState.items,
+    items: itemsArray,
     total: totalExpense,
     saldoSebelum: appState.activeUser.saldo,
     saldoSesudah: appState.activeUser.saldo - totalExpense,
@@ -790,11 +962,9 @@ async function handleFormSubmit(e) {
       body: JSON.stringify(payload)
     });
 
-    // Local state update
     appState.activeUser.saldo -= totalExpense;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
 
-    // Populate Recap Modal
     document.getElementById('recapAccount').textContent = appState.activeUser.name;
     document.getElementById('recapCategory').textContent = category;
     
@@ -807,10 +977,9 @@ async function handleFormSubmit(e) {
 
     document.getElementById('recapKegiatan').textContent = kegiatanName;
 
-    // Populate Detailed Item Breakdown
     const recapItemsList = document.getElementById('recapItemsList');
     recapItemsList.innerHTML = '';
-    appState.items.forEach((it, i) => {
+    itemsArray.forEach((it, i) => {
       const row = document.createElement('div');
       row.className = 'breakdown-item-row';
       row.innerHTML = `
@@ -823,48 +992,32 @@ async function handleFormSubmit(e) {
     document.getElementById('recapTotal').textContent = `- ${formatSAR(totalExpense)}`;
     document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
 
-    // Show Success Full Overlay
     successOverlay.classList.remove('hidden');
 
   } catch (error) {
     console.error('Submit error:', error);
     alert('Terjadi kesalahan saat menyimpan transaksi: ' + error.message);
   } finally {
-    btnSubmitForm.disabled = false;
-    btnSubmitForm.textContent = 'Submit & Catat Pengeluaran';
+    buttonEl.disabled = false;
+    buttonEl.textContent = 'Submit & Catat Pengeluaran';
   }
 }
 
 // Share Receipt Feature
 function handleShareReceipt() {
   const account = appState.activeUser ? appState.activeUser.name : 'Tim Khidmat';
-  const category = kategoriLaporan.value;
-  const group = category === 'Grup Keberangkatan' ? namaGrupInput.value.trim() : '-';
-  const kegiatan = kegiatanInput.value.trim();
   const total = grandTotalDisplay.textContent;
   const dateStr = new Date().toLocaleString('id-ID');
-
-  let itemsSummary = '';
-  appState.items.forEach((it, idx) => {
-    itemsSummary += `${idx + 1}. ${it.kategori}: ${it.qty}x @ ${formatSAR(it.hargaSatuan)} = ${formatSAR(it.jumlah)}\n`;
-  });
 
   const receiptText = `🧾 *BUKTI PENGELUARAN TIM KHIDMAT*\n\n` +
     `👤 *Akun:* ${account}\n` +
     `📅 *Waktu:* ${dateStr}\n` +
-    `📂 *Kategori:* ${category}\n` +
-    (category === 'Grup Keberangkatan' ? `✈️ *Grup:* ${group}\n` : '') +
-    `📌 *Kegiatan:* ${kegiatan}\n\n` +
-    `📝 *Rincian Item:*\n${itemsSummary}\n` +
     `💰 *TOTAL PENGELUARAN:* ${total}\n` +
     `💳 *Sisa Saldo:* ${activeBalanceDisplay.textContent}\n\n` +
     `_Dicatat via Keuangan Tim Khidmat_`;
 
   if (navigator.share) {
-    navigator.share({
-      title: 'Bukti Pengeluaran Tim Khidmat',
-      text: receiptText
-    }).catch(err => console.log('Share notice:', err));
+    navigator.share({ title: 'Bukti Pengeluaran Tim Khidmat', text: receiptText }).catch(err => console.log('Share notice:', err));
   } else {
     navigator.clipboard.writeText(receiptText).then(() => {
       alert('Teks ringkasan bukti transaksi telah disalin ke clipboard! Anda bisa membagikannya via WhatsApp.');
@@ -878,29 +1031,20 @@ function resetForm() {
   namaGrupInput.value = '';
   kegiatanInput.value = '';
   resetItems();
+  resetModalItems();
 }
 
-// Fetch live data from Google Apps Script Web App
+// Fetch Live Data
 async function fetchDataFromSpreadsheet() {
   try {
     const res = await fetch(`${GAS_URL}?action=getData`);
     const data = await res.json();
 
-    if (data.accounts && data.accounts.length > 0) {
-      appState.accounts = data.accounts;
-    }
-    if (data.groups && data.groups.length > 0) {
-      appState.masterGroups = data.groups;
-    }
-    if (data.activities && data.activities.length > 0) {
-      appState.masterActivities = data.activities;
-    }
-    if (data.categories && data.categories.length > 0) {
-      appState.masterCategories = data.categories;
-    }
-    if (data.orders && data.orders.length > 0) {
-      appState.orders = data.orders;
-    }
+    if (data.accounts && data.accounts.length > 0) appState.accounts = data.accounts;
+    if (data.groups && data.groups.length > 0) appState.masterGroups = data.groups;
+    if (data.activities && data.activities.length > 0) appState.masterActivities = data.activities;
+    if (data.categories && data.categories.length > 0) appState.masterCategories = data.categories;
+    if (data.orders && data.orders.length > 0) appState.orders = data.orders;
 
     if (appState.activeUser) {
       const refreshedAcc = appState.accounts.find(a => a.id === appState.activeUser.id);
