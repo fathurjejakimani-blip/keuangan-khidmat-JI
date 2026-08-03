@@ -46,17 +46,19 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding: 24px 16px 80px 16px;
+  align-items: center;
+  padding: 24px 16px;
 }
 
-/* App Container */
+/* App Container - Vertically & Horizontally Centered */
 .app-container {
   width: 100%;
   max-width: 520px;
-  margin: 0 auto;
+  margin: auto;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  min-height: calc(100vh - 48px);
 }
 
 /* Cards Base (White & Subtle Navy Accent) */
@@ -76,20 +78,39 @@ body {
   padding: 16px;
 }
 
-/* Auth / Login Widget */
+/* Auth / Login Widget - Centered */
 .auth-section {
   width: 100%;
   max-width: 420px;
-  margin: 20px auto 0 auto;
+  margin: auto;
 }
 
-.auth-title {
+.text-center {
+  text-align: center;
+}
+
+/* Login Header Title & Subtitle Styling */
+.auth-title-main {
   font-family: var(--font-heading);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--navy-dark);
-  text-align: center;
-  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.auth-subtitle-sub {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy-accent);
+  margin-bottom: 18px;
+}
+
+.font-martel {
+  font-family: 'Martel', serif;
+  font-weight: 700;
+  color: var(--navy-dark);
 }
 
 /* 6-Digit PIN Display & Perfect Circle Keypad */
@@ -808,7 +829,7 @@ body {
   color: var(--navy-dark);
 }
 
-/* Form Controls */
+/* Form Controls - 16px Font Size to Prevent Mobile Auto-Zoom */
 .input-group {
   display: flex;
   flex-direction: column;
@@ -852,7 +873,7 @@ body {
 
 .currency-prefix {
   font-family: var(--font-heading);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--navy-dark);
   margin-right: 8px;
@@ -865,13 +886,18 @@ body {
   pointer-events: none;
 }
 
+/* Mandatory 16px font-size prevents mobile iOS/Android auto-zoom */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
 .input-wrapper input, .select-wrapper select {
   width: 100%;
   padding: 12px 0;
   border: none;
   background: transparent;
   outline: none;
-  font-size: 14px;
+  font-size: 16px !important;
   color: var(--text-main);
   font-weight: 600;
 }
@@ -1015,7 +1041,7 @@ body {
 
 .input-sm input {
   padding: 8px 0 !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
 }
 
 .amount-disabled {
