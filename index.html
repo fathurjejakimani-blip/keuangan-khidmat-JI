@@ -17,7 +17,7 @@
   <!-- App Main Container -->
   <div class="app-container">
 
-    <!-- Auth Section: Clean Login Widget with Searchbar Account & Perfect Circle Keypad -->
+    <!-- Auth Section: Clean Login Widget -->
     <section id="authSection" class="auth-section card-navy">
       <div class="card-header">
         <h2 class="auth-title">Keuangan Tim Khidmat</h2>
@@ -67,17 +67,34 @@
     <!-- Main App Wrapper (Hidden until logged in) -->
     <div id="appFormWrapper" class="hidden">
       
-      <!-- Balance Card -->
+      <!-- Balance & Estimates Card -->
       <section class="balance-card card-navy">
-        <div class="balance-info">
+        <div class="balance-info-group">
           <div class="user-badge">
             <i class="fa-solid fa-user-check"></i>
             <span id="activeAccountName">Tim Khidmat Operasional</span>
+            <span id="activeAccountType" class="account-type-tag">Tim</span>
           </div>
-          <p class="balance-label">Sisa Saldo Kas Tim</p>
-          <h2 id="activeBalanceDisplay" class="balance-amount">SAR 0.00</h2>
+          
+          <div class="balance-metrics">
+            <div class="metric-box">
+              <p class="balance-label">Sisa Saldo Kas Tim</p>
+              <h2 id="activeBalanceDisplay" class="balance-amount">SAR 0.00</h2>
+            </div>
+            
+            <!-- Estimasi Kebutuhan (Khusus Vendor) -->
+            <div id="estimatesBox" class="metric-box estimate-box hidden">
+              <p class="balance-label">Estimasi Kebutuhan</p>
+              <h2 id="estimatesAmountDisplay" class="estimate-amount">SAR 0.00</h2>
+            </div>
+          </div>
         </div>
+
+        <!-- Balance Action Buttons (Icon Only) -->
         <div class="balance-actions">
+          <button id="btnToggleFormView" class="btn-icon-only btn-expense-toggle" title="Form Pengeluaran Tim">
+            <i class="fa-solid fa-receipt"></i>
+          </button>
           <button id="btnOpenTopup" class="btn-icon-only btn-topup" title="Isi Saldo Kas">
             <i class="fa-solid fa-plus"></i>
           </button>
@@ -90,8 +107,28 @@
       <!-- Spacing Divider -->
       <div class="section-spacer"></div>
 
-      <!-- Main Expense Form -->
-      <section class="form-section card-navy">
+      <!-- VENDOR VIEW: Pemesanan Section -->
+      <section id="ordersSection" class="orders-section card-navy hidden">
+        <div class="card-header border-bottom flex-header">
+          <h2>Daftar Pemesanan Vendor</h2>
+        </div>
+
+        <!-- Filter Status Tabs -->
+        <div class="status-filter-tabs">
+          <button type="button" class="tab-btn active" data-status="Semua">Semua</button>
+          <button type="button" class="tab-btn" data-status="Pesanan Baru">Pesanan Baru</button>
+          <button type="button" class="tab-btn" data-status="Proses">Proses</button>
+          <button type="button" class="tab-btn" data-status="Selesai">Selesai</button>
+        </div>
+
+        <!-- Dynamic Orders List -->
+        <div id="ordersContainer" class="orders-container">
+          <!-- Order cards rendered dynamically -->
+        </div>
+      </section>
+
+      <!-- Main Expense Form (Form Pengeluaran Tim) -->
+      <section id="expenseFormSection" class="form-section card-navy">
         <div class="card-header border-bottom">
           <h2>Form Pengeluaran Tim</h2>
         </div>
@@ -105,6 +142,7 @@
               <select id="kategoriLaporan" required>
                 <option value="Grup Keberangkatan">Grup Keberangkatan</option>
                 <option value="Operasional Tim">Operasional Tim</option>
+                <option value="Vendor">Vendor</option>
               </select>
               <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </div>
@@ -211,7 +249,7 @@
     <div id="successOverlay" class="success-overlay hidden">
       <div class="success-card card-navy" id="receiptCardArea">
         
-        <!-- Checklist Animated Icon (No Shadow) -->
+        <!-- Checklist Animated Icon -->
         <div class="checkmark-wrapper">
           <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
             <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
