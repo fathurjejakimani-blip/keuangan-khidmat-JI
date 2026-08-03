@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.0
- * Sheet 'Transaksi', Fix Date Parsing, Ultra-Responsive Keypad, Transfer & Transaction History
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.1
+ * Sheet 'Transaksi', Role-Based FAB Actions, Robust ISO Date Filtering for Orders & PDF
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -174,17 +174,30 @@ function applyUserSessionUI() {
   const isVendor = userRole.toLowerCase() === 'vendor';
 
   if (isVendor) {
+    // VENDOR ROLE:
+    // 1. Show Pemesanan Orders View
+    // 2. FAB Menu: Show 'Cetak PDF', Hide 'Transfer' & 'Riwayat Transaksi'
     estimatesBox.classList.remove('hidden');
     ordersSection.classList.remove('hidden');
     expenseFormSection.classList.add('hidden');
+
     btnOpenPdfModal.classList.remove('hidden');
+    btnOpenTransferModal.classList.add('hidden');
+    btnOpenTxHistoryModal.classList.add('hidden');
+
     calculateVendorEstimates();
     renderOrdersList();
   } else {
+    // TIM ROLE:
+    // 1. Show Form Pengeluaran View
+    // 2. FAB Menu: Show 'Transfer' & 'Riwayat Transaksi', Hide 'Cetak PDF'
     estimatesBox.classList.add('hidden');
     ordersSection.classList.add('hidden');
     expenseFormSection.classList.remove('hidden');
+
     btnOpenPdfModal.classList.add('hidden');
+    btnOpenTransferModal.classList.remove('hidden');
+    btnOpenTxHistoryModal.classList.remove('hidden');
   }
 }
 
@@ -356,7 +369,8 @@ function logoutAccount() {
 
 // Transfer Modal Handling
 function setupTransferModal() {
-  btnOpenTransferModal.addEventListener('click', () => {
+  const openTransferHandler = (e) => {
+    if (e) e.stopPropagation();
     closeFabMenu();
     if (!appState.activeUser) return;
 
@@ -377,7 +391,9 @@ function setupTransferModal() {
     });
 
     transferModal.classList.remove('hidden');
-  });
+  };
+
+  btnOpenTransferModal.addEventListener('click', openTransferHandler);
 
   btnCloseTransferModal.addEventListener('click', () => {
     transferModal.classList.add('hidden');
@@ -453,12 +469,15 @@ async function handleTransferSubmit(e) {
 
 // Transaction History Modal Setup
 function setupTxHistoryModal() {
-  btnOpenTxHistoryModal.addEventListener('click', () => {
+  const openHistoryHandler = (e) => {
+    if (e) e.stopPropagation();
     closeFabMenu();
     if (!appState.activeUser) return;
     renderTxHistoryList();
     txHistoryModal.classList.remove('hidden');
-  });
+  };
+
+  btnOpenTxHistoryModal.addEventListener('click', openHistoryHandler);
 
   btnCloseTxHistoryModal.addEventListener('click', () => {
     txHistoryModal.classList.add('hidden');
@@ -503,7 +522,8 @@ function renderTxHistoryList() {
 
 // PDF Export Modal Setup
 function setupPdfModal() {
-  btnOpenPdfModal.addEventListener('click', () => {
+  btnOpenPdfModal.addEventListener('click', (e) => {
+    if (e) e.stopPropagation();
     closeFabMenu();
     if (!appState.activeUser) return;
 
@@ -526,20 +546,21 @@ function setupPdfModal() {
   });
 }
 
-// Generate Printable PDF Document Function
+// Generate Printable PDF Document Function (Connected to ISO Normalizer)
 function generatePdfDocument() {
   const docType = pdfDocType.value;
-  const startDate = pdfStartDate.value;
-  const endDate = pdfEndDate.value;
+  const startDate = pdfStartDate.value; // YYYY-MM-DD
+  const endDate = pdfEndDate.value;     // YYYY-MM-DD
   const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
   const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
   const generatedDate = new Date().toLocaleString('id-ID');
 
+  // Filter vendor orders by normalized ISO date range!
   const filteredOrders = appState.orders.filter(o => {
     if (o.akun.toLowerCase() !== vendorName.toLowerCase()) return false;
-    const orderDateStr = parseCleanDateString(o.tanggal);
-    if (!orderDateStr) return true;
-    return orderDateStr >= startDate && orderDateStr <= endDate;
+    const orderIsoDate = normalizeDateToISO(o.tanggal);
+    if (!orderIsoDate) return true;
+    return orderIsoDate >= startDate && orderIsoDate <= endDate;
   });
 
   const printWindow = window.open('', '_blank');
@@ -727,7 +748,7 @@ function generatePdfDocument() {
 // Date Filter Setup
 function setupDateFilter() {
   orderDateFilter.addEventListener('change', (e) => {
-    appState.selectedDateFilter = e.target.value;
+    appState.selectedDateFilter = e.target.value; // YYYY-MM-DD
     renderOrdersList();
   });
 
@@ -740,7 +761,8 @@ function setupDateFilter() {
 
 // Event Listeners
 function setupEventListeners() {
-  btnOpenExpenseModal.addEventListener('click', () => {
+  btnOpenExpenseModal.addEventListener('click', (e) => {
+    if (e) e.stopPropagation();
     closeFabMenu();
     resetModalItems();
     const isVendor = appState.activeUser && appState.activeUser.jenisAkun && appState.activeUser.jenisAkun.toLowerCase() === 'vendor';
@@ -753,7 +775,8 @@ function setupEventListeners() {
     expenseModal.classList.add('hidden');
   });
 
-  btnOpenTopup.addEventListener('click', () => {
+  btnOpenTopup.addEventListener('click', (e) => {
+    if (e) e.stopPropagation();
     closeFabMenu();
     if (!appState.activeUser) return;
     topupAccountName.value = appState.activeUser.name;
@@ -790,7 +813,10 @@ function setupEventListeners() {
   btnAddItem.addEventListener('click', () => addItemRow());
   modalBtnAddItem.addEventListener('click', () => addModalItemRow());
 
-  document.getElementById('btnLogout').addEventListener('click', logoutAccount);
+  document.getElementById('btnLogout').addEventListener('click', (e) => {
+    if (e) e.stopPropagation();
+    logoutAccount();
+  });
 
   expenseForm.addEventListener('submit', handleFormSubmit);
   modalExpenseForm.addEventListener('submit', handleModalFormSubmit);
@@ -835,10 +861,11 @@ function renderOrdersList() {
     vendorOrders = vendorOrders.filter(o => o.status === appState.selectedStatusFilter);
   }
 
+  // Filter orders by normalized ISO Date!
   if (appState.selectedDateFilter) {
     vendorOrders = vendorOrders.filter(o => {
-      const orderDateStr = parseCleanDateString(o.tanggal);
-      return orderDateStr === appState.selectedDateFilter;
+      const orderIsoDate = normalizeDateToISO(o.tanggal);
+      return orderIsoDate === appState.selectedDateFilter;
     });
   }
 
@@ -927,29 +954,56 @@ function renderOrdersList() {
   });
 }
 
+// Robust ISO Date Normalizer for Standardized YYYY-MM-DD Comparison
+function normalizeDateToISO(rawDateStr) {
+  if (!rawDateStr) return '';
+  let str = rawDateStr.toString().trim();
+  if (!str) return '';
+
+  // If raw GAS Date object string (e.g. "Tue Aug 04 2026 00:00:00 GMT+0300... Sat Dec 30 1899...")
+  if (str.includes('GMT') || str.includes('1899')) {
+    const match = str.match(/([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{4})/);
+    if (match) {
+      const d = new Date(match[0]);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+      }
+    }
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  if (str.match(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/)) {
+    const parts = str.split('T')[0].split(/[-/]/);
+    const y = parts[0];
+    const m = parts[1].padStart(2, '0');
+    const d = parts[2].padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  if (str.match(/^\d{1,2}[-/]\d{1,2}[-/]\d{4}/)) {
+    const parts = str.split(/[-/]/);
+    const d = parts[0].padStart(2, '0');
+    const m = parts[1].padStart(2, '0');
+    const y = parts[2];
+    return `${y}-${m}-${d}`;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+
+  return str;
+}
+
 // Robust Helper to Parse Raw GAS Date Strings to Clean "04 Agustus 2026 | 07:00"
 function formatSaudiDateTime(dateStr, timeStr) {
   if (!dateStr) return '-';
 
   try {
-    let cleanDateStr = dateStr.toString();
+    const isoDateStr = normalizeDateToISO(dateStr);
     
-    // If dateStr contains raw GAS GMT string (e.g. "Tue Aug 04 2026 00:00:00 GMT+0300... Sat Dec 30 1899...")
-    if (cleanDateStr.includes('GMT') || cleanDateStr.includes('1899')) {
-      const matchDate = cleanDateStr.match(/([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{2}\s+\d{4})/);
-      if (matchDate) {
-        const d = new Date(matchDate[0]);
-        if (!isNaN(d.getTime())) {
-          cleanDateStr = d.toISOString().split('T')[0];
-        }
-      }
-      
-      const matchTime = cleanDateStr.match(/(\d{2}:\d{2}:\d{2})/);
-      if (matchTime && (!timeStr || timeStr.includes('1899') || timeStr.includes('GMT'))) {
-        timeStr = matchTime[0].substring(0, 5);
-      }
-    }
-
     // Clean timeStr if it contains 1899 or GMT
     let cleanTime = '07:00';
     if (timeStr && !timeStr.includes('1899') && !timeStr.includes('GMT')) {
@@ -957,59 +1011,25 @@ function formatSaudiDateTime(dateStr, timeStr) {
       if (tMatch) cleanTime = tMatch[0].padStart(5, '0');
     }
 
-    // Parse YYYY-MM-DD or DD/MM/YYYY
-    let year = 2026, monthIdx = 7, day = 4;
-    if (cleanDateStr.includes('-')) {
-      const parts = cleanDateStr.split('T')[0].split('-');
+    if (isoDateStr.includes('-')) {
+      const parts = isoDateStr.split('-');
       if (parts.length === 3) {
-        year = parseInt(parts[0], 10);
-        monthIdx = parseInt(parts[1], 10) - 1;
-        day = parseInt(parts[2], 10);
-      }
-    } else if (cleanDateStr.includes('/')) {
-      const parts = cleanDateStr.split('/');
-      if (parts.length === 3) {
-        day = parseInt(parts[0], 10);
-        monthIdx = parseInt(parts[1], 10) - 1;
-        year = parseInt(parts[2], 10);
-      }
-    } else {
-      const parsedDate = new Date(cleanDateStr);
-      if (!isNaN(parsedDate.getTime())) {
-        year = parsedDate.getFullYear();
-        monthIdx = parsedDate.getMonth();
-        day = parsedDate.getDate();
+        const year = parseInt(parts[0], 10);
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+
+        const monthNamesIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const mName = monthNamesIndo[monthIdx] || 'Agustus';
+        const dayPadded = String(day).padStart(2, '0');
+
+        return `${dayPadded} ${mName} ${year} | ${cleanTime}`;
       }
     }
-
-    const months = ['Agustus', 'Agustus', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const monthNamesIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const mName = monthNamesIndo[monthIdx] || 'Agustus';
-    const dayPadded = String(day).padStart(2, '0');
-
-    return `${dayPadded} ${mName} ${year} | ${cleanTime}`;
 
   } catch (e) {
     console.log('Date parse notice:', e);
   }
   return `${dateStr} | ${timeStr || '07:00'}`;
-}
-
-// Helper to get YYYY-MM-DD for Date Inputs Comparison
-function parseCleanDateString(dateStr) {
-  if (!dateStr) return '';
-  try {
-    let clean = dateStr.toString();
-    if (clean.includes('GMT') || clean.includes('1899')) {
-      const matchDate = clean.match(/([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{2}\s+\d{4})/);
-      if (matchDate) {
-        const d = new Date(matchDate[0]);
-        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-      }
-    }
-    if (clean.includes('-')) return clean.split('T')[0];
-  } catch (e) {}
-  return dateStr;
 }
 
 window.handleShareCompletedOrder = function(orderId) {
