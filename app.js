@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.4
- * Fixed Vendor Multi-Item Alignment (Harga & QTY), PDF Subtitle Martel Font, Incoming Transfers & Type Filter Tabs
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.5
+ * Scrollable Vendor Data Container, Iconless Action Buttons, Exact Wording Confirmation Alerts & Reverse Chronological Transaction History
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -479,7 +479,7 @@ async function handleTransferSubmit(e) {
   }
 }
 
-// RIWAYAT TRANSAKSI KAS - FULL PAGE SECTION LOGIC WITH TYPE FILTER TABS & INCOMING TRANSFERS
+// RIWAYAT TRANSAKSI KAS - FULL PAGE SECTION LOGIC WITH REVERSE CHRONOLOGICAL SORTING
 function setupTxHistorySection() {
   btnOpenTxHistoryModal.addEventListener('click', (e) => {
     if (e) e.stopPropagation();
@@ -619,6 +619,9 @@ function renderGroupedTxHistory() {
     return;
   }
 
+  // REVERSE CHRONOLOGICAL SORTING: Newest transactions at the top!
+  filteredTxs.reverse();
+
   // SINGLE GROUP PER DATE: Group all transactions by ISO Date String
   const groupsByDate = {};
   filteredTxs.forEach(t => {
@@ -632,7 +635,7 @@ function renderGroupedTxHistory() {
     groupsByDate[isoDate].items.push(t);
   });
 
-  // Sort dates descending
+  // Sort dates descending (Newest dates first)
   const sortedDateKeys = Object.keys(groupsByDate).sort().reverse();
 
   sortedDateKeys.forEach(dateKey => {
@@ -1039,11 +1042,12 @@ function renderOrdersList() {
     if (order.status === 'Proses') statusClass = 'proses';
     if (order.status === 'Selesai') statusClass = 'selesai';
 
+    // REMOVED ICONS FROM ACTION BUTTONS ACCORDING TO USER DIRECTIVE
     let actionBtnHtml = '';
     if (order.status === 'Pesanan Baru') {
-      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Proses')"><i class="fa-solid fa-check-circle"></i> Konfirmasi Pemesanan</button>`;
+      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Proses')">Konfirmasi Pemesanan</button>`;
     } else if (order.status === 'Proses') {
-      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-complete-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')"><i class="fa-solid fa-flag-checkered"></i> Selesaikan Pemesanan</button>`;
+      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-complete-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')">Selesaikan Pemesanan</button>`;
     } else {
       actionBtnHtml = `
         <span style="font-size: 12px; font-weight: 700; color: #047857;"><i class="fa-solid fa-circle-check"></i> Selesai</span>
@@ -1304,10 +1308,11 @@ window.handleShareCompletedOrder = function(orderId) {
   }
 };
 
+// UPDATED STATUS CONFIRMATION ALERTS WORDING ACCORDING TO USER DIRECTIVES
 window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   const confirmMsg = newStatus === 'Selesai' 
-    ? 'Menyelesaikan pemesanan akan otomatis mencatat pengeluaran di Sheet Transaksi dan memotong saldo akun Anda. Lanjutkan?'
-    : 'Konfirmasi pemesanan ini dan ubah status menjadi Proses?';
+    ? "Mengonfirmasi pesanan ini akan otomatis memotong saldo akun Anda. Lanjutkan?"
+    : "Konfirmasi pemesanan ini untuk mengubah status menjadi 'Proses'?";
 
   if (!confirm(confirmMsg)) return;
 
