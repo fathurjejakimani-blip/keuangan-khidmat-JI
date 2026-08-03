@@ -190,6 +190,36 @@
           </button>
         </form>
       </section>
+
+      <!-- TIM VIEW: FULL PAGE SECTION - RIWAYAT TRANSAKSI KAS (Bukan Popup Modal!) -->
+      <section id="txHistorySection" class="tx-history-section card-navy hidden">
+        <div class="card-header border-bottom flex-header-back">
+          <button type="button" id="btnBackFromHistory" class="btn-back-header">
+            <i class="fa-solid fa-arrow-left"></i> Kembali
+          </button>
+          <h2>Riwayat Transaksi Kas</h2>
+        </div>
+
+        <!-- Searchbar & Date Filter Controls -->
+        <div class="history-controls-bar">
+          <div class="input-wrapper navy-input flex-grow">
+            <i class="fa-solid fa-magnifying-glass input-icon"></i>
+            <input type="text" id="txSearchInput" placeholder="Cari transaksi / keterangan / akun..." autocomplete="off">
+          </div>
+
+          <div class="date-filter-wrapper">
+            <i class="fa-solid fa-calendar-days filter-icon"></i>
+            <input type="date" id="txDateFilter" title="Filter Tanggal Transaksi">
+            <button type="button" id="btnClearTxDateFilter" class="btn-clear-date" title="Reset Tanggal">&times;</button>
+          </div>
+        </div>
+
+        <!-- Grouped Transaction Container -->
+        <div id="txHistoryContainer" class="tx-history-grouped-container">
+          <!-- Transaction cards grouped by Date rendered dynamically -->
+        </div>
+      </section>
+
     </div>
 
     <!-- FLOATING ACTION BUTTON (FAB) MENU MENGAMBANG UNTUK SEMUA TOMBOL AKSI -->
@@ -294,23 +324,6 @@
             </button>
           </div>
         </form>
-      </div>
-    </div>
-
-    <!-- POPUP MODAL: Riwayat Transaksi -->
-    <div id="txHistoryModal" class="modal-backdrop hidden">
-      <div class="modal-card card-navy modal-lg">
-        <div class="modal-header">
-          <h3><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Transaksi Kas</h3>
-          <button id="btnCloseTxHistoryModal" class="btn-close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="tx-history-container">
-            <div id="txHistoryList" class="tx-history-list">
-              <!-- Rendered dynamically -->
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
