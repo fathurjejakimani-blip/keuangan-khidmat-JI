@@ -89,6 +89,15 @@ body {
   text-align: center;
 }
 
+/* Logo Image in Login Header */
+.auth-logo {
+  width: 72px;
+  height: auto;
+  margin: 0 auto 12px auto;
+  display: block;
+  object-fit: contain;
+}
+
 /* Login Header Title & Subtitle Styling */
 .auth-title-main {
   font-family: var(--font-heading);
@@ -111,6 +120,12 @@ body {
   font-family: 'Martel', serif;
   font-weight: 700;
   color: var(--navy-dark);
+}
+
+/* Saudi Arabia Black Color */
+.text-black {
+  color: #0f172a !important;
+  font-weight: 700;
 }
 
 /* 6-Digit PIN Display & Perfect Circle Keypad */
