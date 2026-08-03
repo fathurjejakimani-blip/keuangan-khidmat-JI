@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.1
- * Sheet 'Transaksi', Role-Based FAB Actions, Robust ISO Date Filtering for Orders & PDF
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.2
+ * Full Page Riwayat Transaksi with Search & Date Filter, Bulletproof Indonesian Month ISO Normalizer for Vendor Orders & PDF
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -18,6 +18,8 @@ const appState = {
   transactions: [],
   selectedStatusFilter: 'Semua',
   selectedDateFilter: '',
+  txSearchQuery: '',
+  txDateFilterVal: '',
   items: [],
   modalItems: []
 };
@@ -61,11 +63,14 @@ const transferCurrentBalanceDisplay = document.getElementById('transferCurrentBa
 const transferNoteInput = document.getElementById('transferNoteInput');
 const btnSubmitTransfer = document.getElementById('btnSubmitTransfer');
 
-// Transaction History Modal Elements
+// Transaction History Full Page Section Elements
 const btnOpenTxHistoryModal = document.getElementById('btnOpenTxHistoryModal');
-const txHistoryModal = document.getElementById('txHistoryModal');
-const btnCloseTxHistoryModal = document.getElementById('btnCloseTxHistoryModal');
-const txHistoryList = document.getElementById('txHistoryList');
+const txHistorySection = document.getElementById('txHistorySection');
+const btnBackFromHistory = document.getElementById('btnBackFromHistory');
+const txSearchInput = document.getElementById('txSearchInput');
+const txDateFilter = document.getElementById('txDateFilter');
+const btnClearTxDateFilter = document.getElementById('btnClearTxDateFilter');
+const txHistoryContainer = document.getElementById('txHistoryContainer');
 
 const btnOpenExpenseModal = document.getElementById('btnOpenExpenseModal');
 const expenseModal = document.getElementById('expenseModal');
@@ -129,7 +134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupDateFilter();
   setupPdfModal();
   setupTransferModal();
-  setupTxHistoryModal();
+  setupTxHistorySection();
   setupFabMenu();
   resetItems();
   resetModalItems();
@@ -170,13 +175,11 @@ function applyUserSessionUI() {
   authSection.classList.add('hidden');
   appFormWrapper.classList.remove('hidden');
   fabContainer.classList.remove('hidden');
+  txHistorySection.classList.add('hidden'); // Ensure history is hidden on landing
 
   const isVendor = userRole.toLowerCase() === 'vendor';
 
   if (isVendor) {
-    // VENDOR ROLE:
-    // 1. Show Pemesanan Orders View
-    // 2. FAB Menu: Show 'Cetak PDF', Hide 'Transfer' & 'Riwayat Transaksi'
     estimatesBox.classList.remove('hidden');
     ordersSection.classList.remove('hidden');
     expenseFormSection.classList.add('hidden');
@@ -188,9 +191,6 @@ function applyUserSessionUI() {
     calculateVendorEstimates();
     renderOrdersList();
   } else {
-    // TIM ROLE:
-    // 1. Show Form Pengeluaran View
-    // 2. FAB Menu: Show 'Transfer' & 'Riwayat Transaksi', Hide 'Cetak PDF'
     estimatesBox.classList.add('hidden');
     ordersSection.classList.add('hidden');
     expenseFormSection.classList.remove('hidden');
@@ -280,7 +280,7 @@ function renderAccountSuggestions(accList) {
   accountSuggestions.classList.remove('hidden');
 }
 
-// Ultra Responsive 6-Digit Keypad with Instant Pointer Event Handling
+// Ultra Responsive Keypad
 function setupResponsiveKeypad() {
   const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
   const btnBackspace = document.getElementById('btnKeypadBackspace');
@@ -329,7 +329,6 @@ function updatePinDots() {
   });
 }
 
-// Auto Login Verification & Persist Session
 function verifyAndLoginAuto() {
   if (!appState.selectedAccount) {
     const match = appState.accounts.find(a => a.name.toLowerCase() === accountSearchInput.value.trim().toLowerCase());
@@ -379,7 +378,6 @@ function setupTransferModal() {
     transferNoteInput.value = '';
     transferCurrentBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
 
-    // Populate Receiver Select Dropdown
     transferReceiverSelect.innerHTML = '<option value="">-- Pilih Akun Penerima --</option>';
     appState.accounts.forEach(acc => {
       if (acc.name.toLowerCase() !== appState.activeUser.name.toLowerCase()) {
@@ -449,12 +447,13 @@ async function handleTransferSubmit(e) {
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
     localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
 
-    // Update receiver balance locally
     const receiverAcc = appState.accounts.find(a => a.name.toLowerCase() === receiverName.toLowerCase());
     if (receiverAcc) receiverAcc.saldo += amount;
 
     transferModal.classList.add('hidden');
-    alert(`Transfer Berhasil!\n\nNominal ${formatSAR(amount)} telah dikirim ke ${receiverName}. Saldo Anda sekarang: ${formatSAR(appState.activeUser.saldo)}.`);
+    
+    // Clear Feedback Alert requested by User
+    alert(`Transfer Berhasil!\nNominal ${formatSAR(amount)} telah dikirim ke ${receiverName}.`);
 
     fetchDataFromSpreadsheet(); // Refresh live data
 
@@ -467,56 +466,159 @@ async function handleTransferSubmit(e) {
   }
 }
 
-// Transaction History Modal Setup
-function setupTxHistoryModal() {
-  const openHistoryHandler = (e) => {
+// RIWAYAT TRANSAKSI KAS - FULL PAGE SECTION LOGIC
+function setupTxHistorySection() {
+  btnOpenTxHistoryModal.addEventListener('click', (e) => {
     if (e) e.stopPropagation();
     closeFabMenu();
     if (!appState.activeUser) return;
-    renderTxHistoryList();
-    txHistoryModal.classList.remove('hidden');
-  };
 
-  btnOpenTxHistoryModal.addEventListener('click', openHistoryHandler);
+    // Show full history page, hide main form & orders
+    expenseFormSection.classList.add('hidden');
+    ordersSection.classList.add('hidden');
+    txHistorySection.classList.remove('hidden');
 
-  btnCloseTxHistoryModal.addEventListener('click', () => {
-    txHistoryModal.classList.add('hidden');
+    txSearchInput.value = '';
+    txDateFilter.value = '';
+    appState.txSearchQuery = '';
+    appState.txDateFilterVal = '';
+
+    renderGroupedTxHistory();
+  });
+
+  btnBackFromHistory.addEventListener('click', () => {
+    txHistorySection.classList.add('hidden');
+    applyUserSessionUI(); // Restore main view
+  });
+
+  txSearchInput.addEventListener('input', (e) => {
+    appState.txSearchQuery = e.target.value.toLowerCase().trim();
+    renderGroupedTxHistory();
+  });
+
+  txDateFilter.addEventListener('change', (e) => {
+    appState.txDateFilterVal = e.target.value; // YYYY-MM-DD
+    renderGroupedTxHistory();
+  });
+
+  btnClearTxDateFilter.addEventListener('click', () => {
+    txDateFilter.value = '';
+    appState.txDateFilterVal = '';
+    renderGroupedTxHistory();
   });
 }
 
-function renderTxHistoryList() {
-  txHistoryList.innerHTML = '';
+function renderGroupedTxHistory() {
+  txHistoryContainer.innerHTML = '';
 
   const activeName = appState.activeUser ? appState.activeUser.name.toLowerCase() : '';
-  const myTxs = appState.transactions.filter(t => t.akun.toLowerCase() === activeName);
+  
+  // Filter transactions for current account (Income, Expense, Transfer In/Out)
+  let myTxs = appState.transactions.filter(t => {
+    const accMatch = t.akun.toLowerCase() === activeName || (t.rincian && t.rincian.toLowerCase().includes(activeName));
+    if (!accMatch) return false;
+
+    // Search query filter
+    if (appState.txSearchQuery) {
+      const q = appState.txSearchQuery;
+      const matchText = `${t.kegiatan} ${t.kategori} ${t.rincian} ${t.akun}`.toLowerCase();
+      if (!matchText.includes(q)) return false;
+    }
+
+    // Date filter
+    if (appState.txDateFilterVal) {
+      const txIsoDate = normalizeDateToISO(t.waktu);
+      if (txIsoDate !== appState.txDateFilterVal) return false;
+    }
+
+    return true;
+  });
 
   if (myTxs.length === 0) {
-    txHistoryList.innerHTML = `
-      <div style="text-align: center; padding: 30px; color: #64748b; font-size: 13px;">
-        <i class="fa-solid fa-receipt" style="font-size: 28px; margin-bottom: 8px; display: block;"></i>
-        Belum ada riwayat transaksi kas untuk akun ini.
+    txHistoryContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: #64748b; font-size: 13px;">
+        <i class="fa-solid fa-receipt" style="font-size: 32px; margin-bottom: 10px; display: block; color: #cbd5e1;"></i>
+        Tidak ada data riwayat transaksi kas yang ditemukan.
       </div>
     `;
     return;
   }
 
-  // Render reverse chronological
-  myTxs.reverse().forEach(tx => {
-    const isIncome = tx.kategori === 'Isi Saldo' || tx.kategori === 'Kas Masuk';
-    const amountSign = isIncome ? '+' : '-';
-    const amountClass = isIncome ? 'income' : 'expense';
+  // Group transactions by Date Header
+  const groupsByDate = {};
+  myTxs.forEach(t => {
+    const isoDate = normalizeDateToISO(t.waktu);
+    const displayDate = formatSaudiDateOnly(t.waktu);
+    if (!groupsByDate[isoDate]) {
+      groupsByDate[isoDate] = {
+        title: displayDate,
+        items: []
+      };
+    }
+    groupsByDate[isoDate].items.push(t);
+  });
 
-    const div = document.createElement('div');
-    div.className = 'tx-card';
-    div.innerHTML = `
-      <div class="tx-card-info">
-        <div class="tx-title">${tx.kegiatan || tx.kategori}</div>
-        <div class="tx-meta">${tx.waktu} • <small style="color:#1e3a8a; font-weight:700;">${tx.kategori}</small></div>
-        ${tx.rincian ? `<div style="font-size: 11px; color: #64748b; font-style: italic;">"${tx.rincian}"</div>` : ''}
-      </div>
-      <div class="tx-amount ${amountClass}">${amountSign} ${formatSAR(tx.total)}</div>
-    `;
-    txHistoryList.appendChild(div);
+  // Sort dates descending
+  const sortedDateKeys = Object.keys(groupsByDate).sort().reverse();
+
+  sortedDateKeys.forEach(dateKey => {
+    const group = groupsByDate[dateKey];
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'tx-date-group';
+
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'tx-date-group-header';
+    groupHeader.innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${group.title}`;
+    groupDiv.appendChild(groupHeader);
+
+    const itemsWrapper = document.createElement('div');
+    itemsWrapper.className = 'tx-group-items';
+
+    group.items.forEach(t => {
+      // Categorize transaction type (Uang Masuk, Uang Keluar, Transfer)
+      let txTypeLabel = 'Uang Keluar';
+      let txBadgeClass = 'badge-tx-out';
+      let isIncome = false;
+
+      if (t.kategori === 'Isi Saldo' || t.kategori === 'Kas Masuk') {
+        txTypeLabel = 'Uang Masuk';
+        txBadgeClass = 'badge-tx-in';
+        isIncome = true;
+      } else if (t.kategori === 'Transfer') {
+        if (t.akun.toLowerCase() === activeName) {
+          txTypeLabel = 'Transfer';
+          txBadgeClass = 'badge-tx-trf';
+          isIncome = false;
+        } else {
+          txTypeLabel = 'Uang Masuk (Transfer)';
+          txBadgeClass = 'badge-tx-in';
+          isIncome = true;
+        }
+      }
+
+      const amountSign = isIncome ? '+' : '-';
+      const amountClass = isIncome ? 'income' : 'expense';
+
+      const card = document.createElement('div');
+      card.className = 'tx-card';
+
+      card.innerHTML = `
+        <div class="tx-card-left">
+          <div class="tx-badge-row">
+            <span class="badge-tx-type ${txBadgeClass}">${txTypeLabel}</span>
+            <span class="tx-meta">${t.waktu}</span>
+          </div>
+          <div class="tx-title">${t.kegiatan || t.kategori}</div>
+          ${t.rincian ? `<div class="tx-keterangan">${t.rincian}</div>` : ''}
+        </div>
+        <div class="tx-amount ${amountClass}">${amountSign} ${formatSAR(t.total)}</div>
+      `;
+
+      itemsWrapper.appendChild(card);
+    });
+
+    groupDiv.appendChild(itemsWrapper);
+    txHistoryContainer.appendChild(groupDiv);
   });
 }
 
@@ -954,11 +1056,37 @@ function renderOrdersList() {
   });
 }
 
-// Robust ISO Date Normalizer for Standardized YYYY-MM-DD Comparison
+// BULLETPROOF ISO Date Normalizer (Handles Indonesian Month Names like "Agustus", "Januari", etc.)
 function normalizeDateToISO(rawDateStr) {
   if (!rawDateStr) return '';
   let str = rawDateStr.toString().trim();
   if (!str) return '';
+
+  const indoMonths = {
+    'januari': '01', 'jan': '01',
+    'februari': '02', 'feb': '02',
+    'maret': '03', 'mar': '03',
+    'april': '04', 'apr': '04',
+    'mei': '05',
+    'juni': '06', 'jun': '06',
+    'juli': '07', 'jul': '07',
+    'agustus': '08', 'agu': '08', 'aug': '08', 'august': '08',
+    'september': '09', 'sep': '09',
+    'oktober': '10', 'okt': '10', 'oct': '10',
+    'november': '11', 'nov': '11',
+    'desember': '12', 'des': '12', 'dec': '12'
+  };
+
+  // Match Indonesian / Written Month Format: "04 Agustus 2026" or "04 Aug 2026"
+  const matchIndoStr = str.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+  if (matchIndoStr) {
+    const day = matchIndoStr[1].padStart(2, '0');
+    const monthKey = matchIndoStr[2].toLowerCase();
+    const year = matchIndoStr[3];
+    if (indoMonths[monthKey]) {
+      return `${year}-${indoMonths[monthKey]}-${day}`;
+    }
+  }
 
   // If raw GAS Date object string (e.g. "Tue Aug 04 2026 00:00:00 GMT+0300... Sat Dec 30 1899...")
   if (str.includes('GMT') || str.includes('1899')) {
@@ -995,6 +1123,23 @@ function normalizeDateToISO(rawDateStr) {
   }
 
   return str;
+}
+
+// Format Saudi Date Only (e.g. "04 Agustus 2026")
+function formatSaudiDateOnly(rawDateStr) {
+  const isoStr = normalizeDateToISO(rawDateStr);
+  if (isoStr && isoStr.includes('-')) {
+    const parts = isoStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const monthNamesIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const mName = monthNamesIndo[monthIdx] || 'Agustus';
+      return `${String(day).padStart(2, '0')} ${mName} ${year}`;
+    }
+  }
+  return rawDateStr || '-';
 }
 
 // Robust Helper to Parse Raw GAS Date Strings to Clean "04 Agustus 2026 | 07:00"
