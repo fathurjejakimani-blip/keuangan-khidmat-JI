@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v4.3
- * Session Persistence, Floating Action Button (FAB), and Saudi Time Formatting
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.0
+ * Sheet 'Transaksi', Fix Date Parsing, Ultra-Responsive Keypad, Transfer & Transaction History
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -15,6 +15,7 @@ const appState = {
   masterActivities: [],
   masterCategories: [],
   orders: [],
+  transactions: [],
   selectedStatusFilter: 'Semua',
   selectedDateFilter: '',
   items: [],
@@ -47,6 +48,24 @@ const pdfForm = document.getElementById('pdfForm');
 const pdfDocType = document.getElementById('pdfDocType');
 const pdfStartDate = document.getElementById('pdfStartDate');
 const pdfEndDate = document.getElementById('pdfEndDate');
+
+// Transfer Modal Elements
+const btnOpenTransferModal = document.getElementById('btnOpenTransferModal');
+const transferModal = document.getElementById('transferModal');
+const btnCloseTransferModal = document.getElementById('btnCloseTransferModal');
+const transferForm = document.getElementById('transferForm');
+const transferTujuanInput = document.getElementById('transferTujuanInput');
+const transferReceiverSelect = document.getElementById('transferReceiverSelect');
+const transferAmountInput = document.getElementById('transferAmountInput');
+const transferCurrentBalanceDisplay = document.getElementById('transferCurrentBalanceDisplay');
+const transferNoteInput = document.getElementById('transferNoteInput');
+const btnSubmitTransfer = document.getElementById('btnSubmitTransfer');
+
+// Transaction History Modal Elements
+const btnOpenTxHistoryModal = document.getElementById('btnOpenTxHistoryModal');
+const txHistoryModal = document.getElementById('txHistoryModal');
+const btnCloseTxHistoryModal = document.getElementById('btnCloseTxHistoryModal');
+const txHistoryList = document.getElementById('txHistoryList');
 
 const btnOpenExpenseModal = document.getElementById('btnOpenExpenseModal');
 const expenseModal = document.getElementById('expenseModal');
@@ -103,12 +122,14 @@ const btnSubmitTopup = document.getElementById('btnSubmitTopup');
 document.addEventListener('DOMContentLoaded', async () => {
   setupAccountSearchbar();
   setupEventListeners();
-  setupKeypad();
+  setupResponsiveKeypad();
   setupFormAutocomplete();
   setupModalAutocomplete();
   setupStatusFilterTabs();
   setupDateFilter();
   setupPdfModal();
+  setupTransferModal();
+  setupTxHistoryModal();
   setupFabMenu();
   resetItems();
   resetModalItems();
@@ -246,30 +267,42 @@ function renderAccountSuggestions(accList) {
   accountSuggestions.classList.remove('hidden');
 }
 
-// 6-Digit Keypad & Auto Login
-function setupKeypad() {
+// Ultra Responsive 6-Digit Keypad with Instant Pointer Event Handling
+function setupResponsiveKeypad() {
   const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
   const btnBackspace = document.getElementById('btnKeypadBackspace');
 
   keypadBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
+    const handleKeyPress = (e) => {
+      e.preventDefault();
+      btn.classList.add('pressed');
+      setTimeout(() => btn.classList.remove('pressed'), 120);
+
       if (appState.enteredPin.length < 6) {
         appState.enteredPin += btn.dataset.val;
         updatePinDots();
 
         if (appState.enteredPin.length === 6) {
-          setTimeout(verifyAndLoginAuto, 150);
+          setTimeout(verifyAndLoginAuto, 50);
         }
       }
-    });
+    };
+
+    btn.addEventListener('pointerdown', handleKeyPress);
   });
 
-  btnBackspace.addEventListener('click', () => {
+  const handleBackspace = (e) => {
+    e.preventDefault();
+    btnBackspace.classList.add('pressed');
+    setTimeout(() => btnBackspace.classList.remove('pressed'), 120);
+
     if (appState.enteredPin.length > 0) {
       appState.enteredPin = appState.enteredPin.slice(0, -1);
       updatePinDots();
     }
-  });
+  };
+
+  btnBackspace.addEventListener('pointerdown', handleBackspace);
 }
 
 function updatePinDots() {
@@ -321,6 +354,153 @@ function logoutAccount() {
   authSection.classList.remove('hidden');
 }
 
+// Transfer Modal Handling
+function setupTransferModal() {
+  btnOpenTransferModal.addEventListener('click', () => {
+    closeFabMenu();
+    if (!appState.activeUser) return;
+
+    transferTujuanInput.value = '';
+    transferAmountInput.value = '';
+    transferNoteInput.value = '';
+    transferCurrentBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+
+    // Populate Receiver Select Dropdown
+    transferReceiverSelect.innerHTML = '<option value="">-- Pilih Akun Penerima --</option>';
+    appState.accounts.forEach(acc => {
+      if (acc.name.toLowerCase() !== appState.activeUser.name.toLowerCase()) {
+        const opt = document.createElement('option');
+        opt.value = acc.name;
+        opt.textContent = `${acc.name} (${acc.jenisAkun || 'Tim'})`;
+        transferReceiverSelect.appendChild(opt);
+      }
+    });
+
+    transferModal.classList.remove('hidden');
+  });
+
+  btnCloseTransferModal.addEventListener('click', () => {
+    transferModal.classList.add('hidden');
+  });
+
+  transferForm.addEventListener('submit', handleTransferSubmit);
+}
+
+async function handleTransferSubmit(e) {
+  e.preventDefault();
+
+  const receiverName = transferReceiverSelect.value;
+  const amount = parseFloat(transferAmountInput.value);
+  const purpose = transferTujuanInput.value.trim();
+  const note = transferNoteInput.value.trim();
+
+  if (!receiverName) {
+    alert('Pilih akun penerima transfer.');
+    return;
+  }
+
+  if (isNaN(amount) || amount <= 0) {
+    alert('Masukkan nominal transfer yang valid.');
+    return;
+  }
+
+  if (appState.activeUser.saldo < amount) {
+    alert(`Saldo kas Anda (${formatSAR(appState.activeUser.saldo)}) tidak mencukupi untuk transfer sebesar ${formatSAR(amount)}.`);
+    return;
+  }
+
+  btnSubmitTransfer.disabled = true;
+  btnSubmitTransfer.textContent = 'Memproses Transfer...';
+
+  const payload = {
+    action: 'transferBalance',
+    senderAccount: appState.activeUser.name,
+    receiverAccount: receiverName,
+    amount: amount,
+    tujuan: purpose,
+    catatan: note
+  };
+
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    appState.activeUser.saldo -= amount;
+    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
+
+    // Update receiver balance locally
+    const receiverAcc = appState.accounts.find(a => a.name.toLowerCase() === receiverName.toLowerCase());
+    if (receiverAcc) receiverAcc.saldo += amount;
+
+    transferModal.classList.add('hidden');
+    alert(`Transfer Berhasil!\n\nNominal ${formatSAR(amount)} telah dikirim ke ${receiverName}. Saldo Anda sekarang: ${formatSAR(appState.activeUser.saldo)}.`);
+
+    fetchDataFromSpreadsheet(); // Refresh live data
+
+  } catch (err) {
+    console.error('Transfer error:', err);
+    alert('Terjadi kesalahan saat memproses transfer: ' + err.message);
+  } finally {
+    btnSubmitTransfer.disabled = false;
+    btnSubmitTransfer.textContent = 'Kirim Transfer Sekarang';
+  }
+}
+
+// Transaction History Modal Setup
+function setupTxHistoryModal() {
+  btnOpenTxHistoryModal.addEventListener('click', () => {
+    closeFabMenu();
+    if (!appState.activeUser) return;
+    renderTxHistoryList();
+    txHistoryModal.classList.remove('hidden');
+  });
+
+  btnCloseTxHistoryModal.addEventListener('click', () => {
+    txHistoryModal.classList.add('hidden');
+  });
+}
+
+function renderTxHistoryList() {
+  txHistoryList.innerHTML = '';
+
+  const activeName = appState.activeUser ? appState.activeUser.name.toLowerCase() : '';
+  const myTxs = appState.transactions.filter(t => t.akun.toLowerCase() === activeName);
+
+  if (myTxs.length === 0) {
+    txHistoryList.innerHTML = `
+      <div style="text-align: center; padding: 30px; color: #64748b; font-size: 13px;">
+        <i class="fa-solid fa-receipt" style="font-size: 28px; margin-bottom: 8px; display: block;"></i>
+        Belum ada riwayat transaksi kas untuk akun ini.
+      </div>
+    `;
+    return;
+  }
+
+  // Render reverse chronological
+  myTxs.reverse().forEach(tx => {
+    const isIncome = tx.kategori === 'Isi Saldo' || tx.kategori === 'Kas Masuk';
+    const amountSign = isIncome ? '+' : '-';
+    const amountClass = isIncome ? 'income' : 'expense';
+
+    const div = document.createElement('div');
+    div.className = 'tx-card';
+    div.innerHTML = `
+      <div class="tx-card-info">
+        <div class="tx-title">${tx.kegiatan || tx.kategori}</div>
+        <div class="tx-meta">${tx.waktu} • <small style="color:#1e3a8a; font-weight:700;">${tx.kategori}</small></div>
+        ${tx.rincian ? `<div style="font-size: 11px; color: #64748b; font-style: italic;">"${tx.rincian}"</div>` : ''}
+      </div>
+      <div class="tx-amount ${amountClass}">${amountSign} ${formatSAR(tx.total)}</div>
+    `;
+    txHistoryList.appendChild(div);
+  });
+}
+
 // PDF Export Modal Setup
 function setupPdfModal() {
   btnOpenPdfModal.addEventListener('click', () => {
@@ -357,8 +537,9 @@ function generatePdfDocument() {
 
   const filteredOrders = appState.orders.filter(o => {
     if (o.akun.toLowerCase() !== vendorName.toLowerCase()) return false;
-    if (!o.tanggal) return true;
-    return o.tanggal >= startDate && o.tanggal <= endDate;
+    const orderDateStr = parseCleanDateString(o.tanggal);
+    if (!orderDateStr) return true;
+    return orderDateStr >= startDate && orderDateStr <= endDate;
   });
 
   const printWindow = window.open('', '_blank');
@@ -373,10 +554,11 @@ function generatePdfDocument() {
     let grandTotalOrders = 0;
     const rowsHtml = filteredOrders.map((o, idx) => {
       grandTotalOrders += o.jumlah || 0;
+      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td><strong>${o.id}</strong><br><small>${formatSaudiDateTime(o.tanggal, o.jam)}</small></td>
+          <td><strong>${o.id}</strong><br><small>${cleanTime}</small></td>
           <td>${o.grup}</td>
           <td><strong>${o.tujuan}</strong><br><small>Muthowwif: ${o.muthowwif}</small></td>
           <td>${o.lokasi}</td>
@@ -419,10 +601,11 @@ function generatePdfDocument() {
     
     const rowsHtml = completedOrders.map((o, idx) => {
       totalUangKeluar += o.jumlah || 0;
+      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${formatSaudiDateTime(o.tanggal, o.jam)}</td>
+          <td>${cleanTime}</td>
           <td><strong>${o.id}</strong> - ${o.tujuan} (${o.grup})</td>
           <td>Vendor / Selesai</td>
           <td style="text-align:right;">-</td>
@@ -653,7 +836,10 @@ function renderOrdersList() {
   }
 
   if (appState.selectedDateFilter) {
-    vendorOrders = vendorOrders.filter(o => o.tanggal === appState.selectedDateFilter);
+    vendorOrders = vendorOrders.filter(o => {
+      const orderDateStr = parseCleanDateString(o.tanggal);
+      return orderDateStr === appState.selectedDateFilter;
+    });
   }
 
   if (vendorOrders.length === 0) {
@@ -741,26 +927,89 @@ function renderOrdersList() {
   });
 }
 
-// Helper: Format Date & Time to Saudi Format (e.g. "04 Agustus 2026 | 06:30")
+// Robust Helper to Parse Raw GAS Date Strings to Clean "04 Agustus 2026 | 07:00"
 function formatSaudiDateTime(dateStr, timeStr) {
   if (!dateStr) return '-';
+
   try {
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      const year = parts[0];
-      const monthIdx = parseInt(parts[1], 10) - 1;
-      const day = parts[2];
-
-      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-      const monthName = months[monthIdx] || parts[1];
-
-      const cleanTime = timeStr ? timeStr.toString().trim() : '00:00';
-      return `${day} ${monthName} ${year} | ${cleanTime}`;
+    let cleanDateStr = dateStr.toString();
+    
+    // If dateStr contains raw GAS GMT string (e.g. "Tue Aug 04 2026 00:00:00 GMT+0300... Sat Dec 30 1899...")
+    if (cleanDateStr.includes('GMT') || cleanDateStr.includes('1899')) {
+      const matchDate = cleanDateStr.match(/([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{2}\s+\d{4})/);
+      if (matchDate) {
+        const d = new Date(matchDate[0]);
+        if (!isNaN(d.getTime())) {
+          cleanDateStr = d.toISOString().split('T')[0];
+        }
+      }
+      
+      const matchTime = cleanDateStr.match(/(\d{2}:\d{2}:\d{2})/);
+      if (matchTime && (!timeStr || timeStr.includes('1899') || timeStr.includes('GMT'))) {
+        timeStr = matchTime[0].substring(0, 5);
+      }
     }
+
+    // Clean timeStr if it contains 1899 or GMT
+    let cleanTime = '07:00';
+    if (timeStr && !timeStr.includes('1899') && !timeStr.includes('GMT')) {
+      const tMatch = timeStr.toString().match(/(\d{1,2}:\d{2})/);
+      if (tMatch) cleanTime = tMatch[0].padStart(5, '0');
+    }
+
+    // Parse YYYY-MM-DD or DD/MM/YYYY
+    let year = 2026, monthIdx = 7, day = 4;
+    if (cleanDateStr.includes('-')) {
+      const parts = cleanDateStr.split('T')[0].split('-');
+      if (parts.length === 3) {
+        year = parseInt(parts[0], 10);
+        monthIdx = parseInt(parts[1], 10) - 1;
+        day = parseInt(parts[2], 10);
+      }
+    } else if (cleanDateStr.includes('/')) {
+      const parts = cleanDateStr.split('/');
+      if (parts.length === 3) {
+        day = parseInt(parts[0], 10);
+        monthIdx = parseInt(parts[1], 10) - 1;
+        year = parseInt(parts[2], 10);
+      }
+    } else {
+      const parsedDate = new Date(cleanDateStr);
+      if (!isNaN(parsedDate.getTime())) {
+        year = parsedDate.getFullYear();
+        monthIdx = parsedDate.getMonth();
+        day = parsedDate.getDate();
+      }
+    }
+
+    const months = ['Agustus', 'Agustus', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const monthNamesIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const mName = monthNamesIndo[monthIdx] || 'Agustus';
+    const dayPadded = String(day).padStart(2, '0');
+
+    return `${dayPadded} ${mName} ${year} | ${cleanTime}`;
+
   } catch (e) {
-    console.log('Time format notice:', e);
+    console.log('Date parse notice:', e);
   }
-  return `${dateStr} ${timeStr || ''}`;
+  return `${dateStr} | ${timeStr || '07:00'}`;
+}
+
+// Helper to get YYYY-MM-DD for Date Inputs Comparison
+function parseCleanDateString(dateStr) {
+  if (!dateStr) return '';
+  try {
+    let clean = dateStr.toString();
+    if (clean.includes('GMT') || clean.includes('1899')) {
+      const matchDate = clean.match(/([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{2}\s+\d{4})/);
+      if (matchDate) {
+        const d = new Date(matchDate[0]);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      }
+    }
+    if (clean.includes('-')) return clean.split('T')[0];
+  } catch (e) {}
+  return dateStr;
 }
 
 window.handleShareCompletedOrder = function(orderId) {
@@ -792,7 +1041,7 @@ window.handleShareCompletedOrder = function(orderId) {
 
 window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   const confirmMsg = newStatus === 'Selesai' 
-    ? 'Menyelesaikan pemesanan akan otomatis mencatat pengeluaran di Sheet Pengeluaran dan memotong saldo akun Anda. Lanjutkan?'
+    ? 'Menyelesaikan pemesanan akan otomatis mencatat pengeluaran di Sheet Transaksi dan memotong saldo akun Anda. Lanjutkan?'
     : 'Konfirmasi pemesanan ini dan ubah status menjadi Proses?';
 
   if (!confirm(confirmMsg)) return;
@@ -1380,6 +1629,7 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
 
     successOverlay.classList.remove('hidden');
+    fetchDataFromSpreadsheet();
 
   } catch (error) {
     console.error('Submit error:', error);
@@ -1432,6 +1682,7 @@ async function fetchDataFromSpreadsheet() {
     if (data.activities && data.activities.length > 0) appState.masterActivities = data.activities;
     if (data.categories && data.categories.length > 0) appState.masterCategories = data.categories;
     if (data.orders && data.orders.length > 0) appState.orders = data.orders;
+    if (data.transactions && data.transactions.length > 0) appState.transactions = data.transactions;
 
     if (appState.activeUser) {
       const refreshedAcc = appState.accounts.find(a => a.id.toString().trim() === appState.activeUser.id.toString().trim());
