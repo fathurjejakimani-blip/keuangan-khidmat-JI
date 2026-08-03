@@ -1,746 +1,276 @@
-/**
- * Keuangan Tim Khidmat - Frontend Logic
- * Theme: White & Subtle Navy Blue
- * Spreadsheet Centered API Integration (Live Apps Script Data)
- */
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keuangan Tim Khidmat</title>
+  <!-- Google Fonts: Mulish (Body & UI) & Martel (Headings & Numbers) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Martel:wght@400;600;700;800&family=Mulish:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
+  <!-- App Main Container -->
+  <div class="app-container">
 
-// State Management
-const appState = {
-  activeUser: null,
-  selectedAccount: null,
-  enteredPin: '',
-  accounts: [],
-  masterGroups: [],
-  masterActivities: [],
-  masterCategories: [],
-  items: []
-};
+    <!-- Auth Section: Clean Login Widget with Searchbar Account & Perfect Circle Keypad -->
+    <section id="authSection" class="auth-section card-navy">
+      <div class="card-header">
+        <h2 class="auth-title">Keuangan Tim Khidmat</h2>
+      </div>
 
-// DOM Elements
-const authSection = document.getElementById('authSection');
-const appFormWrapper = document.getElementById('appFormWrapper');
+      <!-- Account Selection Searchbar Suggestion -->
+      <div class="input-group autocomplete-group">
+        <label for="accountSearchInput">Pilih Akun / Tim <span class="req">*</span></label>
+        <div class="input-wrapper navy-input">
+          <i class="fa-solid fa-users input-icon"></i>
+          <input type="text" id="accountSearchInput" placeholder="Ketik atau pilih akun tim..." autocomplete="off">
+          <i class="fa-solid fa-chevron-down arrow-icon"></i>
+        </div>
+        <div id="accountSuggestions" class="suggestions-list hidden"></div>
+      </div>
 
-const accountSearchInput = document.getElementById('accountSearchInput');
-const accountSuggestions = document.getElementById('accountSuggestions');
+      <!-- 6-Digit PIN Display & Perfect Circle Keypad -->
+      <div class="input-group pin-keypad-group">
+        <label>Masukkan 6 Digit PIN</label>
+        <div class="pin-display">
+          <div class="pin-dot" data-index="0"></div>
+          <div class="pin-dot" data-index="1"></div>
+          <div class="pin-dot" data-index="2"></div>
+          <div class="pin-dot" data-index="3"></div>
+          <div class="pin-dot" data-index="4"></div>
+          <div class="pin-dot" data-index="5"></div>
+        </div>
 
-const activeAccountName = document.getElementById('activeAccountName');
-const activeBalanceDisplay = document.getElementById('activeBalanceDisplay');
+        <!-- Telephone Style Dialpad with Perfect Circles (60px x 60px) -->
+        <div class="keypad-grid">
+          <button type="button" class="keypad-btn" data-val="1">1</button>
+          <button type="button" class="keypad-btn" data-val="2">2</button>
+          <button type="button" class="keypad-btn" data-val="3">3</button>
+          <button type="button" class="keypad-btn" data-val="4">4</button>
+          <button type="button" class="keypad-btn" data-val="5">5</button>
+          <button type="button" class="keypad-btn" data-val="6">6</button>
+          <button type="button" class="keypad-btn" data-val="7">7</button>
+          <button type="button" class="keypad-btn" data-val="8">8</button>
+          <button type="button" class="keypad-btn" data-val="9">9</button>
+          <button type="button" class="keypad-btn keypad-btn-blank" disabled></button>
+          <button type="button" class="keypad-btn" data-val="0">0</button>
+          <button type="button" class="keypad-btn keypad-btn-action" id="btnKeypadBackspace"><i class="fa-solid fa-backspace"></i></button>
+        </div>
+      </div>
+    </section>
 
-const kategoriLaporan = document.getElementById('kategoriLaporan');
-const grupKeberangkatanWrapper = document.getElementById('grupKeberangkatanWrapper');
-const namaGrupInput = document.getElementById('namaGrupInput');
-const grupSuggestions = document.getElementById('grupSuggestions');
+    <!-- Main App Wrapper (Hidden until logged in) -->
+    <div id="appFormWrapper" class="hidden">
+      
+      <!-- Balance Card -->
+      <section class="balance-card card-navy">
+        <div class="balance-info">
+          <div class="user-badge">
+            <i class="fa-solid fa-user-check"></i>
+            <span id="activeAccountName">Tim Khidmat Operasional</span>
+          </div>
+          <p class="balance-label">Sisa Saldo Kas Tim</p>
+          <h2 id="activeBalanceDisplay" class="balance-amount">SAR 0.00</h2>
+        </div>
+        <div class="balance-actions">
+          <button id="btnOpenTopup" class="btn-icon-only btn-topup" title="Isi Saldo Kas">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button id="btnLogout" class="btn-icon-only btn-secondary" title="Ganti Akun">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </section>
 
-const kegiatanInput = document.getElementById('kegiatanInput');
-const kegiatanSuggestions = document.getElementById('kegiatanSuggestions');
+      <!-- Spacing Divider -->
+      <div class="section-spacer"></div>
 
-const itemsContainer = document.getElementById('itemsContainer');
-const btnAddItem = document.getElementById('btnAddItem');
-const itemCountBadge = document.getElementById('itemCountBadge');
-const grandTotalDisplay = document.getElementById('grandTotalDisplay');
-const btnSubmitForm = document.getElementById('btnSubmitForm');
+      <!-- Main Expense Form -->
+      <section class="form-section card-navy">
+        <div class="card-header border-bottom">
+          <h2>Form Pengeluaran Tim</h2>
+        </div>
 
-const successOverlay = document.getElementById('successOverlay');
-const btnNewTransaction = document.getElementById('btnNewTransaction');
-const btnShareReceipt = document.getElementById('btnShareReceipt');
+        <form id="expenseForm">
+          <!-- 1. Kategori Laporan -->
+          <div class="input-group">
+            <label for="kategoriLaporan">Kategori Laporan <span class="req">*</span></label>
+            <div class="select-wrapper navy-input">
+              <i class="fa-solid fa-layer-group select-icon"></i>
+              <select id="kategoriLaporan" required>
+                <option value="Grup Keberangkatan">Grup Keberangkatan</option>
+                <option value="Operasional Tim">Operasional Tim</option>
+              </select>
+              <i class="fa-solid fa-chevron-down arrow-icon"></i>
+            </div>
+          </div>
 
-// Topup Modal
-const topupModal = document.getElementById('topupModal');
-const btnOpenTopup = document.getElementById('btnOpenTopup');
-const btnCloseTopup = document.getElementById('btnCloseTopup');
-const topupForm = document.getElementById('topupForm');
-const topupAccountName = document.getElementById('topupAccountName');
-const topupAmountInput = document.getElementById('topupAmountInput');
-const topupNoteInput = document.getElementById('topupNoteInput');
-const btnSubmitTopup = document.getElementById('btnSubmitTopup');
+          <!-- 2. Nama Grup Keberangkatan (Conditional Autocomplete) -->
+          <div id="grupKeberangkatanWrapper" class="input-group autocomplete-group">
+            <label for="namaGrupInput">Nama Grup Keberangkatan <span class="req">*</span></label>
+            <div class="input-wrapper navy-input">
+              <i class="fa-solid fa-plane-departure input-icon"></i>
+              <input type="text" id="namaGrupInput" placeholder="Ketik atau pilih nama grup" autocomplete="off">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            </div>
+            <div id="grupSuggestions" class="suggestions-list hidden"></div>
+          </div>
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', () => {
-  fetchDataFromSpreadsheet();
-  setupAccountSearchbar();
-  setupEventListeners();
-  setupKeypad();
-  setupFormAutocomplete();
-  resetItems();
-});
+          <!-- 3. Nama Kegiatan (Autocomplete) -->
+          <div class="input-group autocomplete-group">
+            <label for="kegiatanInput">Nama Kegiatan <span class="req">*</span></label>
+            <div class="input-wrapper navy-input">
+              <i class="fa-solid fa-calendar-check input-icon"></i>
+              <input type="text" id="kegiatanInput" placeholder="Ketik atau pilih kegiatan" autocomplete="off" required>
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            </div>
+            <div id="kegiatanSuggestions" class="suggestions-list hidden"></div>
+          </div>
 
-// Setup Account Searchbar Suggestion ("Pilih Akun / Tim")
-function setupAccountSearchbar() {
-  accountSearchInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    appState.selectedAccount = null; // Reset selection until clicked from list
-    appState.enteredPin = '';
-    updatePinDots();
+          <!-- 4. Rincian Item (Searchbar Suggestion per Item Category) -->
+          <div class="items-section">
+            <div class="items-header">
+              <h3>Rincian Item Pengeluaran</h3>
+              <span class="badge-count" id="itemCountBadge">1 Item</span>
+            </div>
 
-    if (!query) {
-      accountSuggestions.classList.add('hidden');
-      return;
-    }
+            <!-- Dynamic Items Container -->
+            <div id="itemsContainer" class="items-container">
+              <!-- Item cards rendered dynamically -->
+            </div>
 
-    const filtered = appState.accounts.filter(acc => acc.name.toLowerCase().includes(query));
-    renderAccountSuggestions(filtered);
-  });
+            <button type="button" id="btnAddItem" class="btn-navy btn-add">
+              <i class="fa-solid fa-plus-circle"></i> Tambah Item Pengeluaran
+            </button>
+          </div>
 
-  accountSearchInput.addEventListener('focus', () => {
-    renderAccountSuggestions(appState.accounts);
-  });
+          <!-- 5. Total Keseluruhan -->
+          <div class="grand-total-card navy-panel">
+            <div class="total-label">
+              <span>Total Keseluruhan</span>
+            </div>
+            <div id="grandTotalDisplay" class="total-amount">SAR 0.00</div>
+          </div>
 
-  document.addEventListener('click', (e) => {
-    if (!accountSearchInput.contains(e.target) && !accountSuggestions.contains(e.target)) {
-      accountSuggestions.classList.add('hidden');
-    }
-  });
-}
-
-function renderAccountSuggestions(accList) {
-  if (!accList || accList.length === 0) {
-    accountSuggestions.classList.add('hidden');
-    return;
-  }
-
-  accountSuggestions.innerHTML = '';
-  accList.forEach(acc => {
-    const div = document.createElement('div');
-    div.className = 'suggestion-item';
-    div.innerHTML = `<i class="fa-solid fa-user-circle"></i> <span>${acc.name}</span>`;
-    div.addEventListener('click', () => {
-      accountSearchInput.value = acc.name;
-      appState.selectedAccount = acc;
-      accountSuggestions.classList.add('hidden');
-      // Reset PIN on account change
-      appState.enteredPin = '';
-      updatePinDots();
-    });
-    accountSuggestions.appendChild(div);
-  });
-  accountSuggestions.classList.remove('hidden');
-}
-
-// 6-Digit Keypad & Auto Login
-function setupKeypad() {
-  const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
-  const btnBackspace = document.getElementById('btnKeypadBackspace');
-
-  keypadBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (appState.enteredPin.length < 6) {
-        appState.enteredPin += btn.dataset.val;
-        updatePinDots();
-
-        // Auto Login when 6th digit is pressed!
-        if (appState.enteredPin.length === 6) {
-          setTimeout(verifyAndLoginAuto, 150);
-        }
-      }
-    });
-  });
-
-  btnBackspace.addEventListener('click', () => {
-    if (appState.enteredPin.length > 0) {
-      appState.enteredPin = appState.enteredPin.slice(0, -1);
-      updatePinDots();
-    }
-  });
-}
-
-function updatePinDots() {
-  const dots = document.querySelectorAll('.pin-dot');
-  dots.forEach((dot, idx) => {
-    if (idx < appState.enteredPin.length) {
-      dot.classList.add('filled');
-    } else {
-      dot.classList.remove('filled');
-    }
-  });
-}
-
-// Auto Login Verification Function
-function verifyAndLoginAuto() {
-  if (!appState.selectedAccount) {
-    // Attempt match by exact input text if user didn't click suggestion
-    const match = appState.accounts.find(a => a.name.toLowerCase() === accountSearchInput.value.trim().toLowerCase());
-    if (match) {
-      appState.selectedAccount = match;
-    } else {
-      alert('Pilih Akun / Tim yang valid terlebih dahulu.');
-      appState.enteredPin = '';
-      updatePinDots();
-      return;
-    }
-  }
-
-  if (appState.selectedAccount.pin === appState.enteredPin) {
-    // PIN correct -> Login success!
-    appState.activeUser = appState.selectedAccount;
-    activeAccountName.textContent = appState.activeUser.name;
-    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-
-    authSection.classList.add('hidden');
-    appFormWrapper.classList.remove('hidden');
-  } else {
-    // Incorrect PIN
-    alert('PIN / Password salah! Silakan coba lagi.');
-    appState.enteredPin = '';
-    updatePinDots();
-  }
-}
-
-function logoutAccount() {
-  appState.activeUser = null;
-  appState.selectedAccount = null;
-  appState.enteredPin = '';
-  accountSearchInput.value = '';
-  updatePinDots();
-  appFormWrapper.classList.add('hidden');
-  authSection.classList.remove('hidden');
-}
-
-// Event Listeners
-function setupEventListeners() {
-  // Top-up Modal
-  btnOpenTopup.addEventListener('click', () => {
-    if (!appState.activeUser) return;
-    topupAccountName.value = appState.activeUser.name;
-    topupAmountInput.value = '';
-    topupNoteInput.value = '';
-    topupModal.classList.remove('hidden');
-  });
-  btnCloseTopup.addEventListener('click', () => topupModal.classList.add('hidden'));
-
-  topupForm.addEventListener('submit', handleTopupSubmit);
-
-  // Category Laporan Toggle
-  kategoriLaporan.addEventListener('change', (e) => {
-    if (e.target.value === 'Grup Keberangkatan') {
-      grupKeberangkatanWrapper.classList.remove('hidden');
-      namaGrupInput.setAttribute('required', 'true');
-    } else {
-      grupKeberangkatanWrapper.classList.add('hidden');
-      namaGrupInput.removeAttribute('required');
-      namaGrupInput.value = '';
-    }
-  });
-
-  // Add Item
-  btnAddItem.addEventListener('click', () => {
-    addItemRow();
-  });
-
-  // Logout / Switch Account
-  document.getElementById('btnLogout').addEventListener('click', logoutAccount);
-
-  // Form Submit
-  document.getElementById('expenseForm').addEventListener('submit', handleFormSubmit);
-
-  // New Transaction Button
-  btnNewTransaction.addEventListener('click', () => {
-    successOverlay.classList.add('hidden');
-    resetForm();
-  });
-
-  // Share Receipt Button
-  btnShareReceipt.addEventListener('click', handleShareReceipt);
-}
-
-// Top-up Balance Handler
-async function handleTopupSubmit(e) {
-  e.preventDefault();
-
-  const amount = parseFloat(topupAmountInput.value);
-  if (isNaN(amount) || amount <= 0) {
-    alert('Masukkan jumlah saldo top-up yang valid.');
-    return;
-  }
-
-  const note = topupNoteInput.value.trim() || 'Isi Saldo Kas Tim';
-
-  btnSubmitTopup.disabled = true;
-  btnSubmitTopup.textContent = 'Memproses...';
-
-  const payload = {
-    action: 'topupBalance',
-    accountName: appState.activeUser.name,
-    amount: amount,
-    keterangan: note
-  };
-
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    // Local state update
-    appState.activeUser.saldo += amount;
-    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-
-    topupModal.classList.add('hidden');
-    alert(`Berhasil! Saldo kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}.`);
-
-  } catch (err) {
-    console.error('Topup error:', err);
-    alert('Terjadi kesalahan saat menambah saldo: ' + err.message);
-  } finally {
-    btnSubmitTopup.disabled = false;
-    btnSubmitTopup.textContent = 'Tambahkan Saldo Sekarang';
-  }
-}
-
-// Dynamic Items Handling & Autocomplete Category
-function resetItems() {
-  appState.items = [];
-  itemsContainer.innerHTML = '';
-  addItemRow(); // default 1 row
-}
-
-function addItemRow() {
-  const itemIndex = appState.items.length;
-  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
-  const itemData = {
-    id: Date.now() + Math.random(),
-    kategori: defaultCategory,
-    hargaSatuan: 0,
-    qty: 1,
-    jumlah: 0
-  };
-  appState.items.push(itemData);
-
-  const card = document.createElement('div');
-  card.className = 'item-card';
-  card.dataset.index = itemIndex;
-
-  card.innerHTML = `
-    <div class="item-card-header">
-      <span class="item-number">Item #${itemIndex + 1}</span>
-      ${appState.items.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeItemRow(${itemIndex})"><i class="fa-solid fa-xmark"></i></button>` : ''}
+          <!-- 6. Tombol Submit (Text Only) -->
+          <button type="submit" id="btnSubmitForm" class="btn-navy btn-primary btn-block btn-lg">
+            Submit & Catat Pengeluaran
+          </button>
+        </form>
+      </section>
     </div>
-    <div class="item-grid">
-      <!-- Searchbar Suggestion for Kategori Item (Connected to Sheet Master Kolom C) -->
-      <div class="input-group full-width autocomplete-group">
-        <label>Kategori Item <span class="req">*</span></label>
-        <div class="input-wrapper input-sm">
-          <i class="fa-solid fa-tags input-icon"></i>
-          <input type="text" class="item-kategori-input" value="${defaultCategory}" placeholder="Pilih / ketik kategori item" autocomplete="off" required>
-          <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        </div>
-        <div class="suggestions-list hidden item-cat-suggestions"></div>
-      </div>
 
-      <!-- Harga Satuan SAR -->
-      <div class="input-group">
-        <label>Harga Satuan (SAR)</label>
-        <div class="input-wrapper input-sm">
-          <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="" oninput="updateItemData(${itemIndex}, 'hargaSatuan', this.value)" required>
+    <!-- Modal Topup Saldo -->
+    <div id="topupModal" class="modal-backdrop hidden">
+      <div class="modal-card card-navy">
+        <div class="modal-header">
+          <h3>Isi Saldo Kas Tim</h3>
+          <button id="btnCloseTopup" class="btn-close">&times;</button>
         </div>
-      </div>
+        <form id="topupForm">
+          <div class="modal-body">
+            <div class="input-group">
+              <label>Akun Terpilih</label>
+              <div class="input-wrapper navy-input disabled-input">
+                <i class="fa-solid fa-user-check input-icon"></i>
+                <input type="text" id="topupAccountName" readonly disabled>
+              </div>
+            </div>
 
-      <!-- QTY -->
-      <div class="input-group">
-        <label>QTY</label>
-        <div class="input-wrapper input-sm">
-          <input type="number" min="1" placeholder="1" class="item-qty" value="1" oninput="updateItemData(${itemIndex}, 'qty', this.value)" required>
+            <div class="input-group">
+              <label for="topupAmountInput">Jumlah Saldo Ditambahkan (SAR) <span class="req">*</span></label>
+              <div class="input-wrapper navy-input">
+                <span class="currency-prefix">SAR</span>
+                <input type="number" id="topupAmountInput" min="1" step="any" placeholder="0.00" required>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="topupNoteInput">Keterangan / Catatan (Opsional)</label>
+              <div class="input-wrapper navy-input">
+                <i class="fa-solid fa-pen-to-square input-icon"></i>
+                <input type="text" id="topupNoteInput" placeholder="Misal: Penambahan kas dari pusat">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" id="btnSubmitTopup" class="btn-navy btn-primary btn-block">
+              Tambahkan Saldo Sekarang
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Success Full Overlay -->
+    <div id="successOverlay" class="success-overlay hidden">
+      <div class="success-card card-navy" id="receiptCardArea">
+        
+        <!-- Checklist Animated Icon (No Shadow) -->
+        <div class="checkmark-wrapper">
+          <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+          </svg>
         </div>
-      </div>
+        
+        <h2 class="success-title">Transaksi Berhasil Dicatat!</h2>
 
-      <!-- Subtotal Jumlah -->
-      <div class="input-group full-width">
-        <label>Jumlah Subtotal (SAR)</label>
-        <div class="input-wrapper input-sm">
-          <input type="text" class="item-jumlah amount-disabled" value="SAR 0.00" disabled readonly>
+        <div class="recap-card navy-panel">
+          <div class="recap-row">
+            <span>Akun Tim:</span>
+            <strong id="recapAccount">-</strong>
+          </div>
+          <div class="recap-row">
+            <span>Kategori:</span>
+            <strong id="recapCategory">-</strong>
+          </div>
+          <div id="recapGroupRow" class="recap-row">
+            <span>Grup:</span>
+            <strong id="recapGroup">-</strong>
+          </div>
+          <div class="recap-row">
+            <span>Kegiatan:</span>
+            <strong id="recapKegiatan">-</strong>
+          </div>
+
+          <!-- Rincian Item Breakdown List -->
+          <div class="recap-items-breakdown">
+            <div class="breakdown-title">Rincian Item:</div>
+            <div id="recapItemsList" class="breakdown-list">
+              <!-- Item rows populated dynamically -->
+            </div>
+          </div>
+
+          <div class="recap-row highlight">
+            <span>Total Pengeluaran:</span>
+            <strong id="recapTotal" class="amount-minus">-</strong>
+          </div>
+          <div class="recap-row">
+            <span>Sisa Saldo Terbaru:</span>
+            <strong id="recapRemainingBalance" class="amount-remaining">-</strong>
+          </div>
+        </div>
+
+        <!-- Success Action Row -->
+        <div class="success-actions">
+          <button id="btnNewTransaction" class="btn-navy btn-primary flex-grow">
+            Input Pengeluaran Baru
+          </button>
+          <button id="btnShareReceipt" class="btn-icon-only btn-share" title="Bagikan Hasil Transaksi">
+            <i class="fa-solid fa-share-nodes"></i>
+          </button>
         </div>
       </div>
     </div>
-  `;
 
-  itemsContainer.appendChild(card);
-  setupItemCategoryAutocomplete(card, itemIndex);
-  updateItemCountBadge();
-  calculateGrandTotal();
-}
+  </div>
 
-function setupItemCategoryAutocomplete(cardElement, index) {
-  const catInput = cardElement.querySelector('.item-kategori-input');
-  const catSuggestions = cardElement.querySelector('.item-cat-suggestions');
-
-  if (!catInput || !catSuggestions) return;
-
-  catInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    appState.items[index].kategori = e.target.value;
-
-    if (!query) {
-      catSuggestions.classList.add('hidden');
-      return;
-    }
-
-    const filtered = appState.masterCategories.filter(c => c.toLowerCase().includes(query));
-    renderSuggestions(catSuggestions, filtered, (val) => {
-      catInput.value = val;
-      appState.items[index].kategori = val;
-      catSuggestions.classList.add('hidden');
-    });
-  });
-
-  catInput.addEventListener('focus', () => {
-    const filtered = appState.masterCategories;
-    renderSuggestions(catSuggestions, filtered, (val) => {
-      catInput.value = val;
-      appState.items[index].kategori = val;
-      catSuggestions.classList.add('hidden');
-    });
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!catInput.contains(e.target) && !catSuggestions.contains(e.target)) {
-      catSuggestions.classList.add('hidden');
-    }
-  });
-}
-
-window.removeItemRow = function(index) {
-  if (appState.items.length <= 1) return;
-  appState.items.splice(index, 1);
-  reRenderItems();
-};
-
-function reRenderItems() {
-  itemsContainer.innerHTML = '';
-  const currentItems = [...appState.items];
-  appState.items = [];
-
-  currentItems.forEach((item, idx) => {
-    const card = document.createElement('div');
-    card.className = 'item-card';
-    card.dataset.index = idx;
-
-    card.innerHTML = `
-      <div class="item-card-header">
-        <span class="item-number">Item #${idx + 1}</span>
-        ${currentItems.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeItemRow(${idx})"><i class="fa-solid fa-xmark"></i></button>` : ''}
-      </div>
-      <div class="item-grid">
-        <div class="input-group full-width autocomplete-group">
-          <label>Kategori Item <span class="req">*</span></label>
-          <div class="input-wrapper input-sm">
-            <i class="fa-solid fa-tags input-icon"></i>
-            <input type="text" class="item-kategori-input" value="${item.kategori || ''}" placeholder="Pilih / ketik kategori item" autocomplete="off" required>
-            <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          </div>
-          <div class="suggestions-list hidden item-cat-suggestions"></div>
-        </div>
-
-        <div class="input-group">
-          <label>Harga Satuan (SAR)</label>
-          <div class="input-wrapper input-sm">
-            <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="${item.hargaSatuan || ''}" oninput="updateItemData(${idx}, 'hargaSatuan', this.value)" required>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>QTY</label>
-          <div class="input-wrapper input-sm">
-            <input type="number" min="1" placeholder="1" class="item-qty" value="${item.qty || 1}" oninput="updateItemData(${idx}, 'qty', this.value)" required>
-          </div>
-        </div>
-
-        <div class="input-group full-width">
-          <label>Jumlah Subtotal (SAR)</label>
-          <div class="input-wrapper input-sm">
-            <input type="text" class="item-jumlah amount-disabled" value="${formatSAR(item.jumlah)}" disabled readonly>
-          </div>
-        </div>
-      </div>
-    `;
-    itemsContainer.appendChild(card);
-    appState.items.push(item);
-    setupItemCategoryAutocomplete(card, idx);
-  });
-
-  updateItemCountBadge();
-  calculateGrandTotal();
-};
-
-window.updateItemData = function(index, field, value) {
-  if (!appState.items[index]) return;
-
-  if (field === 'hargaSatuan') {
-    appState.items[index].hargaSatuan = parseFloat(value) || 0;
-  } else if (field === 'qty') {
-    appState.items[index].qty = parseInt(value) || 1;
-  }
-
-  // Calculate Subtotal (Harga Satuan * QTY)
-  const harga = appState.items[index].hargaSatuan;
-  const qty = appState.items[index].qty;
-  const subtotal = harga * qty;
-  appState.items[index].jumlah = subtotal;
-
-  // Update DOM subtotal
-  const card = itemsContainer.querySelector(`.item-card[data-index="${index}"]`);
-  if (card) {
-    const jumlahInput = card.querySelector('.item-jumlah');
-    if (jumlahInput) jumlahInput.value = formatSAR(subtotal);
-  }
-
-  calculateGrandTotal();
-};
-
-function updateItemCountBadge() {
-  itemCountBadge.textContent = `${appState.items.length} Item`;
-}
-
-function calculateGrandTotal() {
-  const total = appState.items.reduce((sum, item) => sum + (item.jumlah || 0), 0);
-  grandTotalDisplay.textContent = formatSAR(total);
-  return total;
-}
-
-// Form Autocomplete Logic for Group & Activity
-function setupFormAutocomplete() {
-  // Group Autocomplete
-  namaGrupInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    if (!query) {
-      grupSuggestions.classList.add('hidden');
-      return;
-    }
-
-    const filtered = appState.masterGroups.filter(g => g.toLowerCase().includes(query));
-    renderSuggestions(grupSuggestions, filtered, (val) => {
-      namaGrupInput.value = val;
-      grupSuggestions.classList.add('hidden');
-    });
-  });
-
-  namaGrupInput.addEventListener('focus', () => {
-    if (namaGrupInput.value.trim()) {
-      namaGrupInput.dispatchEvent(new Event('input'));
-    }
-  });
-
-  // Activity Autocomplete
-  kegiatanInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    if (!query) {
-      kegiatanSuggestions.classList.add('hidden');
-      return;
-    }
-
-    const filtered = appState.masterActivities.filter(a => a.toLowerCase().includes(query));
-    renderSuggestions(kegiatanSuggestions, filtered, (val) => {
-      kegiatanInput.value = val;
-      kegiatanSuggestions.classList.add('hidden');
-    });
-  });
-
-  kegiatanInput.addEventListener('focus', () => {
-    if (kegiatanInput.value.trim()) {
-      kegiatanInput.dispatchEvent(new Event('input'));
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!namaGrupInput.contains(e.target) && !grupSuggestions.contains(e.target)) {
-      grupSuggestions.classList.add('hidden');
-    }
-    if (!kegiatanInput.contains(e.target) && !kegiatanSuggestions.contains(e.target)) {
-      kegiatanSuggestions.classList.add('hidden');
-    }
-  });
-}
-
-function renderSuggestions(container, items, onSelect) {
-  if (!items || items.length === 0) {
-    container.classList.add('hidden');
-    return;
-  }
-
-  container.innerHTML = '';
-  items.forEach(itemText => {
-    const div = document.createElement('div');
-    div.className = 'suggestion-item';
-    div.innerHTML = `<i class="fa-solid fa-tag"></i> <span>${itemText}</span>`;
-    div.addEventListener('click', () => onSelect(itemText));
-    container.appendChild(div);
-  });
-  container.classList.remove('hidden');
-}
-
-// Form Submission & Success Overlay
-async function handleFormSubmit(e) {
-  e.preventDefault();
-
-  const totalExpense = calculateGrandTotal();
-  if (totalExpense <= 0) {
-    alert('Total pengeluaran harus lebih dari SAR 0.00');
-    return;
-  }
-
-  if (appState.activeUser.saldo < totalExpense) {
-    const proceed = confirm(`Peringatan: Total pengeluaran (${formatSAR(totalExpense)}) melebihi saldo kas saat ini (${formatSAR(appState.activeUser.saldo)}). Tetap proses?`);
-    if (!proceed) return;
-  }
-
-  btnSubmitForm.disabled = true;
-  btnSubmitForm.textContent = 'Menyimpan...';
-
-  const category = kategoriLaporan.value;
-  const groupName = category === 'Grup Keberangkatan' ? namaGrupInput.value.trim() : '-';
-  const kegiatanName = kegiatanInput.value.trim();
-
-  const payload = {
-    action: 'addExpense',
-    accountId: appState.activeUser.id,
-    accountName: appState.activeUser.name,
-    kategoriLaporan: category,
-    namaGrup: groupName,
-    namaKegiatan: kegiatanName,
-    items: appState.items,
-    total: totalExpense,
-    saldoSebelum: appState.activeUser.saldo,
-    saldoSesudah: appState.activeUser.saldo - totalExpense,
-    timestamp: new Date().toISOString()
-  };
-
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    // Local state update
-    appState.activeUser.saldo -= totalExpense;
-    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-
-    // Populate Recap Modal
-    document.getElementById('recapAccount').textContent = appState.activeUser.name;
-    document.getElementById('recapCategory').textContent = category;
-    
-    if (category === 'Grup Keberangkatan') {
-      document.getElementById('recapGroupRow').classList.remove('hidden');
-      document.getElementById('recapGroup').textContent = groupName;
-    } else {
-      document.getElementById('recapGroupRow').classList.add('hidden');
-    }
-
-    document.getElementById('recapKegiatan').textContent = kegiatanName;
-
-    // Populate Detailed Item Breakdown
-    const recapItemsList = document.getElementById('recapItemsList');
-    recapItemsList.innerHTML = '';
-    appState.items.forEach((it, i) => {
-      const row = document.createElement('div');
-      row.className = 'breakdown-item-row';
-      row.innerHTML = `
-        <span>${i + 1}. ${it.kategori}</span>
-        <span class="qty-price">${it.qty}x ${formatSAR(it.hargaSatuan)} = <strong>${formatSAR(it.jumlah)}</strong></span>
-      `;
-      recapItemsList.appendChild(row);
-    });
-
-    document.getElementById('recapTotal').textContent = `- ${formatSAR(totalExpense)}`;
-    document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
-
-    // Show Success Full Overlay
-    successOverlay.classList.remove('hidden');
-
-  } catch (error) {
-    console.error('Submit error:', error);
-    alert('Terjadi kesalahan saat menyimpan transaksi: ' + error.message);
-  } finally {
-    btnSubmitForm.disabled = false;
-    btnSubmitForm.textContent = 'Submit & Catat Pengeluaran';
-  }
-}
-
-// Share Receipt Feature
-function handleShareReceipt() {
-  const account = appState.activeUser ? appState.activeUser.name : 'Tim Khidmat';
-  const category = kategoriLaporan.value;
-  const group = category === 'Grup Keberangkatan' ? namaGrupInput.value.trim() : '-';
-  const kegiatan = kegiatanInput.value.trim();
-  const total = grandTotalDisplay.textContent;
-  const dateStr = new Date().toLocaleString('id-ID');
-
-  let itemsSummary = '';
-  appState.items.forEach((it, idx) => {
-    itemsSummary += `${idx + 1}. ${it.kategori}: ${it.qty}x @ ${formatSAR(it.hargaSatuan)} = ${formatSAR(it.jumlah)}\n`;
-  });
-
-  const receiptText = `🧾 *BUKTI PENGELUARAN TIM KHIDMAT*\n\n` +
-    `👤 *Akun:* ${account}\n` +
-    `📅 *Waktu:* ${dateStr}\n` +
-    `📂 *Kategori:* ${category}\n` +
-    (category === 'Grup Keberangkatan' ? `✈️ *Grup:* ${group}\n` : '') +
-    `📌 *Kegiatan:* ${kegiatan}\n\n` +
-    `📝 *Rincian Item:*\n${itemsSummary}\n` +
-    `💰 *TOTAL PENGELUARAN:* ${total}\n` +
-    `💳 *Sisa Saldo:* ${activeBalanceDisplay.textContent}\n\n` +
-    `_Dicatat via Keuangan Tim Khidmat_`;
-
-  if (navigator.share) {
-    navigator.share({
-      title: 'Bukti Pengeluaran Tim Khidmat',
-      text: receiptText
-    }).catch(err => console.log('Share notice:', err));
-  } else {
-    navigator.clipboard.writeText(receiptText).then(() => {
-      alert('Teks ringkasan bukti transaksi telah disalin ke clipboard! Anda bisa membagikannya via WhatsApp.');
-    }).catch(err => alert('Detail Transaksi:\n\n' + receiptText));
-  }
-}
-
-function resetForm() {
-  kategoriLaporan.value = 'Grup Keberangkatan';
-  kategoriLaporan.dispatchEvent(new Event('change'));
-  namaGrupInput.value = '';
-  kegiatanInput.value = '';
-  resetItems();
-}
-
-// Fetch live data from Google Apps Script Web App
-async function fetchDataFromSpreadsheet() {
-  try {
-    const res = await fetch(`${GAS_URL}?action=getData`);
-    const data = await res.json();
-
-    if (data.accounts && data.accounts.length > 0) {
-      appState.accounts = data.accounts;
-    }
-    if (data.groups && data.groups.length > 0) {
-      appState.masterGroups = data.groups;
-    }
-    if (data.activities && data.activities.length > 0) {
-      appState.masterActivities = data.activities;
-    }
-    if (data.categories && data.categories.length > 0) {
-      appState.masterCategories = data.categories;
-    }
-
-    if (appState.activeUser) {
-      const refreshedAcc = appState.accounts.find(a => a.id === appState.activeUser.id);
-      if (refreshedAcc) {
-        appState.activeUser.saldo = refreshedAcc.saldo;
-        activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
-      }
-    }
-  } catch (e) {
-    console.log('Fetch notice:', e);
-  }
-}
-
-// Helper: Format SAR Currency
-function formatSAR(num) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(num || 0).replace('SAR', 'SAR ');
-}
+  <script src="app.js"></script>
+</body>
+</html>
