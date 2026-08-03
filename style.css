@@ -401,6 +401,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  max-height: calc(100vh - 310px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .tx-date-group {
@@ -596,10 +599,14 @@ body {
   border-color: var(--navy-dark);
 }
 
+/* Only Order Data Container is Scrollable */
 .orders-container {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: calc(100vh - 290px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 /* Order Card */
@@ -1435,5 +1442,9 @@ body {
 
   .history-controls-bar {
     flex-direction: column;
+  }
+
+  .orders-container {
+    max-height: calc(100vh - 320px);
   }
 }
