@@ -1,7 +1,7 @@
 /**
- * Keuangan Tim Khidmat - Frontend Logic
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic
  * Theme: White & Subtle Navy Blue
- * Spreadsheet Centered API Integration (Live Apps Script Data)
+ * Integrated Spreadsheet API & Vendor Orders System
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -15,6 +15,8 @@ const appState = {
   masterGroups: [],
   masterActivities: [],
   masterCategories: [],
+  orders: [],
+  selectedStatusFilter: 'Semua',
   items: []
 };
 
@@ -26,7 +28,16 @@ const accountSearchInput = document.getElementById('accountSearchInput');
 const accountSuggestions = document.getElementById('accountSuggestions');
 
 const activeAccountName = document.getElementById('activeAccountName');
+const activeAccountType = document.getElementById('activeAccountType');
 const activeBalanceDisplay = document.getElementById('activeBalanceDisplay');
+
+const estimatesBox = document.getElementById('estimatesBox');
+const estimatesAmountDisplay = document.getElementById('estimatesAmountDisplay');
+
+const btnToggleFormView = document.getElementById('btnToggleFormView');
+const ordersSection = document.getElementById('ordersSection');
+const ordersContainer = document.getElementById('ordersContainer');
+const expenseFormSection = document.getElementById('expenseFormSection');
 
 const kategoriLaporan = document.getElementById('kategoriLaporan');
 const grupKeberangkatanWrapper = document.getElementById('grupKeberangkatanWrapper');
@@ -63,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   setupKeypad();
   setupFormAutocomplete();
+  setupStatusFilterTabs();
   resetItems();
 });
 
@@ -70,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupAccountSearchbar() {
   accountSearchInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
-    appState.selectedAccount = null; // Reset selection until clicked from list
+    appState.selectedAccount = null;
     appState.enteredPin = '';
     updatePinDots();
 
@@ -104,12 +116,14 @@ function renderAccountSuggestions(accList) {
   accList.forEach(acc => {
     const div = document.createElement('div');
     div.className = 'suggestion-item';
-    div.innerHTML = `<i class="fa-solid fa-user-circle"></i> <span>${acc.name}</span>`;
+    div.innerHTML = `
+      <i class="fa-solid ${acc.jenisAkun === 'Vendor' ? 'fa-store' : 'fa-user-circle'}"></i> 
+      <span>${acc.name} <small style="color:#64748b">(${acc.jenisAkun || 'Tim'})</small></span>
+    `;
     div.addEventListener('click', () => {
       accountSearchInput.value = acc.name;
       appState.selectedAccount = acc;
       accountSuggestions.classList.add('hidden');
-      // Reset PIN on account change
       appState.enteredPin = '';
       updatePinDots();
     });
@@ -129,7 +143,6 @@ function setupKeypad() {
         appState.enteredPin += btn.dataset.val;
         updatePinDots();
 
-        // Auto Login when 6th digit is pressed!
         if (appState.enteredPin.length === 6) {
           setTimeout(verifyAndLoginAuto, 150);
         }
@@ -159,7 +172,6 @@ function updatePinDots() {
 // Auto Login Verification Function
 function verifyAndLoginAuto() {
   if (!appState.selectedAccount) {
-    // Attempt match by exact input text if user didn't click suggestion
     const match = appState.accounts.find(a => a.name.toLowerCase() === accountSearchInput.value.trim().toLowerCase());
     if (match) {
       appState.selectedAccount = match;
@@ -172,15 +184,30 @@ function verifyAndLoginAuto() {
   }
 
   if (appState.selectedAccount.pin === appState.enteredPin) {
-    // PIN correct -> Login success!
     appState.activeUser = appState.selectedAccount;
     activeAccountName.textContent = appState.activeUser.name;
+    activeAccountType.textContent = appState.activeUser.jenisAkun || 'Tim';
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
 
     authSection.classList.add('hidden');
     appFormWrapper.classList.remove('hidden');
+
+    // Configure View according to Account Type (Vendor vs Tim)
+    if (appState.activeUser.jenisAkun === 'Vendor') {
+      estimatesBox.classList.remove('hidden');
+      ordersSection.classList.remove('hidden');
+      expenseFormSection.classList.add('hidden');
+      btnToggleFormView.classList.remove('hidden');
+      btnToggleFormView.classList.remove('active');
+      calculateVendorEstimates();
+      renderOrdersList();
+    } else {
+      estimatesBox.classList.add('hidden');
+      ordersSection.classList.add('hidden');
+      expenseFormSection.classList.remove('hidden');
+      btnToggleFormView.classList.add('hidden');
+    }
   } else {
-    // Incorrect PIN
     alert('PIN / Password salah! Silakan coba lagi.');
     appState.enteredPin = '';
     updatePinDots();
@@ -199,6 +226,19 @@ function logoutAccount() {
 
 // Event Listeners
 function setupEventListeners() {
+  // Toggle Expense Form View for Vendors
+  btnToggleFormView.addEventListener('click', () => {
+    if (expenseFormSection.classList.contains('hidden')) {
+      expenseFormSection.classList.remove('hidden');
+      ordersSection.classList.add('hidden');
+      btnToggleFormView.classList.add('active');
+    } else {
+      expenseFormSection.classList.add('hidden');
+      ordersSection.classList.remove('hidden');
+      btnToggleFormView.classList.remove('active');
+    }
+  });
+
   // Top-up Modal
   btnOpenTopup.addEventListener('click', () => {
     if (!appState.activeUser) return;
@@ -243,6 +283,142 @@ function setupEventListeners() {
   // Share Receipt Button
   btnShareReceipt.addEventListener('click', handleShareReceipt);
 }
+
+// Vendor Pemesanan System
+function calculateVendorEstimates() {
+  if (!appState.activeUser || appState.activeUser.jenisAkun !== 'Vendor') return;
+
+  const vendorOrders = appState.orders.filter(o => o.akun === appState.activeUser.name && o.status === 'Pesanan Baru');
+  const totalEstimate = vendorOrders.reduce((sum, o) => sum + (o.jumlah || 0), 0);
+  estimatesAmountDisplay.textContent = formatSAR(totalEstimate);
+}
+
+function setupStatusFilterTabs() {
+  const tabs = document.querySelectorAll('.status-filter-tabs .tab-btn');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      appState.selectedStatusFilter = tab.dataset.status;
+      renderOrdersList();
+    });
+  });
+}
+
+function renderOrdersList() {
+  if (!appState.activeUser) return;
+
+  ordersContainer.innerHTML = '';
+  
+  // Filter orders for the logged-in vendor account
+  let vendorOrders = appState.orders.filter(o => o.akun.toLowerCase() === appState.activeUser.name.toLowerCase());
+
+  if (appState.selectedStatusFilter !== 'Semua') {
+    vendorOrders = vendorOrders.filter(o => o.status === appState.selectedStatusFilter);
+  }
+
+  if (vendorOrders.length === 0) {
+    ordersContainer.innerHTML = `
+      <div style="text-align: center; padding: 24px; color: #64748b; font-size: 13px;">
+        <i class="fa-solid fa-box-open" style="font-size: 24px; margin-bottom: 8px; display: block;"></i>
+        Tidak ada pemesanan untuk status "${appState.selectedStatusFilter}"
+      </div>
+    `;
+    return;
+  }
+
+  vendorOrders.forEach(order => {
+    const card = document.createElement('div');
+    card.className = 'order-card';
+
+    let statusClass = 'pesanan-baru';
+    if (order.status === 'Proses') statusClass = 'proses';
+    if (order.status === 'Selesai') statusClass = 'selesai';
+
+    let actionBtnHtml = '';
+    if (order.status === 'Pesanan Baru') {
+      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Proses')"><i class="fa-solid fa-check-circle"></i> Konfirmasi Pemesanan</button>`;
+    } else if (order.status === 'Proses') {
+      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-complete-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')"><i class="fa-solid fa-flag-checkered"></i> Selesaikan Pemesanan</button>`;
+    } else {
+      actionBtnHtml = `<span style="font-size: 12px; font-weight: 700; color: #047857;"><i class="fa-solid fa-circle-check"></i> Transaksi Selesai</span>`;
+    }
+
+    card.innerHTML = `
+      <div class="order-card-header">
+        <!-- Prominent / Larger Title for Tujuan Kegiatan -->
+        <h3 class="order-title">${order.tujuan}</h3>
+        <span class="order-status-badge ${statusClass}">${order.status}</span>
+      </div>
+
+      <div class="order-details-grid">
+        <div class="order-detail-item">Grup: <strong>${order.grup || '-'}</strong></div>
+        <div class="order-detail-item">Muthowwif: <strong>${order.muthowwif || '-'}</strong></div>
+        <div class="order-detail-item">Lokasi: <strong>${order.lokasi || '-'}</strong></div>
+        <div class="order-detail-item">Waktu: <strong>${order.tanggal} ${order.jam}</strong></div>
+        
+        <div class="order-product-box">
+          <div>
+            <div class="order-product-name">${order.itemProduk}</div>
+            <div style="font-size: 11px; color: #64748b;">${order.qty} ${order.satuan} @ ${formatSAR(order.harga)}</div>
+          </div>
+          <div class="order-product-price">${formatSAR(order.jumlah)}</div>
+        </div>
+
+        ${order.catatan ? `<div class="order-note">Catatan: "${order.catatan}"</div>` : ''}
+      </div>
+
+      <div class="order-card-actions">
+        ${actionBtnHtml}
+      </div>
+    `;
+
+    ordersContainer.appendChild(card);
+  });
+}
+
+window.handleUpdateOrderStatus = async function(orderId, newStatus) {
+  const confirmMsg = newStatus === 'Selesai' 
+    ? 'Menyelesaikan pemesanan akan otomatis mencatat pengeluaran di Spreadsheet dan memotong saldo akun Anda. Lanjutkan?'
+    : 'Konfirmasi pemesanan ini dan ubah status menjadi Proses?';
+
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const payload = {
+      action: 'updateOrderStatus',
+      orderId: orderId,
+      newStatus: newStatus
+    };
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    // Update local state
+    const orderIndex = appState.orders.findIndex(o => o.id === orderId);
+    if (orderIndex !== -1) {
+      appState.orders[orderIndex].status = newStatus;
+      
+      if (newStatus === 'Selesai') {
+        appState.activeUser.saldo -= appState.orders[orderIndex].jumlah;
+        activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+      }
+    }
+
+    calculateVendorEstimates();
+    renderOrdersList();
+    alert(`Status pemesanan berhasil diubah menjadi "${newStatus}"!`);
+    fetchDataFromSpreadsheet(); // Background refresh
+
+  } catch (err) {
+    console.error('Update status error:', err);
+    alert('Terjadi kesalahan saat memperbarui status: ' + err.message);
+  }
+};
 
 // Top-up Balance Handler
 async function handleTopupSubmit(e) {
@@ -722,6 +898,9 @@ async function fetchDataFromSpreadsheet() {
     if (data.categories && data.categories.length > 0) {
       appState.masterCategories = data.categories;
     }
+    if (data.orders && data.orders.length > 0) {
+      appState.orders = data.orders;
+    }
 
     if (appState.activeUser) {
       const refreshedAcc = appState.accounts.find(a => a.id === appState.activeUser.id);
@@ -729,6 +908,8 @@ async function fetchDataFromSpreadsheet() {
         appState.activeUser.saldo = refreshedAcc.saldo;
         activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
       }
+      calculateVendorEstimates();
+      renderOrdersList();
     }
   } catch (e) {
     console.log('Fetch notice:', e);
