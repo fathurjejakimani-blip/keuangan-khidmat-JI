@@ -46,7 +46,7 @@
           <div class="pin-dot" data-index="5"></div>
         </div>
 
-        <!-- Telephone Style Dialpad with Perfect Circles (60px x 60px) -->
+        <!-- Telephone Style Dialpad with Responsive Perfect Circles (60px x 60px) -->
         <div class="keypad-grid">
           <button type="button" class="keypad-btn" data-val="1">1</button>
           <button type="button" class="keypad-btn" data-val="2">2</button>
@@ -67,7 +67,7 @@
     <!-- Main App Wrapper (Hidden until logged in) -->
     <div id="appFormWrapper" class="hidden">
       
-      <!-- Balance & Estimates Card (Widget Tanpa Tombol Akses Langsung) -->
+      <!-- Balance & Estimates Card -->
       <section class="balance-card card-navy">
         <div class="balance-info-group">
           <div class="user-badge">
@@ -196,18 +196,31 @@
     <div id="fabContainer" class="fab-container hidden">
       <!-- Sub-menu Mengambang -->
       <div id="fabMenu" class="fab-menu hidden">
-        <button id="btnOpenPdfModal" class="fab-item btn-pdf hidden" title="Cetak PDF (Rekapitulasi / Laporan Keuangan)">
+        <button id="btnOpenTransferModal" class="fab-item btn-transfer" title="Transfer Kas Akun">
+          <i class="fa-solid fa-money-bill-transfer"></i>
+          <span class="fab-label">Transfer Saldo Kas</span>
+        </button>
+
+        <button id="btnOpenTxHistoryModal" class="fab-item btn-history" title="Riwayat Transaksi Kas">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span class="fab-label">Riwayat Transaksi</span>
+        </button>
+
+        <button id="btnOpenPdfModal" class="fab-item btn-pdf hidden" title="Cetak PDF">
           <i class="fa-solid fa-print"></i>
           <span class="fab-label">Cetak PDF</span>
         </button>
+        
         <button id="btnOpenExpenseModal" class="fab-item btn-expense" title="Form Pengeluaran Tim">
           <i class="fa-solid fa-receipt"></i>
           <span class="fab-label">Form Pengeluaran</span>
         </button>
+
         <button id="btnOpenTopup" class="fab-item btn-topup" title="Isi Saldo Kas">
           <i class="fa-solid fa-plus"></i>
           <span class="fab-label">Isi Saldo Kas</span>
         </button>
+        
         <button id="btnLogout" class="fab-item btn-logout" title="Ganti Akun">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
           <span class="fab-label">Ganti Akun</span>
@@ -218,6 +231,84 @@
       <button id="btnToggleFab" class="fab-main-btn" title="Menu Pilihan Aksi">
         <i class="fa-solid fa-ellipsis-vertical fab-icon-main"></i>
       </button>
+    </div>
+
+    <!-- POPUP MODAL: Transfer Kas (Khusus Tim / General) -->
+    <div id="transferModal" class="modal-backdrop hidden">
+      <div class="modal-card card-navy">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-paper-plane"></i> Transfer Kas Akun</h3>
+          <button id="btnCloseTransferModal" class="btn-close">&times;</button>
+        </div>
+        <form id="transferForm">
+          <div class="modal-body">
+            <!-- Tujuan Pengiriman -->
+            <div class="input-group">
+              <label for="transferTujuanInput">Tujuan Pengiriman / Peruntukan <span class="req">*</span></label>
+              <div class="input-wrapper navy-input">
+                <i class="fa-solid fa-bullseye input-icon"></i>
+                <input type="text" id="transferTujuanInput" placeholder="Misal: Operasional Lapangan Makkah" required>
+              </div>
+            </div>
+
+            <!-- Pilih Penerima (Akun) -->
+            <div class="input-group">
+              <label for="transferReceiverSelect">Pilih Penerima (Akun) <span class="req">*</span></label>
+              <div class="select-wrapper navy-input">
+                <i class="fa-solid fa-user-plus select-icon"></i>
+                <select id="transferReceiverSelect" required>
+                  <option value="">-- Pilih Akun Penerima --</option>
+                </select>
+                <i class="fa-solid fa-chevron-down arrow-icon"></i>
+              </div>
+            </div>
+
+            <!-- Nominal Transfer -->
+            <div class="input-group">
+              <label for="transferAmountInput">Nominal Transfer (SAR) <span class="req">*</span></label>
+              <div class="input-wrapper navy-input">
+                <span class="currency-prefix">SAR</span>
+                <input type="number" id="transferAmountInput" min="1" step="any" placeholder="0.00" required>
+              </div>
+              <div class="sub-balance-info">
+                Saldo Kas Saat Ini: <strong id="transferCurrentBalanceDisplay">SAR 0.00</strong>
+              </div>
+            </div>
+
+            <!-- Catatan -->
+            <div class="input-group">
+              <label for="transferNoteInput">Catatan / Keterangan (Opsional)</label>
+              <div class="input-wrapper navy-input">
+                <i class="fa-solid fa-pen-to-square input-icon"></i>
+                <input type="text" id="transferNoteInput" placeholder="Catatan tambahan transfer...">
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="submit" id="btnSubmitTransfer" class="btn-navy btn-primary btn-block">
+              Kirim Transfer Sekarang
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- POPUP MODAL: Riwayat Transaksi (Laporan Keluar Masuk) -->
+    <div id="txHistoryModal" class="modal-backdrop hidden">
+      <div class="modal-card card-navy modal-lg">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Transaksi Kas</h3>
+          <button id="btnCloseTxHistoryModal" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="tx-history-container">
+            <div id="txHistoryList" class="tx-history-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- POPUP MODAL: Cetak PDF -->
