@@ -1,6 +1,6 @@
 /**
  * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v4.2
- * Refined Role-based Landing Screen & PopUp Expense Form
+ * PDF Document Generator, Date Filter, Stacked Details & Order Automation
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -16,6 +16,7 @@ const appState = {
   masterCategories: [],
   orders: [],
   selectedStatusFilter: 'Semua',
+  selectedDateFilter: '',
   items: [],
   modalItems: []
 };
@@ -34,6 +35,14 @@ const activeBalanceDisplay = document.getElementById('activeBalanceDisplay');
 const estimatesBox = document.getElementById('estimatesBox');
 const estimatesAmountDisplay = document.getElementById('estimatesAmountDisplay');
 
+const btnOpenPdfModal = document.getElementById('btnOpenPdfModal');
+const pdfModal = document.getElementById('pdfModal');
+const btnClosePdfModal = document.getElementById('btnClosePdfModal');
+const pdfForm = document.getElementById('pdfForm');
+const pdfDocType = document.getElementById('pdfDocType');
+const pdfStartDate = document.getElementById('pdfStartDate');
+const pdfEndDate = document.getElementById('pdfEndDate');
+
 const btnOpenExpenseModal = document.getElementById('btnOpenExpenseModal');
 const expenseModal = document.getElementById('expenseModal');
 const btnCloseExpenseModal = document.getElementById('btnCloseExpenseModal');
@@ -41,6 +50,8 @@ const modalExpenseForm = document.getElementById('modalExpenseForm');
 
 const ordersSection = document.getElementById('ordersSection');
 const ordersContainer = document.getElementById('ordersContainer');
+const orderDateFilter = document.getElementById('orderDateFilter');
+const btnClearDateFilter = document.getElementById('btnClearDateFilter');
 const expenseFormSection = document.getElementById('expenseFormSection');
 
 // Inline Form Elements (for Tim Users)
@@ -56,7 +67,7 @@ const itemCountBadge = document.getElementById('itemCountBadge');
 const grandTotalDisplay = document.getElementById('grandTotalDisplay');
 const btnSubmitForm = document.getElementById('btnSubmitForm');
 
-// PopUp Modal Form Elements (for Vendor Users & PopUp Access)
+// PopUp Modal Form Elements (for Vendor Users)
 const modalKategoriLaporan = document.getElementById('modalKategoriLaporan');
 const modalGrupWrapper = document.getElementById('modalGrupWrapper');
 const modalNamaGrupInput = document.getElementById('modalNamaGrupInput');
@@ -92,11 +103,13 @@ document.addEventListener('DOMContentLoaded', () => {
   setupFormAutocomplete();
   setupModalAutocomplete();
   setupStatusFilterTabs();
+  setupDateFilter();
+  setupPdfModal();
   resetItems();
   resetModalItems();
 });
 
-// Setup Account Searchbar Suggestion ("Pilih Akun / Tim")
+// Setup Account Searchbar Suggestion
 function setupAccountSearchbar() {
   accountSearchInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
@@ -215,20 +228,21 @@ function verifyAndLoginAuto() {
     const isVendor = userRole.toLowerCase() === 'vendor';
 
     if (isVendor) {
-      // FOR VENDOR ACCOUNTS:
-      // 1. Initial screen is Pemesanan (Orders View)!
-      // 2. Inline expense form is hidden! (Expense form is opened via PopUp Modal only)
+      // VENDOR ROLE:
+      // Initial screen is Pemesanan (Orders View)!
       estimatesBox.classList.remove('hidden');
       ordersSection.classList.remove('hidden');
       expenseFormSection.classList.add('hidden');
+      btnOpenPdfModal.classList.remove('hidden');
       calculateVendorEstimates();
       renderOrdersList();
     } else {
-      // FOR TIM ACCOUNTS:
+      // TIM ROLE:
       // Initial screen is Expense Form View
       estimatesBox.classList.add('hidden');
       ordersSection.classList.add('hidden');
       expenseFormSection.classList.remove('hidden');
+      btnOpenPdfModal.classList.add('hidden');
     }
   } else {
     alert('PIN / Password salah! Silakan coba lagi.');
@@ -247,9 +261,244 @@ function logoutAccount() {
   authSection.classList.remove('hidden');
 }
 
+// PDF Export Modal Setup
+function setupPdfModal() {
+  btnOpenPdfModal.addEventListener('click', () => {
+    if (!appState.activeUser) return;
+
+    // Set default date range (Current month)
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
+
+    pdfStartDate.value = firstDay;
+    pdfEndDate.value = today;
+    pdfModal.classList.remove('hidden');
+  });
+
+  btnClosePdfModal.addEventListener('click', () => {
+    pdfModal.classList.add('hidden');
+  });
+
+  pdfForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    generatePdfDocument();
+  });
+}
+
+// Generate Printable PDF Document Function
+function generatePdfDocument() {
+  const docType = pdfDocType.value;
+  const startDate = pdfStartDate.value;
+  const endDate = pdfEndDate.value;
+  const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
+  const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
+  const generatedDate = new Date().toLocaleString('id-ID');
+
+  // Filter vendor orders by date range
+  const filteredOrders = appState.orders.filter(o => {
+    if (o.akun.toLowerCase() !== vendorName.toLowerCase()) return false;
+    if (!o.tanggal) return true;
+    return o.tanggal >= startDate && o.tanggal <= endDate;
+  });
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Pop-up terblokir oleh browser. Izinkan pop-up untuk mencetak PDF.');
+    return;
+  }
+
+  let tableContentHtml = '';
+
+  if (docType === 'Rekapitulasi Pemesanan') {
+    let grandTotalOrders = 0;
+    const rowsHtml = filteredOrders.map((o, idx) => {
+      grandTotalOrders += o.jumlah || 0;
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td><strong>${o.id}</strong><br><small>${o.tanggal} ${o.jam}</small></td>
+          <td>${o.grup}</td>
+          <td><strong>${o.tujuan}</strong><br><small>Muthowwif: ${o.muthowwif}</small></td>
+          <td>${o.lokasi}</td>
+          <td>${o.itemProduk}<br><small>${o.qty} ${o.satuan} @ ${formatSAR(o.harga)}</small></td>
+          <td style="text-align:right;"><strong>${formatSAR(o.jumlah)}</strong></td>
+          <td style="text-align:center;"><span class="badge badge-${o.status.toLowerCase().replace(/\s+/g, '-')}">${o.status}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    tableContentHtml = `
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>ID / Waktu</th>
+            <th>Grup</th>
+            <th>Tujuan Kegiatan</th>
+            <th>Lokasi</th>
+            <th>Item Produk & Qty</th>
+            <th style="text-align:right;">Jumlah (SAR)</th>
+            <th style="text-align:center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding: 20px;">Tidak ada data pemesanan pada periode ini</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="6" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PEMESANAN:</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotalOrders)}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
+  } else {
+    // Dokumen "Laporan Keuangan"
+    let totalUangKeluar = 0;
+    const completedOrders = filteredOrders.filter(o => o.status === 'Selesai');
+    
+    const rowsHtml = completedOrders.map((o, idx) => {
+      totalUangKeluar += o.jumlah || 0;
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${o.tanggal} ${o.jam}</td>
+          <td><strong>${o.id}</strong> - ${o.tujuan} (${o.grup})</td>
+          <td>Vendor / Selesai</td>
+          <td style="text-align:right;">-</td>
+          <td style="text-align:right; color:#dc2626;"><strong>${formatSAR(o.jumlah)}</strong></td>
+        </tr>
+      `;
+    }).join('');
+
+    tableContentHtml = `
+      <div class="financial-summary-box">
+        <div class="summary-card">
+          <span>Total Pengeluaran (Selesai):</span>
+          <strong>${formatSAR(totalUangKeluar)}</strong>
+        </div>
+        <div class="summary-card">
+          <span>Sisa Saldo Kas Aktif:</span>
+          <strong>${currentSaldo}</strong>
+        </div>
+      </div>
+
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>Tanggal & Waktu</th>
+            <th>Keterangan Transaksi</th>
+            <th>Kategori</th>
+            <th style="text-align:right;">Kas Masuk (SAR)</th>
+            <th style="text-align:right;">Kas Keluar (SAR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada transaksi keuangan selesai pada periode ini</td></tr>'}
+        </tbody>
+      </table>
+    `;
+  }
+
+  const printDocumentHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${docType} - ${vendorName}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; }
+        .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
+        .doc-title { font-family: 'Martel', serif; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
+        .doc-subtitle { font-size: 13px; font-weight: 600; color: #475569; margin: 0; }
+        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; font-size: 13px; }
+        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 11px; text-transform: uppercase; }
+        .biodata-item strong { color: #0f172a; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        .report-table th, .report-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+        .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; }
+        .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; }
+        .badge-pesanan-baru { background: #fef3c7; color: #b45309; }
+        .badge-proses { background: #dbeafe; color: #1d4ed8; }
+        .badge-selesai { background: #d1fae5; color: #047857; }
+        .financial-summary-box { display: flex; gap: 15px; margin-bottom: 15px; }
+        .summary-card { flex: 1; background: #f1f5f9; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; }
+        .summary-card span { font-size: 11px; color: #64748b; font-weight: 600; display: block; }
+        .summary-card strong { font-family: 'Martel', serif; font-size: 16px; color: #0f172a; }
+        .footer-sign { margin-top: 40px; text-align: right; font-size: 12px; }
+        @media print {
+          body { padding: 0; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="doc-header">
+        <h1 class="doc-title">${docType.toUpperCase()}</h1>
+        <p class="doc-subtitle">KEUANGAN KHIDMAT JEJAK IMANI</p>
+      </div>
+
+      <div class="biodata-grid">
+        <div class="biodata-item">
+          <span>Nama Vendor / Akun:</span>
+          <strong>${vendorName}</strong>
+        </div>
+        <div class="biodata-item">
+          <span>Periode Dokumen:</span>
+          <strong>${startDate} s/d ${endDate}</strong>
+        </div>
+        <div class="biodata-item">
+          <span>Mata Uang:</span>
+          <strong>SAR (Saudi Riyal)</strong>
+        </div>
+        <div class="biodata-item">
+          <span>Tanggal Cetak:</span>
+          <strong>${generatedDate}</strong>
+        </div>
+      </div>
+
+      ${tableContentHtml}
+
+      <div class="footer-sign">
+        <p>Makkah / Madinah, ${new Date().toLocaleDateString('id-ID')}</p>
+        <br><br><br>
+        <p><strong>(${vendorName})</strong></p>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(printDocumentHtml);
+  printWindow.document.close();
+  pdfModal.classList.add('hidden');
+}
+
+// Setup Date Filter on Orders Header
+function setupDateFilter() {
+  orderDateFilter.addEventListener('change', (e) => {
+    appState.selectedDateFilter = e.target.value;
+    renderOrdersList();
+  });
+
+  btnClearDateFilter.addEventListener('click', () => {
+    orderDateFilter.value = '';
+    appState.selectedDateFilter = '';
+    renderOrdersList();
+  });
+}
+
 // Event Listeners
 function setupEventListeners() {
-  // PopUp Expense Modal Trigger (Receipt Icon Button)
   btnOpenExpenseModal.addEventListener('click', () => {
     resetModalItems();
     const isVendor = appState.activeUser && appState.activeUser.jenisAkun && appState.activeUser.jenisAkun.toLowerCase() === 'vendor';
@@ -262,7 +511,6 @@ function setupEventListeners() {
     expenseModal.classList.add('hidden');
   });
 
-  // Top-up Modal
   btnOpenTopup.addEventListener('click', () => {
     if (!appState.activeUser) return;
     topupAccountName.value = appState.activeUser.name;
@@ -274,7 +522,6 @@ function setupEventListeners() {
 
   topupForm.addEventListener('submit', handleTopupSubmit);
 
-  // Category Laporan Toggle (Inline)
   kategoriLaporan.addEventListener('change', (e) => {
     if (e.target.value === 'Grup Keberangkatan') {
       grupKeberangkatanWrapper.classList.remove('hidden');
@@ -286,7 +533,6 @@ function setupEventListeners() {
     }
   });
 
-  // Category Laporan Toggle (Modal)
   modalKategoriLaporan.addEventListener('change', (e) => {
     if (e.target.value === 'Grup Keberangkatan') {
       modalGrupWrapper.classList.remove('hidden');
@@ -298,24 +544,19 @@ function setupEventListeners() {
     }
   });
 
-  // Add Item
   btnAddItem.addEventListener('click', () => addItemRow());
   modalBtnAddItem.addEventListener('click', () => addModalItemRow());
 
-  // Logout
   document.getElementById('btnLogout').addEventListener('click', logoutAccount);
 
-  // Form Submit (Inline & Modal)
   expenseForm.addEventListener('submit', handleFormSubmit);
   modalExpenseForm.addEventListener('submit', handleModalFormSubmit);
 
-  // New Transaction Button
   btnNewTransaction.addEventListener('click', () => {
     successOverlay.classList.add('hidden');
     resetForm();
   });
 
-  // Share Receipt Button
   btnShareReceipt.addEventListener('click', handleShareReceipt);
 }
 
@@ -351,11 +592,15 @@ function renderOrdersList() {
     vendorOrders = vendorOrders.filter(o => o.status === appState.selectedStatusFilter);
   }
 
+  if (appState.selectedDateFilter) {
+    vendorOrders = vendorOrders.filter(o => o.tanggal === appState.selectedDateFilter);
+  }
+
   if (vendorOrders.length === 0) {
     ordersContainer.innerHTML = `
       <div style="text-align: center; padding: 24px; color: #64748b; font-size: 13px;">
         <i class="fa-solid fa-box-open" style="font-size: 24px; margin-bottom: 8px; display: block;"></i>
-        Tidak ada pemesanan untuk status "${appState.selectedStatusFilter}"
+        Tidak ada pemesanan untuk filter ini
       </div>
     `;
     return;
@@ -375,7 +620,13 @@ function renderOrdersList() {
     } else if (order.status === 'Proses') {
       actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-complete-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')"><i class="fa-solid fa-flag-checkered"></i> Selesaikan Pemesanan</button>`;
     } else {
-      actionBtnHtml = `<span style="font-size: 12px; font-weight: 700; color: #047857;"><i class="fa-solid fa-circle-check"></i> Transaksi Selesai</span>`;
+      // Completed Status Action: Include Share Icon Button
+      actionBtnHtml = `
+        <span style="font-size: 12px; font-weight: 700; color: #047857;"><i class="fa-solid fa-circle-check"></i> Selesai</span>
+        <button type="button" class="btn-icon-only btn-share-completed" title="Bagikan Ringkasan Transaksi" onclick="handleShareCompletedOrder('${order.id}')">
+          <i class="fa-solid fa-share-nodes"></i>
+        </button>
+      `;
     }
 
     card.innerHTML = `
@@ -385,11 +636,24 @@ function renderOrdersList() {
         <span class="order-status-badge ${statusClass}">${order.status}</span>
       </div>
 
+      <!-- Stacked 2-Line Format for Details -->
       <div class="order-details-grid">
-        <div class="order-detail-item">Grup: <strong>${order.grup || '-'}</strong></div>
-        <div class="order-detail-item">Muthowwif: <strong>${order.muthowwif || '-'}</strong></div>
-        <div class="order-detail-item">Lokasi: <strong>${order.lokasi || '-'}</strong></div>
-        <div class="order-detail-item">Waktu: <strong>${order.tanggal} ${order.jam}</strong></div>
+        <div class="order-detail-item">
+          <span class="order-detail-label">Grup</span>
+          <span class="order-detail-value">${order.grup || '-'}</span>
+        </div>
+        <div class="order-detail-item">
+          <span class="order-detail-label">Muthowwif</span>
+          <span class="order-detail-value">${order.muthowwif || '-'}</span>
+        </div>
+        <div class="order-detail-item">
+          <span class="order-detail-label">Lokasi</span>
+          <span class="order-detail-value">${order.lokasi || '-'}</span>
+        </div>
+        <div class="order-detail-item">
+          <span class="order-detail-label">Waktu</span>
+          <span class="order-detail-value">${order.tanggal} ${order.jam}</span>
+        </div>
         
         <div class="order-product-box">
           <div>
@@ -410,6 +674,31 @@ function renderOrdersList() {
     ordersContainer.appendChild(card);
   });
 }
+
+window.handleShareCompletedOrder = function(orderId) {
+  const order = appState.orders.find(o => o.id.toString().trim() === orderId.toString().trim());
+  if (!order) return;
+
+  const shareText = `🧾 *PEMESANAN VENDOR SELESAI*\n\n` +
+    `📌 *Tujuan Kegiatan:* ${order.tujuan}\n` +
+    `👤 *Vendor:* ${order.akun}\n` +
+    `✈️ *Grup:* ${order.grup}\n` +
+    `👳 *Muthowwif:* ${order.muthowwif}\n` +
+    `📍 *Lokasi:* ${order.lokasi}\n` +
+    `📅 *Waktu:* ${order.tanggal} ${order.jam}\n` +
+    `📦 *Item:* ${order.itemProduk} (${order.qty} ${order.satuan} @ ${formatSAR(order.harga)})\n` +
+    `💰 *TOTAL JUMLAH:* ${formatSAR(order.jumlah)}\n` +
+    `✅ *Status:* SELESAI\n\n` +
+    `_Dicatat via Keuangan Tim Khidmat_`;
+
+  if (navigator.share) {
+    navigator.share({ title: 'Ringkasan Pemesanan Selesai', text: shareText }).catch(err => console.log('Share notice:', err));
+  } else {
+    navigator.clipboard.writeText(shareText).then(() => {
+      alert('Ringkasan pemesanan selesai berhasil disalin ke clipboard!');
+    }).catch(err => alert('Ringkasan Pemesanan:\n\n' + shareText));
+  }
+};
 
 window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   const confirmMsg = newStatus === 'Selesai' 
