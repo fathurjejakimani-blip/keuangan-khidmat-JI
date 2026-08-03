@@ -26,7 +26,7 @@
   --font-heading: 'Martel', serif;
   --font-body: 'Mulish', sans-serif;
 
-  --border-radius: 16px;
+  --border-radius: 18px;
   --border-radius-sm: 10px;
 
   --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -53,7 +53,7 @@ body {
 /* App Container */
 .app-container {
   width: 100%;
-  max-width: 500px;
+  max-width: 480px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -78,8 +78,9 @@ body {
 
 /* Auth / Login Widget */
 .auth-section {
-  max-width: 440px;
-  margin: 40px auto 0 auto;
+  width: 100%;
+  max-width: 420px;
+  margin: 20px auto 0 auto;
 }
 
 .auth-title {
@@ -91,46 +92,53 @@ body {
   margin-bottom: 20px;
 }
 
-/* 6-Digit PIN Display & Keypad */
+/* 6-Digit PIN Display & Perfect Circle Keypad */
 .pin-keypad-group {
-  margin-top: 10px;
+  margin-top: 14px;
   text-align: center;
+}
+
+.pin-keypad-group label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-dark);
 }
 
 .pin-display {
   display: flex;
   justify-content: center;
   gap: 12px;
-  margin: 12px 0 20px 0;
+  margin: 14px 0 24px 0;
 }
 
 .pin-dot {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid var(--navy-medium);
+  border: 2px solid var(--navy-dark);
   background: transparent;
   transition: var(--transition-fast);
 }
 
 .pin-dot.filled {
   background: var(--navy-dark);
-  border-color: var(--navy-dark);
-  transform: scale(1.1);
+  transform: scale(1.15);
 }
 
+/* Fix Keypad Buttons: Perfect 60px Circles */
 .keypad-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  max-width: 280px;
-  margin: 0 auto 20px auto;
+  grid-template-columns: repeat(3, 60px);
+  justify-content: center;
+  gap: 16px 22px;
+  margin: 10px auto 0 auto;
 }
 
 .keypad-btn {
-  height: 54px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  width: 60px !important;
+  height: 60px !important;
+  border-radius: 50% !important; /* Lingkaran Sempurna */
+  border: 1px solid #cbd5e1;
   background: #ffffff;
   font-family: var(--font-heading);
   font-size: 20px;
@@ -141,28 +149,32 @@ body {
   align-items: center;
   justify-content: center;
   transition: var(--transition-fast);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.05);
 }
 
 .keypad-btn:hover {
   background: var(--navy-light);
-  border-color: var(--navy-medium);
+  border-color: var(--navy-dark);
+  transform: scale(1.05);
 }
 
 .keypad-btn:active {
-  background: var(--navy-medium);
+  background: var(--navy-dark);
   color: #ffffff;
+  border-color: var(--navy-dark);
+  transform: scale(0.95);
 }
 
 .keypad-btn-blank {
-  border: none;
-  background: transparent;
-  box-shadow: none;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none;
 }
 
 .keypad-btn-action {
   font-size: 16px;
-  color: var(--navy-medium);
+  color: var(--navy-dark);
 }
 
 /* Spacing between Saldo & Form Widget */
@@ -549,7 +561,7 @@ body {
   flex: 1;
 }
 
-/* Success Full Overlay (No Checklist Shadow) */
+/* Success Full Overlay */
 .success-overlay {
   position: fixed;
   top: 0;
@@ -587,7 +599,7 @@ body {
   stroke-width: 3.5;
   stroke: var(--navy-dark);
   stroke-miterlimit: 10;
-  box-shadow: none !important; /* Hilangkan efek shadow sesuai permintaan */
+  box-shadow: none !important;
   animation: scale .3s ease-in-out .9s both;
 }
 
