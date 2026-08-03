@@ -92,7 +92,7 @@
 
         <!-- Balance Action Buttons (Icon Only) -->
         <div class="balance-actions">
-          <button id="btnOpenExpenseModal" class="btn-icon-only btn-expense-toggle" title="Form Pengeluaran Tim (PopUp)">
+          <button id="btnOpenExpenseModal" class="btn-icon-only btn-expense-toggle" title="Form Pengeluaran Tim (PopUp Modal)">
             <i class="fa-solid fa-receipt"></i>
           </button>
           <button id="btnOpenTopup" class="btn-icon-only btn-topup" title="Isi Saldo Kas">
@@ -107,7 +107,7 @@
       <!-- Spacing Divider -->
       <div class="section-spacer"></div>
 
-      <!-- VENDOR VIEW: Pemesanan Section (Layar Awal Khusus Vendor) -->
+      <!-- VENDOR VIEW: Pemesanan Section (Layar Awal Utama Khusus Vendor) -->
       <section id="ordersSection" class="orders-section card-navy hidden">
         <div class="card-header border-bottom flex-header">
           <h2>Daftar Pemesanan</h2>
@@ -127,8 +127,8 @@
         </div>
       </section>
 
-      <!-- TIM VIEW: Main Expense Form Section (Layar Awal Khusus Tim) -->
-      <section id="expenseFormSection" class="form-section card-navy">
+      <!-- TIM VIEW: Main Expense Form Section (Hidden for Vendors by default) -->
+      <section id="expenseFormSection" class="form-section card-navy hidden">
         <div class="card-header border-bottom">
           <h2>Form Pengeluaran Tim</h2>
         </div>
@@ -148,7 +148,7 @@
             </div>
           </div>
 
-          <!-- 2. Nama Grup Keberangkatan (Conditional Autocomplete) -->
+          <!-- 2. Nama Grup Keberangkatan -->
           <div id="grupKeberangkatanWrapper" class="input-group autocomplete-group">
             <label for="namaGrupInput">Nama Grup Keberangkatan <span class="req">*</span></label>
             <div class="input-wrapper navy-input">
@@ -159,7 +159,7 @@
             <div id="grupSuggestions" class="suggestions-list hidden"></div>
           </div>
 
-          <!-- 3. Nama Kegiatan (Autocomplete) -->
+          <!-- 3. Nama Kegiatan -->
           <div class="input-group autocomplete-group">
             <label for="kegiatanInput">Nama Kegiatan <span class="req">*</span></label>
             <div class="input-wrapper navy-input">
@@ -170,18 +170,13 @@
             <div id="kegiatanSuggestions" class="suggestions-list hidden"></div>
           </div>
 
-          <!-- 4. Rincian Item (Searchbar Suggestion per Item Category) -->
+          <!-- 4. Rincian Item -->
           <div class="items-section">
             <div class="items-header">
               <h3>Rincian Item Pengeluaran</h3>
               <span class="badge-count" id="itemCountBadge">1 Item</span>
             </div>
-
-            <!-- Dynamic Items Container -->
-            <div id="itemsContainer" class="items-container">
-              <!-- Item cards rendered dynamically -->
-            </div>
-
+            <div id="itemsContainer" class="items-container"></div>
             <button type="button" id="btnAddItem" class="btn-navy btn-add">
               <i class="fa-solid fa-plus-circle"></i> Tambah Item Pengeluaran
             </button>
@@ -195,7 +190,6 @@
             <div id="grandTotalDisplay" class="total-amount">SAR 0.00</div>
           </div>
 
-          <!-- 6. Tombol Submit (Text Only) -->
           <button type="submit" id="btnSubmitForm" class="btn-navy btn-primary btn-block btn-lg">
             Submit & Catat Pengeluaran
           </button>
@@ -203,7 +197,7 @@
       </section>
     </div>
 
-    <!-- POPUP MODAL: Form Pengeluaran (Bisa dibuka dari icon receipt oleh Vendor) -->
+    <!-- POPUP MODAL: Form Pengeluaran Tim (PopUp Modal untuk Vendor & Manual Entry) -->
     <div id="expenseModal" class="modal-backdrop hidden">
       <div class="modal-card card-navy modal-lg">
         <div class="modal-header">
@@ -321,8 +315,6 @@
     <!-- Success Full Overlay -->
     <div id="successOverlay" class="success-overlay hidden">
       <div class="success-card card-navy" id="receiptCardArea">
-        
-        <!-- Checklist Animated Icon (No Shadow) -->
         <div class="checkmark-wrapper">
           <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
             <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
@@ -353,9 +345,7 @@
           <!-- Rincian Item Breakdown List -->
           <div class="recap-items-breakdown">
             <div class="breakdown-title">Rincian Item:</div>
-            <div id="recapItemsList" class="breakdown-list">
-              <!-- Item rows populated dynamically -->
-            </div>
+            <div id="recapItemsList" class="breakdown-list"></div>
           </div>
 
           <div class="recap-row highlight">
@@ -368,7 +358,6 @@
           </div>
         </div>
 
-        <!-- Success Action Row -->
         <div class="success-actions">
           <button id="btnNewTransaction" class="btn-navy btn-primary flex-grow">
             Selesai / Transaksi Baru
