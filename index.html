@@ -335,168 +335,250 @@
       </button>
     </div>
 
-    <!-- POPUP MODAL: Cetak PDF Dokumen Manajemen (7 Opsi Dokumen) -->
+    <!-- POPUP MODAL: Cetak PDF Dokumen Manajemen (7 Dokumen Resmi) -->
     <div id="mgmtPdfModal" class="modal-backdrop hidden">
-      <div class="modal-card card-navy modal-lg">
+      <div class="modal-card modal-lg card-navy mgmt-pdf-modal-card">
         <div class="modal-header">
-          <h3><i class="fa-solid fa-file-pdf"></i> Cetak PDF Dokumen Manajemen</h3>
+          <div class="modal-title-with-icon">
+            <div class="modal-icon-badge">
+              <i class="fa-solid fa-file-pdf"></i>
+            </div>
+            <div>
+              <h3>Cetak PDF Dokumen Manajemen</h3>
+              <p class="modal-subtitle-text">Pilih jenis dokumen resmi dan lengkapi rincian data pengajuan</p>
+            </div>
+          </div>
           <button id="btnCloseMgmtPdfModal" class="btn-close">&times;</button>
         </div>
+
         <form id="mgmtPdfForm">
           <div class="modal-body">
-            
-            <!-- Select Jenis Dokumen -->
+            <!-- 1. Dropdown Jenis Dokumen PDF (Tanpa Nomor) -->
             <div class="input-group">
               <label for="mgmtDocTypeSelect">Pilih Jenis Dokumen PDF <span class="req">*</span></label>
               <div class="select-wrapper navy-input">
                 <i class="fa-solid fa-file-contract select-icon"></i>
                 <select id="mgmtDocTypeSelect" required>
-                  <option value="1">1. Approval Pengajuan</option>
-                  <option value="2">2. Kwitansi</option>
-                  <option value="3">3. Add on Tagihan Jamaah</option>
-                  <option value="4">4. Laporan Pengeluaran Grup</option>
-                  <option value="5">5. Rekapitulasi Rincian Transaksi</option>
-                  <option value="6">6. Rekapitulasi Transaksi Grup</option>
-                  <option value="7">7. Laporan Biaya Operasional Tim</option>
+                  <option value="1">Approval Pengajuan</option>
+                  <option value="2">Kwitansi</option>
+                  <option value="3">Add on Tagihan Jamaah</option>
+                  <option value="4">Laporan Pengeluaran Grup</option>
+                  <option value="5">Rekapitulasi Rincian Transaksi</option>
+                  <option value="6">Rekapitulasi Transaksi Grup</option>
+                  <option value="7">Laporan Biaya Operasional Tim</option>
                 </select>
                 <i class="fa-solid fa-chevron-down arrow-icon"></i>
               </div>
             </div>
 
             <!-- Dynamic Form Wrapper for 7 Document Types -->
-            <div id="mgmtPdfDynamicFields">
+            <div id="mgmtPdfDynamicFields" class="mgmt-dynamic-fields-wrapper">
               
               <!-- Doc 1: Approval Pengajuan -->
               <div id="fieldDoc1" class="doc-field-group">
-                <div class="input-group">
-                  <label>Tanggal Pengajuan</label>
-                  <input type="date" id="doc1Tanggal" class="navy-input" required>
+                <div class="form-grid-2col">
+                  <div class="input-group">
+                    <label>Tanggal Pengajuan</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-calendar-days input-icon"></i>
+                      <input type="date" id="doc1Tanggal" required>
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label>Divisi Operational</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-sitemap input-icon"></i>
+                      <input type="text" id="doc1Divisi" value="Saudi Operational" required>
+                    </div>
+                  </div>
                 </div>
                 <div class="input-group">
-                  <label>Divisi</label>
-                  <input type="text" id="doc1Divisi" value="Saudi Operational" class="navy-input" required>
+                  <label>Nama Program / Kegiatan Pengajuan</label>
+                  <div class="input-wrapper navy-input">
+                    <i class="fa-solid fa-clipboard-list input-icon"></i>
+                    <input type="text" id="doc1Program" placeholder="Misal: Operasional Layanan Umrah Makkah & Madinah" required>
+                  </div>
                 </div>
-                <div class="input-group">
-                  <label>Nama Program</label>
-                  <input type="text" id="doc1Program" placeholder="Misal: Operasional Layanan Umrah" class="navy-input" required>
-                </div>
-                <div class="items-section">
+                <div class="items-section mgmt-items-section">
                   <div class="items-header">
-                    <h3>Rincian Program</h3>
+                    <h3><i class="fa-solid fa-list-check"></i> Rincian Item Program</h3>
                   </div>
                   <div id="doc1ItemsContainer"></div>
                   <button type="button" id="btnAddDoc1Item" class="btn-navy btn-add">
                     <i class="fa-solid fa-plus-circle"></i> Tambah Item Program
                   </button>
+                  <div class="grand-total-card mgmt-grand-total-card">
+                    <span class="total-label">Total Keseluruhan Pengajuan:</span>
+                    <strong id="doc1GrandTotalDisplay" class="total-amount">SAR 0.00</strong>
+                  </div>
                 </div>
               </div>
 
               <!-- Doc 2: Kwitansi -->
               <div id="fieldDoc2" class="doc-field-group hidden">
-                <div class="input-group">
-                  <label>No Referensi</label>
-                  <input type="text" id="doc2NoRef" placeholder="KWT-2026-001" class="navy-input" required>
-                </div>
-                <div class="input-group">
-                  <label>Tanggal</label>
-                  <input type="date" id="doc2Tanggal" class="navy-input" required>
+                <div class="form-grid-2col">
+                  <div class="input-group">
+                    <label>No. Referensi Kwitansi</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-hashtag input-icon"></i>
+                      <input type="text" id="doc2NoRef" placeholder="KWT-2026-001" required>
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label>Tanggal Pembayaran</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-calendar input-icon"></i>
+                      <input type="date" id="doc2Tanggal" required>
+                    </div>
+                  </div>
                 </div>
                 <div class="input-group">
                   <label>Nominal Pembayaran (SAR)</label>
-                  <input type="number" min="0" step="any" id="doc2Nominal" placeholder="0.00" class="navy-input" required>
+                  <div class="input-wrapper navy-input">
+                    <span class="currency-prefix">SAR</span>
+                    <input type="number" min="0" step="any" id="doc2Nominal" placeholder="0.00" required>
+                  </div>
                 </div>
                 <div class="input-group">
                   <label>Keterangan Pembayaran</label>
-                  <input type="text" id="doc2Keterangan" placeholder="Misal: Pembayaran Tiket Kereta Haramain" class="navy-input" required>
+                  <div class="input-wrapper navy-input">
+                    <i class="fa-solid fa-pen-to-square input-icon"></i>
+                    <input type="text" id="doc2Keterangan" placeholder="Misal: Pembayaran Tiket Kereta Haramain Express" required>
+                  </div>
                 </div>
-                <div class="input-group">
-                  <label>Nama Pengirim</label>
-                  <input type="text" id="doc2Pengirim" placeholder="Nama pengirim / tim" class="navy-input" required>
-                </div>
-                <div class="input-group">
-                  <label>Nama Penerima</label>
-                  <input type="text" id="doc2Penerima" placeholder="Nama penerima / vendor" class="navy-input" required>
+                <div class="form-grid-2col">
+                  <div class="input-group">
+                    <label>Nama Pengirim (Pemberi Uang)</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-user input-icon"></i>
+                      <input type="text" id="doc2Pengirim" placeholder="Nama pengirim / tim" required>
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label>Nama Penerima (Penerima Uang)</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-user-check input-icon"></i>
+                      <input type="text" id="doc2Penerima" placeholder="Nama penerima / vendor" required>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <!-- Doc 3: Add on Tagihan Jamaah -->
+              <!-- Doc 3: Add on Tagihan Jamaah (Autocomplete Group) -->
               <div id="fieldDoc3" class="doc-field-group hidden">
-                <div class="input-group">
-                  <label>Nama Grup</label>
-                  <input type="text" id="doc3Grup" placeholder="Pilih / ketik nama grup" class="navy-input" required>
+                <div class="form-grid-2col">
+                  <div class="input-group autocomplete-group">
+                    <label>Nama Grup Keberangkatan <span class="req">*</span></label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-plane-departure input-icon"></i>
+                      <input type="text" id="doc3GrupInput" placeholder="Ketik / pilih nama grup" autocomplete="off" required>
+                      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    </div>
+                    <div id="doc3GrupSuggestions" class="suggestions-list hidden"></div>
+                  </div>
+                  <div class="input-group">
+                    <label>Nama Jamaah</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-user-tag input-icon"></i>
+                      <input type="text" id="doc3Jamaah" placeholder="Nama lengkap jamaah" required>
+                    </div>
+                  </div>
                 </div>
                 <div class="input-group">
-                  <label>Nama Jamaah</label>
-                  <input type="text" id="doc3Jamaah" placeholder="Nama lengkap jamaah" class="navy-input" required>
+                  <label>Tanggal Dokumen</label>
+                  <div class="input-wrapper navy-input">
+                    <i class="fa-solid fa-calendar input-icon"></i>
+                    <input type="date" id="doc3Tanggal" required>
+                  </div>
                 </div>
-                <div class="input-group">
-                  <label>Tanggal</label>
-                  <input type="date" id="doc3Tanggal" class="navy-input" required>
-                </div>
-                <div class="items-section">
+                <div class="items-section mgmt-items-section">
                   <div class="items-header">
-                    <h3>Rincian Item Add-On</h3>
+                    <h3><i class="fa-solid fa-cart-plus"></i> Rincian Item Add-On</h3>
                   </div>
                   <div id="doc3ItemsContainer"></div>
                   <button type="button" id="btnAddDoc3Item" class="btn-navy btn-add">
                     <i class="fa-solid fa-plus-circle"></i> Tambah Item Add-On
                   </button>
+                  <div class="grand-total-card mgmt-grand-total-card">
+                    <span class="total-label">Total Keseluruhan Add-On:</span>
+                    <strong id="doc3GrandTotalDisplay" class="total-amount">SAR 0.00</strong>
+                  </div>
                 </div>
               </div>
 
-              <!-- Doc 4: Laporan Pengeluaran Grup -->
+              <!-- Doc 4: Laporan Pengeluaran Grup (Autocomplete Group) -->
               <div id="fieldDoc4" class="doc-field-group hidden">
-                <div class="input-group">
-                  <label>Pilih Nama Grup</label>
-                  <div class="select-wrapper navy-input">
-                    <select id="doc4GrupSelect" required>
-                      <option value="">-- Pilih Grup --</option>
-                    </select>
-                    <i class="fa-solid fa-chevron-down arrow-icon"></i>
+                <div class="input-group autocomplete-group">
+                  <label>Pilih Nama Grup Keberangkatan <span class="req">*</span></label>
+                  <div class="input-wrapper navy-input">
+                    <i class="fa-solid fa-layer-group input-icon"></i>
+                    <input type="text" id="doc4GrupInput" placeholder="Ketik / pilih nama grup" autocomplete="off" required>
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
                   </div>
+                  <div id="doc4GrupSuggestions" class="suggestions-list hidden"></div>
                 </div>
-                <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">
-                  Sistem akan mengelompokkan data pengeluaran grup secara otomatis berdasarkan 5 Kategori: <em>Operasional Jeddah, Operasional Madinah, Operasional Makkah, Pemesanan Vendor, Lainnya</em>.
-                </p>
+                <div class="info-note-box">
+                  <i class="fa-solid fa-circle-info"></i>
+                  <span>Sistem akan mengelompokkan data pengeluaran grup secara otomatis berdasarkan 5 Kategori: <strong>Operasional Jeddah, Operasional Madinah, Operasional Makkah, Pemesanan Vendor, Lainnya</strong>.</span>
+                </div>
               </div>
 
               <!-- Doc 5: Rekapitulasi Rincian Transaksi -->
               <div id="fieldDoc5" class="doc-field-group hidden">
-                <div class="input-group">
-                  <label>Tanggal Mulai</label>
-                  <input type="date" id="doc5StartDate" class="navy-input" required>
-                </div>
-                <div class="input-group">
-                  <label>Tanggal Selesai</label>
-                  <input type="date" id="doc5EndDate" class="navy-input" required>
+                <div class="form-grid-2col">
+                  <div class="input-group">
+                    <label>Tanggal Mulai</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-calendar input-icon"></i>
+                      <input type="date" id="doc5StartDate" required>
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label>Tanggal Selesai</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-calendar input-icon"></i>
+                      <input type="date" id="doc5EndDate" required>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <!-- Doc 6: Rekapitulasi Transaksi Grup -->
               <div id="fieldDoc6" class="doc-field-group hidden">
-                <div class="input-group">
-                  <label>Tanggal Mulai</label>
-                  <input type="date" id="doc6StartDate" class="navy-input" required>
-                </div>
-                <div class="input-group">
-                  <label>Tanggal Selesai</label>
-                  <input type="date" id="doc6EndDate" class="navy-input" required>
+                <div class="form-grid-2col">
+                  <div class="input-group">
+                    <label>Tanggal Mulai</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-calendar input-icon"></i>
+                      <input type="date" id="doc6StartDate" required>
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label>Tanggal Selesai</label>
+                    <div class="input-wrapper navy-input">
+                      <i class="fa-solid fa-calendar input-icon"></i>
+                      <input type="date" id="doc6EndDate" required>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <!-- Doc 7: Laporan Biaya Operasional Tim -->
               <div id="fieldDoc7" class="doc-field-group hidden">
                 <div class="input-group">
-                  <label>Pilihan Bulan</label>
-                  <input type="month" id="doc7Bulan" class="navy-input" required>
+                  <label>Pilihan Bulan Operasional</label>
+                  <div class="input-wrapper navy-input">
+                    <i class="fa-solid fa-calendar-check input-icon"></i>
+                    <input type="month" id="doc7Bulan" required>
+                  </div>
                 </div>
               </div>
 
             </div>
 
           </div>
-          <div class="modal-footer" style="margin-top: 16px;">
-            <button type="submit" id="btnSubmitMgmtPdf" class="btn-navy btn-primary btn-block btn-lg">
+          <div class="modal-footer mgmt-modal-footer">
+            <button type="submit" id="btnSubmitMgmtPdf" class="btn-navy btn-primary btn-block btn-lg btn-print-pdf">
               <i class="fa-solid fa-print"></i> Cetak Dokumen PDF
             </button>
           </div>
