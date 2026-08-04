@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v6.2
- * Instant UI Status & Balance Update with Optimistic Merge Protection
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v7.0
+ * Management Dashboard, Expense Approval System (Opsi B), Combined Balance Calculation
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -32,12 +32,20 @@ const appFormWrapper = document.getElementById('appFormWrapper');
 const accountSearchInput = document.getElementById('accountSearchInput');
 const accountSuggestions = document.getElementById('accountSuggestions');
 
+const mainBalanceSection = document.getElementById('mainBalanceSection');
 const activeAccountName = document.getElementById('activeAccountName');
 const activeAccountType = document.getElementById('activeAccountType');
 const activeBalanceDisplay = document.getElementById('activeBalanceDisplay');
 
 const estimatesBox = document.getElementById('estimatesBox');
 const estimatesAmountDisplay = document.getElementById('estimatesAmountDisplay');
+
+// Management Dashboard Elements
+const managementSection = document.getElementById('managementSection');
+const totalCombinedBalance = document.getElementById('totalCombinedBalance');
+const pendingApprovalsBadge = document.getElementById('pendingApprovalsBadge');
+const pendingApprovalsContainer = document.getElementById('pendingApprovalsContainer');
+const accountBalancesContainer = document.getElementById('accountBalancesContainer');
 
 // Floating Action Button (FAB) Elements
 const fabContainer = document.getElementById('fabContainer');
@@ -97,7 +105,7 @@ const itemCountBadge = document.getElementById('itemCountBadge');
 const grandTotalDisplay = document.getElementById('grandTotalDisplay');
 const btnSubmitForm = document.getElementById('btnSubmitForm');
 
-// PopUp Modal Form Elements (for Vendor Users)
+// PopUp Modal Form Elements
 const modalKategoriLaporan = document.getElementById('modalKategoriLaporan');
 const modalGrupWrapper = document.getElementById('modalGrupWrapper');
 const modalNamaGrupInput = document.getElementById('modalNamaGrupInput');
@@ -131,7 +139,6 @@ const btnSubmitTopup = document.getElementById('btnSubmitTopup');
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1. RESTORE SESSION IMMEDIATELY (Prevents returning to login screen on refresh)
   checkAndRestoreSession();
 
   setupAccountSearchbar();
@@ -148,7 +155,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   resetItems();
   resetModalItems();
 
-  // 2. Fetch Live Data in background
   await fetchDataFromSpreadsheet();
 });
 
@@ -191,12 +197,29 @@ function applyUserSessionUI() {
   fabContainer.classList.remove('hidden');
   txHistorySection.classList.add('hidden');
 
-  const isVendor = userRole.toLowerCase() === 'vendor';
+  const roleLower = userRole.toLowerCase();
 
-  if (isVendor) {
+  if (roleLower === 'manajemen') {
+    // MANAJEMEN ROLE VIEW
+    mainBalanceSection.classList.add('hidden');
+    estimatesBox.classList.add('hidden');
+    ordersSection.classList.add('hidden');
+    expenseFormSection.classList.add('hidden');
+    managementSection.classList.remove('hidden');
+
+    btnOpenPdfModal.classList.add('hidden');
+    btnOpenTransferModal.classList.remove('hidden');
+    btnOpenTxHistoryModal.classList.remove('hidden');
+
+    renderManagementDashboard();
+
+  } else if (roleLower === 'vendor') {
+    // VENDOR ROLE VIEW
+    mainBalanceSection.classList.remove('hidden');
     estimatesBox.classList.remove('hidden');
     ordersSection.classList.remove('hidden');
     expenseFormSection.classList.add('hidden');
+    managementSection.classList.add('hidden');
 
     btnOpenPdfModal.classList.remove('hidden');
     btnOpenTransferModal.classList.add('hidden');
@@ -204,16 +227,169 @@ function applyUserSessionUI() {
 
     calculateVendorEstimates();
     renderOrdersList();
+
   } else {
+    // TIM ROLE VIEW
+    mainBalanceSection.classList.remove('hidden');
     estimatesBox.classList.add('hidden');
     ordersSection.classList.add('hidden');
     expenseFormSection.classList.remove('hidden');
+    managementSection.classList.add('hidden');
 
     btnOpenPdfModal.classList.add('hidden');
     btnOpenTransferModal.classList.remove('hidden');
     btnOpenTxHistoryModal.classList.remove('hidden');
   }
 }
+
+// MANAGEMENT DASHBOARD RENDERER (Total Combined Balance, Pending Approvals, All Account Balances)
+function renderManagementDashboard() {
+  if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'manajemen') return;
+
+  // 1. Calculate Total Combined Saldo (Sum of all Tim & Vendor accounts)
+  const combinedTotal = appState.accounts.reduce((sum, acc) => {
+    const r = (acc.jenisAkun || '').toLowerCase();
+    if (r === 'tim' || r === 'vendor') {
+      return sum + (acc.saldo || 0);
+    }
+    return sum;
+  }, 0);
+
+  totalCombinedBalance.textContent = formatSAR(combinedTotal);
+
+  // 2. Render Pending Approvals List (Status: 'Menunggu Persetujuan')
+  const pendingTx = appState.transactions.filter(t => t.status === 'Menunggu Persetujuan');
+  pendingApprovalsBadge.textContent = `${pendingTx.length} Pengeluaran`;
+
+  pendingApprovalsContainer.innerHTML = '';
+  if (pendingTx.length === 0) {
+    pendingApprovalsContainer.innerHTML = `
+      <div style="text-align: center; padding: 24px; color: #64748b; font-size: 13px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+        <i class="fa-solid fa-circle-check" style="font-size: 24px; color: #10b981; margin-bottom: 8px; display: block;"></i>
+        Tidak ada laporan pengeluaran yang menunggu persetujuan
+      </div>
+    `;
+  } else {
+    // Newest pending tx first
+    [...pendingTx].reverse().forEach(tx => {
+      const card = document.createElement('div');
+      card.className = 'pending-approval-card';
+
+      card.innerHTML = `
+        <div class="approval-card-header">
+          <div class="approval-user-info">
+            <strong>${tx.akun}</strong>
+            <small>${tx.waktu}</small>
+          </div>
+          <div class="approval-amount">${formatSAR(tx.total)}</div>
+        </div>
+        <div class="approval-details-box">
+          <div><strong>Kegiatan:</strong> ${tx.kegiatan} (${tx.kategori})</div>
+          ${tx.namaGrup && tx.namaGrup !== '-' ? `<div><strong>Grup:</strong> ${tx.namaGrup}</div>` : ''}
+          ${tx.rincian ? `<div><strong>Rincian:</strong> ${tx.rincian}</div>` : ''}
+        </div>
+        <div class="approval-actions">
+          <button type="button" class="btn-approve-action" onclick="handleApproveExpense('${tx.id}')">
+            <i class="fa-solid fa-circle-check"></i> Setujui
+          </button>
+          <button type="button" class="btn-reject-action" onclick="handleRejectExpense('${tx.id}')">
+            <i class="fa-solid fa-circle-xmark"></i> Tolak
+          </button>
+        </div>
+      `;
+      pendingApprovalsContainer.appendChild(card);
+    });
+  }
+
+  // 3. Render All Account Balances Grid
+  accountBalancesContainer.innerHTML = '';
+  appState.accounts.forEach(acc => {
+    const card = document.createElement('div');
+    card.className = 'account-balance-card';
+
+    card.innerHTML = `
+      <div class="acc-card-name">${acc.name}</div>
+      <div class="acc-card-type">${acc.jenisAkun || 'Tim'}</div>
+      <div class="acc-card-balance">${formatSAR(acc.saldo)}</div>
+    `;
+    accountBalancesContainer.appendChild(card);
+  });
+}
+
+// MANAGEMENT ACTION: APPROVE EXPENSE (Opsi B: Deducts sender balance upon Approval)
+window.handleApproveExpense = async function(txId) {
+  const tx = appState.transactions.find(t => normId(t.id) === normId(txId));
+  if (!tx) return;
+
+  if (!confirm(`Setujui laporan pengeluaran dari ${tx.akun} sebesar ${formatSAR(tx.total)}? Saldo kas ${tx.akun} akan dipotong.`)) return;
+
+  try {
+    const payload = {
+      action: 'updateExpenseStatus',
+      txId: txId,
+      newStatus: 'Disetujui'
+    };
+
+    // Optimistically update status locally
+    tx.status = 'Disetujui';
+
+    // Deduct sender balance locally
+    const senderAcc = appState.accounts.find(a => normString(a.name) === normString(tx.akun));
+    if (senderAcc) {
+      senderAcc.saldo -= tx.total;
+    }
+
+    renderManagementDashboard();
+    showAutoToast("Pengeluaran Disetujui!", `Saldo ${tx.akun} telah dipotong ${formatSAR(tx.total)}`);
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    setTimeout(fetchDataFromSpreadsheet, 3000);
+
+  } catch (err) {
+    console.error('Approve expense error:', err);
+    alert('Terjadi kesalahan saat menyetujui pengeluaran: ' + err.message);
+  }
+};
+
+// MANAGEMENT ACTION: REJECT EXPENSE
+window.handleRejectExpense = async function(txId) {
+  const tx = appState.transactions.find(t => normId(t.id) === normId(txId));
+  if (!tx) return;
+
+  if (!confirm(`Tolak laporan pengeluaran dari ${tx.akun} sebesar ${formatSAR(tx.total)}?`)) return;
+
+  try {
+    const payload = {
+      action: 'updateExpenseStatus',
+      txId: txId,
+      newStatus: 'Ditolak'
+    };
+
+    tx.status = 'Ditolak';
+
+    renderManagementDashboard();
+    showAutoToast("Pengeluaran Ditolak!", `Laporan pengeluaran dari ${tx.akun} telah ditolak`);
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    setTimeout(fetchDataFromSpreadsheet, 3000);
+
+  } catch (err) {
+    console.error('Reject expense error:', err);
+    alert('Terjadi kesalahan saat menolak pengeluaran: ' + err.message);
+  }
+};
 
 // Auto-closing Toast with Animated Checkmark (2.5 Seconds)
 function showAutoToast(titleText, subtitleText) {
@@ -290,7 +466,7 @@ function renderAccountSuggestions(accList) {
     const div = document.createElement('div');
     div.className = 'suggestion-item';
     div.innerHTML = `
-      <i class="fa-solid ${acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'vendor' ? 'fa-store' : 'fa-user-circle'}"></i> 
+      <i class="fa-solid ${acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'vendor' ? 'fa-store' : (acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'manajemen' ? 'fa-user-shield' : 'fa-user-circle')}"></i> 
       <span>${acc.name} <small style="color:#64748b">(${acc.jenisAkun || 'Tim'})</small></span>
     `;
     div.addEventListener('click', () => {
@@ -461,7 +637,6 @@ async function handleTransferSubmit(e) {
   };
 
   try {
-    // INSTANT LOCAL BALANCE UPDATE
     appState.activeUser.saldo -= amount;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
     localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
@@ -490,7 +665,7 @@ async function handleTransferSubmit(e) {
   }
 }
 
-// RIWAYAT TRANSAKSI KAS - FULL PAGE SECTION LOGIC WITH REVERSE CHRONOLOGICAL SORTING
+// RIWAYAT TRANSAKSI KAS WITH STATUS BADGES & REVERSE CHRONOLOGICAL SORTING
 function setupTxHistorySection() {
   btnOpenTxHistoryModal.addEventListener('click', (e) => {
     if (e) e.stopPropagation();
@@ -499,6 +674,7 @@ function setupTxHistorySection() {
 
     expenseFormSection.classList.add('hidden');
     ordersSection.classList.add('hidden');
+    managementSection.classList.add('hidden');
     txHistorySection.classList.remove('hidden');
 
     txSearchInput.value = '';
@@ -550,8 +726,23 @@ function renderGroupedTxHistory() {
   txHistoryContainer.innerHTML = '';
 
   const activeNorm = appState.activeUser ? normString(appState.activeUser.name) : '';
-  
+  const isMgmt = appState.activeUser && (appState.activeUser.jenisAkun || '').toLowerCase() === 'manajemen';
+
   let myTxs = appState.transactions.filter(t => {
+    // If Management, show all transactions across all accounts
+    if (isMgmt) {
+      if (appState.txSearchQuery) {
+        const q = appState.txSearchQuery;
+        const matchText = `${t.kegiatan} ${t.kategori} ${t.rincian} ${t.akun}`.toLowerCase();
+        if (!matchText.includes(q)) return false;
+      }
+      if (appState.txDateFilterVal) {
+        const txIsoDate = normalizeDateToISO(t.waktu);
+        if (txIsoDate !== appState.txDateFilterVal) return false;
+      }
+      return true;
+    }
+
     const isSender = normString(t.akun) === activeNorm;
     const isReceiver = (t.kegiatan && normString(t.kegiatan).includes('transfer ke ' + activeNorm)) || 
                        (t.rincian && normString(t.rincian).includes(activeNorm)) ||
@@ -599,12 +790,20 @@ function renderGroupedTxHistory() {
       }
     }
 
+    // Status Approval Badge Class
+    let approvalBadgeClass = 'badge-status-pending';
+    let statusDisplay = t.status || 'Menunggu Persetujuan';
+    if (statusDisplay === 'Disetujui') approvalBadgeClass = 'badge-status-approved';
+    if (statusDisplay === 'Ditolak') approvalBadgeClass = 'badge-status-rejected';
+
     return {
       ...t,
       txTypeLabel,
       txBadgeClass,
       isIncome,
-      categoryGroup
+      categoryGroup,
+      approvalBadgeClass,
+      statusDisplay
     };
   });
 
@@ -663,9 +862,10 @@ function renderGroupedTxHistory() {
         <div class="tx-card-left">
           <div class="tx-badge-row">
             <span class="badge-tx-type ${t.txBadgeClass}">${t.txTypeLabel}</span>
+            <span class="badge-tx-type ${t.approvalBadgeClass}">${t.statusDisplay}</span>
             <span class="tx-meta">${t.waktu}</span>
           </div>
-          <div class="tx-title">${t.kegiatan || t.kategori}</div>
+          <div class="tx-title">${t.kegiatan || t.kategori} <small style="color:#64748b">(${t.akun})</small></div>
           ${t.rincian ? `<div class="tx-keterangan">${t.rincian}</div>` : ''}
         </div>
         <div class="tx-amount ${amountClass}">${amountSign} ${formatSAR(t.total)}</div>
@@ -734,7 +934,6 @@ function generatePdfDocument() {
     const rowsHtml = filteredOrders.map((o, idx) => {
       grandTotalOrders += o.jumlah || 0;
       const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
-      
       const productsFormatted = parseMultiItemsText(o.itemProduk, o.qty, o.satuan, o.harga);
 
       return `
@@ -1326,7 +1525,6 @@ window.handleShareCompletedOrder = function(orderId) {
   }
 };
 
-// INSTANT STATUS CHANGE & OPTIMISTIC BALANCE SYNC
 window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   const confirmMsg = newStatus === 'Selesai' 
     ? "Mengonfirmasi pesanan ini akan otomatis memotong saldo akun Anda. Lanjutkan?"
@@ -1345,11 +1543,9 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
     const orderIndex = appState.orders.findIndex(o => normId(o.id) === targetNormId);
 
     if (orderIndex !== -1) {
-      // 1. INSTANTLY UPDATE ORDER STATUS LOCALLY
       appState.orders[orderIndex].status = newStatus;
       appState.orders[orderIndex]._localOptimistic = true;
       
-      // 2. INSTANTLY DEDUCT VENDOR BALANCE LOCALLY IF SELESAI
       if (newStatus === 'Selesai') {
         const orderAmount = appState.orders[orderIndex].jumlah || 0;
         appState.activeUser.saldo -= orderAmount;
@@ -1358,14 +1554,11 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       }
     }
 
-    // 3. INSTANTLY RE-RENDER UI (No delay for user!)
     calculateVendorEstimates();
     renderOrdersList();
     
-    // Show Animated Checkmark Toast (Auto Closes in 2.5s)
     showAutoToast("Status Diperbarui!", `Status pemesanan diubah menjadi ${newStatus}`);
 
-    // Send POST request to Apps Script asynchronously
     await fetch(GAS_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -1373,7 +1566,6 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       body: JSON.stringify(payload)
     });
 
-    // Schedule background sync after Apps Script completes writing row to Sheet
     setTimeout(fetchDataFromSpreadsheet, 4000);
 
   } catch (err) {
@@ -1382,7 +1574,6 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   }
 };
 
-// Top-up Balance Handler
 async function handleTopupSubmit(e) {
   e.preventDefault();
 
@@ -1430,7 +1621,6 @@ async function handleTopupSubmit(e) {
   }
 }
 
-// Inline Form Dynamic Items
 function resetItems() {
   appState.items = [];
   itemsContainer.innerHTML = '';
@@ -1498,7 +1688,6 @@ function addItemRow() {
   calculateGrandTotal();
 }
 
-// Modal Form Dynamic Items
 function resetModalItems() {
   appState.modalItems = [];
   modalItemsContainer.innerHTML = '';
@@ -1847,7 +2036,7 @@ function renderSuggestions(container, items, onSelect) {
   container.classList.remove('hidden');
 }
 
-// Form Submissions
+// Form Submissions (OPSI B: Balance is NOT deducted upon submit)
 async function handleFormSubmit(e) {
   e.preventDefault();
   await processExpenseSubmit(kategoriLaporan.value, namaGrupInput.value, kegiatanInput.value, appState.items, btnSubmitForm);
@@ -1866,17 +2055,13 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     return;
   }
 
-  if (appState.activeUser.saldo < totalExpense) {
-    const proceed = confirm(`Peringatan: Total pengeluaran (${formatSAR(totalExpense)}) melebihi saldo kas saat ini (${formatSAR(appState.activeUser.saldo)}). Tetap proses?`);
-    if (!proceed) return;
-  }
-
   buttonEl.disabled = true;
   buttonEl.textContent = 'Menyimpan...';
 
   const groupName = category === 'Grup Keberangkatan' ? rawGroup.trim() : '-';
   const kegiatanName = rawKegiatan.trim();
 
+  // OPSI B: Preserve local activeUser.saldo (not deducted yet)
   const payload = {
     action: 'addExpense',
     accountId: appState.activeUser.id,
@@ -1887,15 +2072,11 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     items: itemsArray,
     total: totalExpense,
     saldoSebelum: appState.activeUser.saldo,
-    saldoSesudah: appState.activeUser.saldo - totalExpense,
+    saldoSesudah: appState.activeUser.saldo, // Opsi B
     timestamp: new Date().toISOString()
   };
 
   try {
-    appState.activeUser.saldo -= totalExpense;
-    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
-
     document.getElementById('recapAccount').textContent = appState.activeUser.name;
     document.getElementById('recapCategory').textContent = category;
     
@@ -1921,7 +2102,6 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     });
 
     document.getElementById('recapTotal').textContent = `- ${formatSAR(totalExpense)}`;
-    document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
 
     successOverlay.classList.remove('hidden');
 
@@ -1932,7 +2112,7 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
       body: JSON.stringify(payload)
     });
 
-    setTimeout(fetchDataFromSpreadsheet, 4000);
+    setTimeout(fetchDataFromSpreadsheet, 3000);
 
   } catch (error) {
     console.error('Submit error:', error);
@@ -1953,7 +2133,7 @@ function handleShareReceipt() {
     `👤 *Akun:* ${account}\n` +
     `📅 *Waktu:* ${dateStr}\n` +
     `💰 *TOTAL PENGELUARAN:* ${total}\n` +
-    `💳 *Sisa Saldo:* ${activeBalanceDisplay.textContent}\n\n` +
+    `⏳ *Status:* Menunggu Persetujuan Manajemen\n\n` +
     `_Dicatat via Keuangan Tim Khidmat_`;
 
   if (navigator.share) {
@@ -1980,12 +2160,11 @@ async function fetchDataFromSpreadsheet() {
     const res = await fetch(`${GAS_URL}?action=getData`);
     const data = await res.json();
 
-    // 1. SMART MERGE ORDERS: Preserve optimistic local status changes if remote hasn't updated yet!
+    // 1. SMART MERGE ORDERS
     if (data.orders && data.orders.length > 0) {
       data.orders.forEach(remoteOrder => {
         const localOrder = appState.orders.find(o => normId(o.id) === normId(remoteOrder.id));
         if (localOrder && localOrder._localOptimistic) {
-          // Keep optimistic local status if remote still returns old status
           if (localOrder.status === 'Selesai' || (localOrder.status === 'Proses' && remoteOrder.status === 'Pesanan Baru')) {
             remoteOrder.status = localOrder.status;
             remoteOrder._localOptimistic = true;
@@ -2010,18 +2189,19 @@ async function fetchDataFromSpreadsheet() {
         (a.id && normString(a.id) === activeIdNorm)
       );
 
-      // 2. SMART MERGE BALANCE: If local active user balance was modified and remote saldo is 0 or outdated, preserve local active balance
       if (refreshedAcc && typeof refreshedAcc.saldo === 'number' && !isNaN(refreshedAcc.saldo)) {
-        if (refreshedAcc.saldo === 0 && appState.activeUser.saldo !== 0) {
-          console.log('Preserving active non-zero balance during sync delay');
-        } else {
-          appState.activeUser.saldo = refreshedAcc.saldo;
-        }
-        activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+        appState.activeUser.saldo = refreshedAcc.saldo;
+        activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
         localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
-      calculateVendorEstimates();
-      renderOrdersList();
+
+      const roleLower = (appState.activeUser.jenisAkun || '').toLowerCase();
+      if (roleLower === 'manajemen') {
+        renderManagementDashboard();
+      } else if (roleLower === 'vendor') {
+        calculateVendorEstimates();
+        renderOrdersList();
+      }
     }
   } catch (e) {
     console.log('Fetch notice:', e);
