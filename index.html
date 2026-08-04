@@ -106,14 +106,28 @@
           <h2><i class="fa-solid fa-user-shield"></i> Dashboard Manajemen</h2>
         </div>
 
-        <!-- Banner Total Saldo Kas Tergabung -->
-        <div class="mgmt-summary-banner navy-panel">
-          <div class="summary-banner-info">
-            <span>Total Saldo Kas Tergabung (Semua Akun)</span>
-            <h2 id="totalCombinedBalance" class="combined-amount">SAR 0.00</h2>
+        <!-- Banner Summary Grid: Total Saldo Tergabung & Saldo Akun Manajemen -->
+        <div class="mgmt-summary-grid">
+          <!-- Total Saldo Kas Tergabung (Semua Akun Termasuk Manajemen) -->
+          <div class="mgmt-summary-banner navy-panel">
+            <div class="summary-banner-info">
+              <span>Total Saldo Tergabung (Semua Akun)</span>
+              <h2 id="totalCombinedBalance" class="combined-amount">SAR 0.00</h2>
+            </div>
+            <div class="summary-banner-badge">
+              <i class="fa-solid fa-vault"></i>
+            </div>
           </div>
-          <div class="summary-banner-badge">
-            <i class="fa-solid fa-vault"></i>
+
+          <!-- Saldo Akun Admin Manajemen -->
+          <div class="mgmt-summary-banner mgmt-admin-card navy-panel">
+            <div class="summary-banner-info">
+              <span>Saldo Kas Akun Saya (<strong id="mgmtAdminAccName">Manajemen</strong>)</span>
+              <h2 id="mgmtAdminBalanceDisplay" class="combined-amount admin-amount">SAR 0.00</h2>
+            </div>
+            <div class="summary-banner-badge admin-badge">
+              <i class="fa-solid fa-wallet"></i>
+            </div>
           </div>
         </div>
 
