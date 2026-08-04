@@ -432,13 +432,32 @@ input, select, textarea, button {
   width: 100%;
 }
 
+.mgmt-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .mgmt-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mgmt-summary-banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid var(--gold-accent);
+  padding: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.mgmt-admin-card {
+  border-color: #3b82f6 !important;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%) !important;
 }
 
 .summary-banner-info span {
@@ -452,14 +471,22 @@ input, select, textarea, button {
 
 .combined-amount {
   font-family: 'Martel', serif;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--gold-primary);
 }
 
+.admin-amount {
+  color: #1d4ed8 !important;
+}
+
 .summary-banner-badge i {
-  font-size: 28px;
+  font-size: 26px;
   color: var(--gold-primary);
+}
+
+.admin-badge i {
+  color: #1d4ed8 !important;
 }
 
 .mgmt-sub-section {
