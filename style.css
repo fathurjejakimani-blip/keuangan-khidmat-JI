@@ -1,6 +1,6 @@
 /* ==========================================================================
-   KEUANGAN TIM KHIDMAT & VENDOR MANAGEMENT - STYLESHEET v7.0
-   Responsive Mobile Viewport, Centered Layout, Martel & Mulish Fonts
+   KEUANGAN TIM KHIDMAT & VENDOR MANAGEMENT - STYLESHEET v7.1
+   Light Clean Page Theme, Independent Sub-Box Scrollable Containers
    ========================================================================== */
 
 :root {
@@ -15,7 +15,7 @@
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 8px;
-  --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.25), 0 8px 10px -6px rgba(15, 23, 42, 0.15);
 }
 
 * {
@@ -24,10 +24,11 @@
   padding: 0;
 }
 
+/* Light Theme Clean Page Background (#f1f5f9) */
 body {
   font-family: 'Mulish', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #0b1120;
-  color: var(--text-light);
+  background-color: #f1f5f9;
+  color: #0f172a;
   min-height: 100vh;
   display: flex;
   justify-content: center;
@@ -67,6 +68,7 @@ input, select, textarea, button {
   border-radius: var(--radius-lg);
   padding: 20px;
   box-shadow: var(--shadow-card);
+  color: var(--text-light);
 }
 
 .navy-panel {
@@ -395,7 +397,7 @@ input, select, textarea, button {
   color: var(--gold-primary);
 }
 
-/* Management Dashboard Section & Cards (v7.0) */
+/* Management Dashboard Section & Cards (v7.1 - Independent Sub-Box Scroll) */
 .management-section {
   width: 100%;
 }
@@ -404,7 +406,7 @@ input, select, textarea, button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   border: 1px solid var(--gold-primary);
 }
@@ -439,34 +441,55 @@ input, select, textarea, button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .sub-section-header h3 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #ffffff;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+/* Strictly Limit Sub-Box Heights so ONLY the container scrolls vertically */
+.scrollable-sub-box {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Custom Scrollbar for Sub-Boxes */
+.scrollable-sub-box::-webkit-scrollbar {
+  width: 5px;
+}
+.scrollable-sub-box::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 4px;
+}
+.scrollable-sub-box::-webkit-scrollbar-thumb {
+  background: var(--navy-light);
+  border-radius: 4px;
+}
+.scrollable-sub-box::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-primary);
 }
 
 .pending-approvals-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: 320px;
-  overflow-y: auto;
+  gap: 10px;
 }
 
 .pending-approval-card {
   background-color: var(--navy-dark);
   border: 1px solid var(--border-navy);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .approval-card-header {
@@ -499,9 +522,9 @@ input, select, textarea, button {
 
 .approval-details-box {
   background: rgba(255, 255, 255, 0.03);
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-light);
   line-height: 1.4;
 }
@@ -517,7 +540,7 @@ input, select, textarea, button {
   background-color: #047857;
   color: #ffffff;
   border: none;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   font-size: 12px !important;
   font-weight: 700;
@@ -538,7 +561,7 @@ input, select, textarea, button {
   background-color: #b91c1c;
   color: #ffffff;
   border: none;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   font-size: 12px !important;
   font-weight: 700;
@@ -557,17 +580,17 @@ input, select, textarea, button {
 .account-balances-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .account-balance-card {
   background-color: var(--navy-dark);
   border: 1px solid var(--border-navy);
   border-radius: var(--radius-md);
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .acc-card-name {
@@ -590,7 +613,7 @@ input, select, textarea, button {
   font-size: 14px;
   font-weight: 700;
   color: var(--gold-primary);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* Status Badges for Riwayat Transaksi */
