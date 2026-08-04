@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.9
- * Removed 'Semua' Vendor Tab, Date Proximity Sorting for Pesanan Baru & Proses, Newest-First for Selesai, Fixed Balance Syncing
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v6.0
+ * Robust normString account matching and safe live balance synchronization
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -151,6 +151,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Fetch Live Data in background
   await fetchDataFromSpreadsheet();
 });
+
+// String Normalizer for 100% Reliable Account Name Matching
+function normString(str) {
+  if (!str) return '';
+  return str.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+}
 
 // Check & Restore Active Session Synchronously
 function checkAndRestoreSession() {
@@ -344,7 +350,7 @@ function updatePinDots() {
 
 function verifyAndLoginAuto() {
   if (!appState.selectedAccount) {
-    const match = appState.accounts.find(a => a.name.toLowerCase() === accountSearchInput.value.trim().toLowerCase());
+    const match = appState.accounts.find(a => normString(a.name) === normString(accountSearchInput.value));
     if (match) {
       appState.selectedAccount = match;
     } else {
@@ -393,7 +399,7 @@ function setupTransferModal() {
 
     transferReceiverSelect.innerHTML = '<option value="">-- Pilih Akun Penerima --</option>';
     appState.accounts.forEach(acc => {
-      if (acc.name.toLowerCase() !== appState.activeUser.name.toLowerCase()) {
+      if (normString(acc.name) !== normString(appState.activeUser.name)) {
         const opt = document.createElement('option');
         opt.value = acc.name;
         opt.textContent = `${acc.name} (${acc.jenisAkun || 'Tim'})`;
@@ -460,7 +466,7 @@ async function handleTransferSubmit(e) {
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
     localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
 
-    const receiverAcc = appState.accounts.find(a => a.name.toLowerCase() === receiverName.toLowerCase());
+    const receiverAcc = appState.accounts.find(a => normString(a.name) === normString(receiverName));
     if (receiverAcc) receiverAcc.saldo += amount;
 
     transferModal.classList.add('hidden');
@@ -469,7 +475,7 @@ async function handleTransferSubmit(e) {
     showAutoToast("Transfer Berhasil!", `Nominal ${formatSAR(amount)} telah dikirim ke ${receiverName}`);
 
     // Delay background sync so Google Apps Script finishes writing row
-    setTimeout(fetchDataFromSpreadsheet, 2500);
+    setTimeout(fetchDataFromSpreadsheet, 3000);
 
   } catch (err) {
     console.error('Transfer error:', err);
@@ -541,14 +547,14 @@ function setupTxHistorySection() {
 function renderGroupedTxHistory() {
   txHistoryContainer.innerHTML = '';
 
-  const activeName = appState.activeUser ? appState.activeUser.name.toLowerCase() : '';
+  const activeNorm = appState.activeUser ? normString(appState.activeUser.name) : '';
   
   // Filter transactions including Incoming Transfers from other accounts
   let myTxs = appState.transactions.filter(t => {
-    const isSender = t.akun.toLowerCase() === activeName;
-    const isReceiver = (t.kegiatan && t.kegiatan.toLowerCase().includes('transfer ke ' + activeName)) || 
-                       (t.rincian && t.rincian.toLowerCase().includes(activeName)) ||
-                       (t.namaGrup && t.namaGrup.toLowerCase() === activeName);
+    const isSender = normString(t.akun) === activeNorm;
+    const isReceiver = (t.kegiatan && normString(t.kegiatan).includes('transfer ke ' + activeNorm)) || 
+                       (t.rincian && normString(t.rincian).includes(activeNorm)) ||
+                       (t.namaGrup && normString(t.namaGrup) === activeNorm);
 
     const accMatch = isSender || isReceiver;
     if (!accMatch) return false;
@@ -582,7 +588,7 @@ function renderGroupedTxHistory() {
       isIncome = true;
       categoryGroup = 'Uang Masuk';
     } else if (t.kategori === 'Transfer') {
-      if (t.akun.toLowerCase() === activeName) {
+      if (normString(t.akun) === activeNorm) {
         txTypeLabel = 'Transfer Out';
         txBadgeClass = 'badge-tx-trf';
         isIncome = false;
@@ -715,7 +721,7 @@ function generatePdfDocument() {
   const generatedDate = new Date().toLocaleString('id-ID');
 
   const filteredOrders = appState.orders.filter(o => {
-    if (o.akun.toLowerCase() !== vendorName.toLowerCase()) return false;
+    if (normString(o.akun) !== normString(vendorName)) return false;
     const orderIsoDate = normalizeDateToISO(o.tanggal);
     if (!orderIsoDate) return true;
     return orderIsoDate >= startDate && orderIsoDate <= endDate;
@@ -989,7 +995,7 @@ function setupEventListeners() {
 function calculateVendorEstimates() {
   if (!appState.activeUser || !appState.activeUser.jenisAkun || appState.activeUser.jenisAkun.toLowerCase() !== 'vendor') return;
 
-  const vendorOrders = appState.orders.filter(o => o.akun.toLowerCase() === appState.activeUser.name.toLowerCase() && o.status === 'Pesanan Baru');
+  const vendorOrders = appState.orders.filter(o => normString(o.akun) === normString(appState.activeUser.name) && o.status === 'Pesanan Baru');
   const totalEstimate = vendorOrders.reduce((sum, o) => sum + (o.jumlah || 0), 0);
   estimatesAmountDisplay.textContent = formatSAR(totalEstimate);
 }
@@ -1011,7 +1017,8 @@ function renderOrdersList() {
 
   ordersContainer.innerHTML = '';
   
-  let vendorOrders = appState.orders.filter(o => o.akun.toLowerCase() === appState.activeUser.name.toLowerCase());
+  const userNorm = normString(appState.activeUser.name);
+  let vendorOrders = appState.orders.filter(o => normString(o.akun) === userNorm);
 
   // Filter by selected status tab (Default: 'Pesanan Baru')
   if (appState.selectedStatusFilter) {
@@ -1989,7 +1996,7 @@ function resetForm() {
   resetModalItems();
 }
 
-// Fetch Live Data from Spreadsheet (Safe Balance Protection)
+// Fetch Live Data from Spreadsheet (Safe Balance Sync with normString)
 async function fetchDataFromSpreadsheet() {
   try {
     const res = await fetch(`${GAS_URL}?action=getData`);
@@ -2003,12 +2010,14 @@ async function fetchDataFromSpreadsheet() {
     if (data.transactions && data.transactions.length > 0) appState.transactions = data.transactions;
 
     if (appState.activeUser) {
+      const activeNorm = normString(appState.activeUser.name);
+      const activeIdNorm = normString(appState.activeUser.id);
+
       const refreshedAcc = appState.accounts.find(a => 
-        a.name.toLowerCase().trim() === appState.activeUser.name.toLowerCase().trim() ||
-        a.id.toString().trim() === appState.activeUser.id.toString().trim()
+        normString(a.name) === activeNorm ||
+        (a.id && normString(a.id) === activeIdNorm)
       );
 
-      // Only update balance if refreshedAcc returns a valid numeric saldo
       if (refreshedAcc && typeof refreshedAcc.saldo === 'number' && !isNaN(refreshedAcc.saldo)) {
         appState.activeUser.saldo = refreshedAcc.saldo;
         activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
