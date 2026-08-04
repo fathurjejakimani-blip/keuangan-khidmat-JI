@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v7.0
- * Management Dashboard, Expense Approval System (Opsi B), Combined Balance Calculation
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v7.1
+ * Management Dashboard, Separate Scrollable Containers for Tim & Vendor Balances, Light Page Theme
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -45,7 +45,8 @@ const managementSection = document.getElementById('managementSection');
 const totalCombinedBalance = document.getElementById('totalCombinedBalance');
 const pendingApprovalsBadge = document.getElementById('pendingApprovalsBadge');
 const pendingApprovalsContainer = document.getElementById('pendingApprovalsContainer');
-const accountBalancesContainer = document.getElementById('accountBalancesContainer');
+const teamBalancesContainer = document.getElementById('teamBalancesContainer');
+const vendorBalancesContainer = document.getElementById('vendorBalancesContainer');
 
 // Floating Action Button (FAB) Elements
 const fabContainer = document.getElementById('fabContainer');
@@ -242,7 +243,7 @@ function applyUserSessionUI() {
   }
 }
 
-// MANAGEMENT DASHBOARD RENDERER (Total Combined Balance, Pending Approvals, All Account Balances)
+// MANAGEMENT DASHBOARD RENDERER (Separated Tim & Vendor Scrollable Balances)
 function renderManagementDashboard() {
   if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'manajemen') return;
 
@@ -270,7 +271,6 @@ function renderManagementDashboard() {
       </div>
     `;
   } else {
-    // Newest pending tx first
     [...pendingTx].reverse().forEach(tx => {
       const card = document.createElement('div');
       card.className = 'pending-approval-card';
@@ -301,22 +301,45 @@ function renderManagementDashboard() {
     });
   }
 
-  // 3. Render All Account Balances Grid
-  accountBalancesContainer.innerHTML = '';
-  appState.accounts.forEach(acc => {
-    const card = document.createElement('div');
-    card.className = 'account-balance-card';
+  // 3. Render Separate Scrollable Containers for Tim & Vendor Accounts
+  teamBalancesContainer.innerHTML = '';
+  vendorBalancesContainer.innerHTML = '';
 
-    card.innerHTML = `
-      <div class="acc-card-name">${acc.name}</div>
-      <div class="acc-card-type">${acc.jenisAkun || 'Tim'}</div>
-      <div class="acc-card-balance">${formatSAR(acc.saldo)}</div>
-    `;
-    accountBalancesContainer.appendChild(card);
-  });
+  const timAccounts = appState.accounts.filter(a => (a.jenisAkun || '').toLowerCase() !== 'vendor' && (a.jenisAkun || '').toLowerCase() !== 'manajemen');
+  const vendorAccounts = appState.accounts.filter(a => (a.jenisAkun || '').toLowerCase() === 'vendor');
+
+  if (timAccounts.length === 0) {
+    teamBalancesContainer.innerHTML = '<div style="font-size:12px; color:#94a3b8;">Tidak ada data akun Tim.</div>';
+  } else {
+    timAccounts.forEach(acc => {
+      const card = document.createElement('div');
+      card.className = 'account-balance-card';
+      card.innerHTML = `
+        <div class="acc-card-name">${acc.name}</div>
+        <div class="acc-card-type">${acc.jenisAkun || 'Tim'}</div>
+        <div class="acc-card-balance">${formatSAR(acc.saldo)}</div>
+      `;
+      teamBalancesContainer.appendChild(card);
+    });
+  }
+
+  if (vendorAccounts.length === 0) {
+    vendorBalancesContainer.innerHTML = '<div style="font-size:12px; color:#94a3b8;">Tidak ada data akun Vendor.</div>';
+  } else {
+    vendorAccounts.forEach(acc => {
+      const card = document.createElement('div');
+      card.className = 'account-balance-card';
+      card.innerHTML = `
+        <div class="acc-card-name">${acc.name}</div>
+        <div class="acc-card-type">${acc.jenisAkun || 'Vendor'}</div>
+        <div class="acc-card-balance">${formatSAR(acc.saldo)}</div>
+      `;
+      vendorBalancesContainer.appendChild(card);
+    });
+  }
 }
 
-// MANAGEMENT ACTION: APPROVE EXPENSE (Opsi B: Deducts sender balance upon Approval)
+// MANAGEMENT ACTION: APPROVE EXPENSE (Opsi B)
 window.handleApproveExpense = async function(txId) {
   const tx = appState.transactions.find(t => normId(t.id) === normId(txId));
   if (!tx) return;
@@ -330,10 +353,8 @@ window.handleApproveExpense = async function(txId) {
       newStatus: 'Disetujui'
     };
 
-    // Optimistically update status locally
     tx.status = 'Disetujui';
 
-    // Deduct sender balance locally
     const senderAcc = appState.accounts.find(a => normString(a.name) === normString(tx.akun));
     if (senderAcc) {
       senderAcc.saldo -= tx.total;
@@ -729,7 +750,6 @@ function renderGroupedTxHistory() {
   const isMgmt = appState.activeUser && (appState.activeUser.jenisAkun || '').toLowerCase() === 'manajemen';
 
   let myTxs = appState.transactions.filter(t => {
-    // If Management, show all transactions across all accounts
     if (isMgmt) {
       if (appState.txSearchQuery) {
         const q = appState.txSearchQuery;
@@ -790,7 +810,6 @@ function renderGroupedTxHistory() {
       }
     }
 
-    // Status Approval Badge Class
     let approvalBadgeClass = 'badge-status-pending';
     let statusDisplay = t.status || 'Menunggu Persetujuan';
     if (statusDisplay === 'Disetujui') approvalBadgeClass = 'badge-status-approved';
@@ -2036,7 +2055,7 @@ function renderSuggestions(container, items, onSelect) {
   container.classList.remove('hidden');
 }
 
-// Form Submissions (OPSI B: Balance is NOT deducted upon submit)
+// Form Submissions
 async function handleFormSubmit(e) {
   e.preventDefault();
   await processExpenseSubmit(kategoriLaporan.value, namaGrupInput.value, kegiatanInput.value, appState.items, btnSubmitForm);
@@ -2061,7 +2080,6 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
   const groupName = category === 'Grup Keberangkatan' ? rawGroup.trim() : '-';
   const kegiatanName = rawKegiatan.trim();
 
-  // OPSI B: Preserve local activeUser.saldo (not deducted yet)
   const payload = {
     action: 'addExpense',
     accountId: appState.activeUser.id,
@@ -2072,7 +2090,7 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     items: itemsArray,
     total: totalExpense,
     saldoSebelum: appState.activeUser.saldo,
-    saldoSesudah: appState.activeUser.saldo, // Opsi B
+    saldoSesudah: appState.activeUser.saldo,
     timestamp: new Date().toISOString()
   };
 
@@ -2160,7 +2178,6 @@ async function fetchDataFromSpreadsheet() {
     const res = await fetch(`${GAS_URL}?action=getData`);
     const data = await res.json();
 
-    // 1. SMART MERGE ORDERS
     if (data.orders && data.orders.length > 0) {
       data.orders.forEach(remoteOrder => {
         const localOrder = appState.orders.find(o => normId(o.id) === normId(remoteOrder.id));
