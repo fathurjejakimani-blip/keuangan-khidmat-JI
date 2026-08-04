@@ -990,39 +990,80 @@ input, select, textarea, button {
   font-weight: 700;
 }
 
-/* Modals - Light Theme */
+/* Modals - Light Theme & Fixed Header/Footer Layout */
 .modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 3000;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  z-index: 6000 !important;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .modal-card {
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .modal-card.modal-lg {
   max-width: 580px;
 }
 
+.modal-card form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: #ffffff;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-light);
+  background: #ffffff;
+  flex-shrink: 0;
+  margin-top: 0 !important;
+}
+
 .mgmt-pdf-modal-card {
   border-radius: 16px !important;
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25) !important;
   border: 1px solid #e2e8f0 !important;
-  padding: 20px !important;
+  padding: 0 !important;
 }
 
 .modal-title-with-icon {
@@ -1057,9 +1098,9 @@ input, select, textarea, button {
   gap: 12px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 520px) {
   .form-grid-2col {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -1124,6 +1165,7 @@ input, select, textarea, button {
   background: #fef3c7;
   padding: 4px 8px;
   border-radius: 6px;
+  display: inline-block;
 }
 
 .btn-print-pdf {
@@ -1135,15 +1177,6 @@ input, select, textarea, button {
 
 .btn-print-pdf:hover {
   background: linear-gradient(135deg, #0f172a, #020617) !important;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-light);
-  padding-bottom: 12px;
-  margin-bottom: 16px;
 }
 
 .modal-header h3 {
@@ -1210,6 +1243,17 @@ input, select, textarea, button {
   grid-column: span 2;
 }
 
+@media (max-width: 520px) {
+  .item-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .item-grid .full-width,
+  .item-grid .input-group {
+    grid-column: span 1 !important;
+  }
+}
+
 .input-wrapper.input-sm input {
   padding: 10px 12px 10px 36px !important;
   font-size: 14px !important;
@@ -1238,6 +1282,8 @@ input, select, textarea, button {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 16px 0;
 }
 
@@ -1248,9 +1294,10 @@ input, select, textarea, button {
 
 .total-amount {
   font-family: 'Martel', serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--gold-primary);
+  white-space: nowrap;
 }
 
 /* Toast Overlay */
