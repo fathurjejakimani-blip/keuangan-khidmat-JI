@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v10.0
- * Modern Management PDF UI, Dropdown without numbers, Autocomplete for Doc 3 & 4, QTY & Subtotal/Total for Doc 1, 100% Reliable Iframe PDF Print
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v10.1
+ * Critical Fix: Dynamic Form Validation Scoping for Mgmt PDF Modal, Dual Window + Iframe Print Trigger
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -801,14 +801,26 @@ function setupMgmtPdfModal() {
   });
 }
 
+// DYNAMICALLY SCOPE VALIDATION & VISIBILITY FOR ACTIVE DYNAMIC PDF FIELD GROUP
 function switchMgmtPdfFields(docTypeVal) {
   for (let i = 1; i <= 7; i++) {
-    const el = document.getElementById(`fieldDoc${i}`);
-    if (el) {
+    const groupEl = document.getElementById(`fieldDoc${i}`);
+    if (groupEl) {
+      const inputs = groupEl.querySelectorAll('input, select, textarea');
       if (i.toString() === docTypeVal) {
-        el.classList.remove('hidden');
+        groupEl.classList.remove('hidden');
+        inputs.forEach(inp => {
+          inp.disabled = false;
+          if (inp.dataset.req === 'true') {
+            inp.required = true;
+          }
+        });
       } else {
-        el.classList.add('hidden');
+        groupEl.classList.add('hidden');
+        inputs.forEach(inp => {
+          inp.disabled = true;
+          inp.required = false;
+        });
       }
     }
   }
@@ -1046,35 +1058,53 @@ function calculateDoc3GrandTotal() {
   return total;
 }
 
-// 100% RELIABLE IFRAME PRINTING FUNCTION (BYPASSES POPUP BLOCKERS IN ALL BROWSERS)
+// DUAL METHOD PRINT TRIGGER (WINDOW.OPEN + INVISIBLE IFRAME FALLBACK)
 function printHtmlContent(htmlContent) {
-  let printFrame = document.getElementById('printIframe');
-  if (!printFrame) {
-    printFrame = document.createElement('iframe');
-    printFrame.id = 'printIframe';
-    printFrame.style.position = 'fixed';
-    printFrame.style.right = '0';
-    printFrame.style.bottom = '0';
-    printFrame.style.width = '0px';
-    printFrame.style.height = '0px';
-    printFrame.style.border = '0';
-    printFrame.style.zIndex = '-9999';
-    document.body.appendChild(printFrame);
+  let windowPrinted = false;
+
+  // 1. Try Direct Window Open Print
+  try {
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(htmlContent);
+      printWin.document.close();
+      windowPrinted = true;
+    }
+  } catch (e) {
+    console.log('Window open print notice:', e);
   }
 
-  const frameDoc = printFrame.contentWindow.document;
-  frameDoc.open();
-  frameDoc.write(htmlContent);
-  frameDoc.close();
-
-  setTimeout(() => {
-    try {
-      printFrame.contentWindow.focus();
-      printFrame.contentWindow.print();
-    } catch (err) {
-      console.error('Iframe print notice:', err);
+  // 2. Fallback to Invisible Iframe Print
+  if (!windowPrinted) {
+    let printFrame = document.getElementById('printIframe');
+    if (!printFrame) {
+      printFrame = document.createElement('iframe');
+      printFrame.id = 'printIframe';
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0px';
+      printFrame.style.height = '0px';
+      printFrame.style.border = '0';
+      printFrame.style.zIndex = '-9999';
+      document.body.appendChild(printFrame);
     }
-  }, 400);
+
+    const frameDoc = printFrame.contentWindow.document;
+    frameDoc.open();
+    frameDoc.write(htmlContent);
+    frameDoc.close();
+
+    setTimeout(() => {
+      try {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.print();
+      } catch (err) {
+        console.error('Iframe print notice:', err);
+      }
+    }, 400);
+  }
 }
 
 // PRINTABLE PDF GENERATOR FOR MANAGEMENT (7 DOCUMENT TYPES)
@@ -1555,7 +1585,7 @@ function generateManagementPdfDocument() {
     </html>
   `;
 
-  // 1. Trigger Print via 100% Reliable Invisible Iframe (Bypasses Popup Blockers)
+  // 1. Trigger Print via Dual Window + Invisible Iframe Mechanism
   printHtmlContent(printDocumentHtml);
   mgmtPdfModal.classList.add('hidden');
 
