@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v8.0
- * 100% Light Theme, Management PDF Generator (7 Document Types), Separate Scroll Sub-Boxes
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v9.0
+ * 100% Light Theme, Management PDF Generator (7 Document Types), Auto PDF Storage to Google Drive & Sheet 'Riwayat Dokumen'
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -356,10 +356,8 @@ function setupMgmtPdfModal() {
     if (e) e.stopPropagation();
     closeFabMenu();
     
-    // Populate Group dropdowns for Doc 4
     populateDoc4GroupSelect();
     
-    // Set default dates
     const today = new Date().toISOString().split('T')[0];
     const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
 
@@ -609,7 +607,7 @@ window.updateDoc3Item = function(idx, field, val) {
   }
 };
 
-// PRINTABLE PDF GENERATOR FOR MANAGEMENT (7 DOCUMENT TYPES)
+// PRINTABLE PDF GENERATOR FOR MANAGEMENT (7 DOCUMENT TYPES + AUTOMATIC DRIVE STORAGE & SHEET LOGGING)
 function generateManagementPdfDocument() {
   const docTypeVal = mgmtDocTypeSelect.value;
   const printWindow = window.open('', '_blank');
@@ -620,9 +618,10 @@ function generateManagementPdfDocument() {
 
   let docTitleHtml = '';
   let bodyContentHtml = '';
+  let docTypeName = '';
 
   if (docTypeVal === "1") {
-    // 1. Approval Pengajuan
+    docTypeName = 'Approval Pengajuan';
     const tanggal = document.getElementById('doc1Tanggal').value;
     const divisi = document.getElementById('doc1Divisi').value;
     const program = document.getElementById('doc1Program').value;
@@ -664,9 +663,7 @@ function generateManagementPdfDocument() {
             <th>Tujuan Penerima</th>
           </tr>
         </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
+        <tbody>${rowsHtml}</tbody>
         <tfoot>
           <tr>
             <td colspan="4" style="text-align:right; font-weight: bold;">TOTAL JUMLAH PENGAJUAN:</td>
@@ -691,7 +688,7 @@ function generateManagementPdfDocument() {
     `;
 
   } else if (docTypeVal === "2") {
-    // 2. Kwitansi
+    docTypeName = 'Kwitansi';
     const noRef = document.getElementById('doc2NoRef').value;
     const tanggal = document.getElementById('doc2Tanggal').value;
     const nominal = parseFloat(document.getElementById('doc2Nominal').value) || 0;
@@ -728,7 +725,7 @@ function generateManagementPdfDocument() {
     `;
 
   } else if (docTypeVal === "3") {
-    // 3. Add on Tagihan Jamaah
+    docTypeName = 'Add on Tagihan Jamaah';
     const grup = document.getElementById('doc3Grup').value;
     const jamaah = document.getElementById('doc3Jamaah').value;
     const tanggal = document.getElementById('doc3Tanggal').value;
@@ -766,9 +763,7 @@ function generateManagementPdfDocument() {
             <th style="text-align:right;">Jumlah (SAR)</th>
           </tr>
         </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
+        <tbody>${rowsHtml}</tbody>
         <tfoot>
           <tr>
             <td colspan="4" style="text-align:right; font-weight: bold;">TOTAL TAGIHAN ADD-ON:</td>
@@ -779,7 +774,7 @@ function generateManagementPdfDocument() {
     `;
 
   } else if (docTypeVal === "4") {
-    // 4. Laporan Pengeluaran Grup (5 Kategori: Jeddah, Madinah, Makkah, Vendor, Lainnya)
+    docTypeName = 'Laporan Pengeluaran Grup';
     const selectedGroup = document.getElementById('doc4GrupSelect').value;
     const groupTxs = appState.transactions.filter(t => normString(t.grup) === normString(selectedGroup));
 
@@ -863,9 +858,7 @@ function generateManagementPdfDocument() {
               <th style="text-align:right;">Total Jumlah (SAR)</th>
             </tr>
           </thead>
-          <tbody>
-            ${summaryRowsHtml}
-          </tbody>
+          <tbody>${summaryRowsHtml}</tbody>
           <tfoot>
             <tr>
               <td colspan="2" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PENGELUARAN GRUP:</td>
@@ -879,7 +872,7 @@ function generateManagementPdfDocument() {
     `;
 
   } else if (docTypeVal === "5") {
-    // 5. Rekapitulasi Rincian Transaksi
+    docTypeName = 'Rekapitulasi Rincian Transaksi';
     const startDate = document.getElementById('doc5StartDate').value;
     const endDate = document.getElementById('doc5EndDate').value;
 
@@ -926,9 +919,7 @@ function generateManagementPdfDocument() {
             <th style="text-align:right;">Sisa Saldo Kas (SAR)</th>
           </tr>
         </thead>
-        <tbody>
-          ${accSummaryHtml}
-        </tbody>
+        <tbody>${accSummaryHtml}</tbody>
       </table>
 
       <h3 style="font-size: 14px; margin: 25px 0 8px 0;">2. Rincian Seluruh Transaksi Kas</h3>
@@ -944,14 +935,12 @@ function generateManagementPdfDocument() {
             <th style="text-align:center;">Status</th>
           </tr>
         </thead>
-        <tbody>
-          ${txRowsHtml || '<tr><td colspan="7" style="text-align:center;">Tidak ada transaksi dalam rentang tanggal ini</td></tr>'}
-        </tbody>
+        <tbody>${txRowsHtml || '<tr><td colspan="7" style="text-align:center;">Tidak ada transaksi dalam rentang tanggal ini</td></tr>'}</tbody>
       </table>
     `;
 
   } else if (docTypeVal === "6") {
-    // 6. Rekapitulasi Transaksi Grup (Debit / Kredit per Bulan)
+    docTypeName = 'Rekapitulasi Transaksi Grup';
     const startDate = document.getElementById('doc6StartDate').value;
     const endDate = document.getElementById('doc6EndDate').value;
 
@@ -1000,15 +989,13 @@ function generateManagementPdfDocument() {
             <th style="text-align:right;">Kredit / Keluar (SAR)</th>
           </tr>
         </thead>
-        <tbody>
-          ${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada transaksi grup pada periode ini</td></tr>'}
-        </tbody>
+        <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada transaksi grup pada periode ini</td></tr>'}</tbody>
       </table>
     `;
 
   } else if (docTypeVal === "7") {
-    // 7. Laporan Biaya Operasional Tim
-    const bulanVal = document.getElementById('doc7Bulan').value; // YYYY-MM
+    docTypeName = 'Laporan Biaya Operasional Tim';
+    const bulanVal = document.getElementById('doc7Bulan').value;
 
     const filteredTxs = appState.transactions.filter(t => {
       const iso = normalizeDateToISO(t.waktu);
@@ -1048,9 +1035,7 @@ function generateManagementPdfDocument() {
             <th style="text-align:right;">Jumlah (SAR)</th>
           </tr>
         </thead>
-        <tbody>
-          ${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada pengeluaran operasional tim pada bulan ini</td></tr>'}
-        </tbody>
+        <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada pengeluaran operasional tim pada bulan ini</td></tr>'}</tbody>
         <tfoot>
           <tr>
             <td colspan="5" style="text-align:right; font-weight: bold;">TOTAL BIAYA OPERASIONAL TIM:</td>
@@ -1101,10 +1086,31 @@ function generateManagementPdfDocument() {
     </html>
   `;
 
+  // 1. Open Local Browser Print Window
   printWindow.document.open();
   printWindow.document.write(printDocumentHtml);
   printWindow.document.close();
   mgmtPdfModal.classList.add('hidden');
+
+  // 2. Automate PDF Upload to Google Drive & Log to Sheet 'Riwayat Dokumen' (Col A: ID, B: Jenis, C: Tanggal, D: File, E: Oleh, F: Ket)
+  const createdBy = appState.activeUser ? appState.activeUser.name : 'Manajemen';
+  const drivePayload = {
+    action: 'savePdfToDrive',
+    docType: docTypeName || docTitleHtml,
+    fileName: `${docTypeName.replace(/\s+/g, '_')}_${Date.now()}`,
+    htmlContent: printDocumentHtml,
+    createdBy: createdBy,
+    keterangan: `PDF ${docTypeName} berhasil dibuat & tersimpan di Drive`
+  };
+
+  showAutoToast("Tersimpan ke Drive & Sheet!", `Dokumen tercatat di Sheet Riwayat Dokumen`);
+
+  fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(drivePayload)
+  }).catch(err => console.error('Auto save PDF Drive notice:', err));
 }
 
 // Vendor Pemesanan System
