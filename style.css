@@ -147,15 +147,18 @@ input, select, textarea, button {
   color: #ef4444;
 }
 
-.input-wrapper {
+.input-wrapper, .select-wrapper {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.navy-input input, .select-wrapper select {
+.navy-input input, .select-wrapper select, .input-wrapper input {
   width: 100%;
-  padding: 12px 14px 12px 42px;
+  box-sizing: border-box;
+  padding: 12px 38px 12px 42px;
   background-color: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -164,7 +167,14 @@ input, select, textarea, button {
   transition: all 0.2s ease;
 }
 
-.navy-input input:focus, .select-wrapper select:focus {
+.select-wrapper select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.navy-input input:focus, .select-wrapper select:focus, .input-wrapper input:focus {
   border-color: var(--gold-accent);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
 }
@@ -172,17 +182,23 @@ input, select, textarea, button {
 .input-icon, .select-icon {
   position: absolute;
   left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 15px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .arrow-icon, .search-icon {
   position: absolute;
   right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-muted);
   font-size: 14px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .autocomplete-group {
@@ -1079,19 +1095,26 @@ input, select, textarea, button {
 }
 
 /* Items Section */
+.form-section {
+  padding-bottom: 90px !important;
+}
+
 .item-card {
   background: var(--bg-panel);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  padding: 12px;
-  margin-bottom: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .item-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .item-number {
@@ -1099,6 +1122,7 @@ input, select, textarea, button {
   font-weight: 800;
   color: var(--gold-primary);
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .btn-remove-item {
@@ -1106,22 +1130,43 @@ input, select, textarea, button {
   border: none;
   color: #ef4444;
   cursor: pointer;
+  font-size: 16px;
 }
 
 .item-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.full-width {
+.item-grid .full-width {
   grid-column: span 2;
 }
 
+.input-wrapper.input-sm input {
+  padding: 10px 12px 10px 36px !important;
+  font-size: 14px !important;
+  border-radius: var(--radius-sm);
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.input-wrapper.input-sm input.has-no-icon {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+.input-wrapper.input-sm input.item-kategori-input {
+  padding-left: 36px !important;
+  padding-right: 36px !important;
+}
+
 .amount-disabled {
-  background-color: #f1f5f9 !important;
+  background-color: #e2e8f0 !important;
   color: var(--gold-primary) !important;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .grand-total-card {
