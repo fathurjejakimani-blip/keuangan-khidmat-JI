@@ -1203,36 +1203,60 @@ function generateManagementPdfDocument() {
 
   } else if (docTypeVal === "2") {
     docTypeName = 'Kwitansi';
-    const noRef = document.getElementById('doc2NoRef').value;
+    const noRef = (document.getElementById('doc2NoRef').value || 'IN0001').trim();
     const tanggal = document.getElementById('doc2Tanggal').value;
     const nominal = parseFloat(document.getElementById('doc2Nominal').value) || 0;
-    const keterangan = document.getElementById('doc2Keterangan').value;
-    const pengirim = document.getElementById('doc2Pengirim').value;
-    const penerima = document.getElementById('doc2Penerima').value;
+    const keterangan = document.getElementById('doc2Keterangan').value || '-';
+    const pengirim = document.getElementById('doc2Pengirim').value || 'Finance Pusat';
+    const penerima = document.getElementById('doc2Penerima').value || 'Saudi Operational Officer';
+
+    const formattedTanggal = formatSaudiDateOnly(tanggal);
+    const formattedNominal = formatSAR(nominal);
 
     docTitleHtml = `KWITANSI PEMBAYARAN`;
     bodyContentHtml = `
-      <div style="border: 2px solid #0f172a; padding: 20px; border-radius: 8px; background: #fff;">
-        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px; margin-bottom: 15px;">
-          <div><strong>No. Referensi:</strong> ${noRef}</div>
-          <div><strong>Tanggal:</strong> ${tanggal}</div>
+      <div class="kwitansi-card" style="background:#fff; border: 2.5px solid #0f172a; border-radius: 18px; padding: 32px 38px; box-shadow: 0 10px 25px rgba(15,23,42,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+          <div>
+            <h1 style="font-family:'Martel',serif; font-size: 28px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0;">KWITANSI</h1>
+            <p style="font-size: 14px; color: #1e293b; margin: 0;">Tim Khidmat <strong style="font-family:'Martel',serif; color:#0f172a;">jejak imani</strong> Saudi Arabia</p>
+          </div>
+          <div style="font-size: 14px; color: #0f172a; font-weight: 600; text-align: right;">
+            No. Referensi : <span style="font-weight: 700;">${noRef}</span>
+          </div>
         </div>
 
-        <div style="margin-bottom: 12px;"><strong>Telah Diterima Dari:</strong> ${pengirim}</div>
-        <div style="margin-bottom: 12px;"><strong>Kepada / Penerima:</strong> ${penerima}</div>
-        <div style="margin-bottom: 12px;"><strong>Jumlah Uang:</strong> <span style="font-family:'Martel'; font-size: 18px; font-weight: 800; color: #d97706;">${formatSAR(nominal)}</span></div>
-        <div style="margin-bottom: 15px;"><strong>Untuk Pembayaran:</strong> ${keterangan}</div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 40px;">
+          <tr>
+            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Tanggal</td>
+            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">${formattedTanggal}</td>
+          </tr>
+          <tr>
+            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Nominal</td>
+            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-family:'Martel',serif; font-weight: 800; font-size: 15px; padding: 6px 0; color: #0f172a;">${formattedNominal}</td>
+          </tr>
+          <tr>
+            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Terbilang</td>
+            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-family:'Martel',serif; font-weight: 800; font-size: 15px; padding: 6px 0; color: #0f172a;">${formattedNominal}</td>
+          </tr>
+          <tr>
+            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Keterangan</td>
+            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">${keterangan}</td>
+          </tr>
+        </table>
 
-        <div style="margin-top: 30px; display: flex; justify-content: space-between; text-align: center;">
-          <div>
-            <p style="font-size: 11px; color: #64748b;">Pengirim:</p>
-            <div style="height: 40px;"></div>
-            <strong>(${pengirim})</strong>
+        <div style="display: flex; justify-content: space-around; align-items: center; margin-top: 30px;">
+          <div style="text-align: center; min-width: 200px;">
+            <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 64px;">Diserahkan Oleh</div>
+            <div style="font-size: 14px; font-weight: 700; color: #0f172a;">${pengirim}</div>
           </div>
-          <div>
-            <p style="font-size: 11px; color: #64748b;">Penerima:</p>
-            <div style="height: 40px;"></div>
-            <strong>(${penerima})</strong>
+          <div style="text-align: center; min-width: 200px;">
+            <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 64px;">Diterima Oleh</div>
+            <div style="font-size: 14px; font-weight: 700; color: #0f172a;">${penerima}</div>
           </div>
         </div>
       </div>
@@ -1318,71 +1342,76 @@ function generateManagementPdfDocument() {
 
     Object.keys(categories).forEach((catName, idx) => {
       const txs = categories[catName];
-      const catTotal = txs.reduce((sum, item) => sum + (item.total || 0), 0);
+      const catTotal = txs.reduce((sum, t) => sum + t.total, 0);
       overallGrandTotal += catTotal;
 
       summaryRowsHtml += `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td>${catName}</td>
+          <td><strong>${catName}</strong></td>
+          <td style="text-align:center;">${txs.length} Transaksi</td>
           <td style="text-align:right;"><strong>${formatSAR(catTotal)}</strong></td>
         </tr>
       `;
 
-      let itemRows = txs.map((t, i) => `
-        <tr>
-          <td style="text-align:center;">${i + 1}</td>
-          <td>${t.waktu}</td>
-          <td>${t.kegiatan} (${t.akun})</td>
-          <td>${t.rincian || '-'}</td>
-          <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
-        </tr>
-      `).join('');
+      if (txs.length > 0) {
+        const itemRows = txs.map((t, i) => `
+          <tr>
+            <td style="text-align:center;">${i + 1}</td>
+            <td>${t.waktu}</td>
+            <td>${t.kegiatan} (${t.akun})</td>
+            <td>${t.rincian || '-'}</td>
+            <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
+          </tr>
+        `).join('');
 
-      if (txs.length === 0) {
-        itemRows = `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Tidak ada pengeluaran pada kategori ini</td></tr>`;
+        categoryTablesHtml += `
+          <div style="margin-top: 24px;">
+            <h3 style="font-size: 13px; font-weight:700; color:#0f172a; margin-bottom: 6px; border-bottom: 2px solid #0f172a; padding-bottom: 4px;">
+              ${idx + 1}. ${catName.toUpperCase()} (Total: ${formatSAR(catTotal)})
+            </h3>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th style="width:30px;">No</th>
+                  <th>Waktu</th>
+                  <th>Nama Kegiatan</th>
+                  <th>Rincian Item</th>
+                  <th style="text-align:right;">Jumlah (SAR)</th>
+                </tr>
+              </thead>
+              <tbody>${itemRows}</tbody>
+            </table>
+          </div>
+        `;
       }
-
-      categoryTablesHtml += `
-        <h3 style="font-size: 14px; margin: 20px 0 8px 0; color: #0f172a; border-left: 4px solid #d97706; padding-left: 8px;">
-          ${catName} (Total: ${formatSAR(catTotal)})
-        </h3>
-        <table class="report-table">
-          <thead>
-            <tr>
-              <th style="width: 30px;">No</th>
-              <th>Waktu</th>
-              <th>Kegiatan / Akun</th>
-              <th>Rincian Item</th>
-              <th style="text-align:right;">Total (SAR)</th>
-            </tr>
-          </thead>
-          <tbody>${itemRows}</tbody>
-        </table>
-      `;
     });
 
-    docTitleHtml = `LAPORAN PENGELUARAN GRUP - ${selectedGroup.toUpperCase()}`;
+    docTitleHtml = `LAPORAN PENGELUARAN GRUP: ${selectedGroup.toUpperCase()}`;
     bodyContentHtml = `
-      <div style="margin-bottom: 20px;">
-        <h3 style="font-size: 14px; margin-bottom: 10px;">Rangkuman Pengeluaran Per Kategori</h3>
-        <table class="report-table">
-          <thead>
-            <tr>
-              <th style="width: 30px;">No</th>
-              <th>Kategori Operasional</th>
-              <th style="text-align:right;">Total Jumlah (SAR)</th>
-            </tr>
-          </thead>
-          <tbody>${summaryRowsHtml}</tbody>
-          <tfoot>
-            <tr>
-              <td colspan="2" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PENGELUARAN GRUP:</td>
-              <td style="text-align:right; font-weight: bold; font-size: 15px; color:#d97706;">${formatSAR(overallGrandTotal)}</td>
-            </tr>
-          </tfoot>
-        </table>
+      <div class="biodata-grid">
+        <div class="biodata-item"><span>Nama Grup Keberangkatan:</span><strong>${selectedGroup}</strong></div>
+        <div class="biodata-item"><span>Total Pengeluaran Grup:</span><strong style="color:#d97706; font-size:14px;">${formatSAR(overallGrandTotal)}</strong></div>
       </div>
+
+      <h3 style="font-size: 13px; font-weight:700; color:#0f172a; margin-top: 15px; margin-bottom: 6px;">RINGKASAN 5 KATEGORI OPERASIONAL</h3>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width:30px;">No</th>
+            <th>Kategori Operasional</th>
+            <th style="text-align:center;">Jumlah Transaksi</th>
+            <th style="text-align:right;">Subtotal Pengeluaran (SAR)</th>
+          </tr>
+        </thead>
+        <tbody>${summaryRowsHtml}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PENGELUARAN GRUP:</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(overallGrandTotal)}</td>
+          </tr>
+        </tfoot>
+      </table>
 
       ${categoryTablesHtml}
     `;
@@ -1397,56 +1426,39 @@ function generateManagementPdfDocument() {
       return iso >= startDate && iso <= endDate;
     });
 
-    const accSummaryHtml = appState.accounts.map((a, idx) => `
-      <tr>
-        <td style="text-align:center;">${idx + 1}</td>
-        <td><strong>${a.name}</strong></td>
-        <td style="text-align:center;">${a.jenisAkun || 'Tim'}</td>
-        <td style="text-align:right; font-weight:bold;">${formatSAR(a.saldo)}</td>
-      </tr>
-    `).join('');
+    let totalExpense = 0;
 
-    const txRowsHtml = filteredTxs.map((t, idx) => `
-      <tr>
-        <td style="text-align:center;">${idx + 1}</td>
-        <td>${t.waktu}</td>
-        <td><strong>${t.akun}</strong></td>
-        <td>${t.kategori}</td>
-        <td>${t.kegiatan}</td>
-        <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
-        <td style="text-align:center;">${t.status || 'Disetujui'}</td>
-      </tr>
-    `).join('');
+    const txRowsHtml = filteredTxs.map((t, idx) => {
+      totalExpense += t.total;
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${t.waktu}</td>
+          <td><strong>${t.akun}</strong></td>
+          <td>${t.kegiatan}</td>
+          <td>${t.grup || '-'}</td>
+          <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
+          <td style="text-align:center;"><span style="color:#047857; font-weight:bold;">${t.status}</span></td>
+        </tr>
+      `;
+    }).join('');
 
-    docTitleHtml = `REKAPITULASI RINCIAN TRANSAKSI KAS`;
+    docTitleHtml = `REKAPITULASI RINCIAN TRANSAKSI`;
     bodyContentHtml = `
       <div class="biodata-grid">
-        <div class="biodata-item"><span>Periode Rentang Tanggal:</span><strong>${startDate} s/d ${endDate}</strong></div>
-        <div class="biodata-item"><span>Total Transaksi Tercatat:</span><strong>${filteredTxs.length} Transaksi</strong></div>
+        <div class="biodata-item"><span>Periode Mulai:</span><strong>${startDate}</strong></div>
+        <div class="biodata-item"><span>Periode Selesai:</span><strong>${endDate}</strong></div>
+        <div class="biodata-item" style="grid-column: span 2;"><span>Total Nominal Transaksi:</span><strong style="color:#d97706;">${formatSAR(totalExpense)}</strong></div>
       </div>
 
-      <h3 style="font-size: 14px; margin: 15px 0 8px 0;">1. Ringkasan Saldo Akun Aktif</h3>
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th style="width: 30px;">No</th>
-            <th>Nama Akun</th>
-            <th style="text-align:center;">Jenis Akun</th>
-            <th style="text-align:right;">Sisa Saldo Kas (SAR)</th>
-          </tr>
-        </thead>
-        <tbody>${accSummaryHtml}</tbody>
-      </table>
-
-      <h3 style="font-size: 14px; margin: 25px 0 8px 0;">2. Rincian Seluruh Transaksi Kas</h3>
       <table class="report-table">
         <thead>
           <tr>
             <th style="width: 30px;">No</th>
             <th>Waktu</th>
-            <th>Akun</th>
-            <th>Kategori</th>
+            <th>Akun Tim</th>
             <th>Kegiatan</th>
+            <th>Grup</th>
             <th style="text-align:right;">Total (SAR)</th>
             <th style="text-align:center;">Status</th>
           </tr>
@@ -1551,69 +1563,140 @@ function generateManagementPdfDocument() {
             <th style="text-align:right;">Jumlah (SAR)</th>
           </tr>
         </thead>
-        <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada pengeluaran operasional tim pada bulan ini</td></tr>'}</tbody>
-        <tfoot>
-          <tr>
-            <td colspan="5" style="text-align:right; font-weight: bold;">TOTAL BIAYA OPERASIONAL TIM:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(totalOpTim)}</td>
-          </tr>
-        </tfoot>
+        <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada biaya operasional tim pada bulan ini</td></tr>'}</tbody>
       </table>
     `;
   }
 
-  const printDocumentHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>${docTitleHtml}</title>
-      <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
-      <style>
-        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; background: #fff; }
-        .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-        .doc-title { font-family: 'Martel', serif; font-size: 18px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
-        .doc-subtitle { font-size: 13px; font-weight: 600; color: #1e3a8a; margin: 0; }
-        .doc-subtitle .font-martel { font-family: 'Martel', serif; font-weight: 700; color: #0f172a; }
-        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; font-size: 12px; }
-        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 10px; text-transform: uppercase; }
-        .biodata-item strong { color: #0f172a; }
-        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-        .report-table th, .report-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
-        .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; }
-        @media print {
-          body { padding: 0; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="doc-header">
-        <h1 class="doc-title">${docTitleHtml}</h1>
-        <p class="doc-subtitle">Tim Khidmat <span class="font-martel">jejak imani</span> Saudi Arabia</p>
-      </div>
+  let printDocumentHtml = '';
+  let fileName = `${docTypeName.replace(/\s+/g, '_')}_${Date.now()}`;
 
-      ${bodyContentHtml}
+  if (docTypeVal === "2") {
+    const noRef = (document.getElementById('doc2NoRef').value || 'IN0001').trim();
+    fileName = `Kwitansi - ${noRef}`;
 
-      <script>
-        window.onload = function() {
-          window.print();
-        };
-      </script>
-    </body>
-    </html>
-  `;
+    printDocumentHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>${fileName}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Martel:wght@600;700;800&family=Mulish:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'Mulish', sans-serif;
+      background-color: #ffffff;
+      color: #0f172a;
+    }
+    .a4-container {
+      width: 210mm;
+      min-height: 297mm;
+      position: relative;
+      background-image: url('assets/kwitansi_bg.png');
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+      padding: 60mm 16mm 20mm 16mm;
+      margin: 0 auto;
+    }
+    .kwitansi-card {
+      background: #ffffff;
+      border: 2.5px solid #0f172a;
+      border-radius: 18px;
+      padding: 32px 38px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+      position: relative;
+    }
+    @media print {
+      body { margin: 0; padding: 0; }
+      .a4-container { width: 100%; height: 100vh; padding: 58mm 16mm 20mm 16mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="a4-container">
+    ${bodyContentHtml}
+  </div>
+  <script>
+    window.onload = function() {
+      window.print();
+    };
+  </script>
+</body>
+</html>`;
 
-  // 1. Trigger Print via Dual Window + Invisible Iframe Mechanism
+  } else {
+    printDocumentHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>${docTitleHtml}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; background: #fff; }
+    .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
+    .doc-title { font-family: 'Martel', serif; font-size: 18px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
+    .doc-subtitle { font-size: 13px; font-weight: 600; color: #1e3a8a; margin: 0; }
+    .doc-subtitle .font-martel { font-family: 'Martel', serif; font-weight: 700; color: #0f172a; }
+    .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; font-size: 12px; }
+    .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 10px; text-transform: uppercase; }
+    .biodata-item strong { color: #0f172a; }
+    .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    .report-table th, .report-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+    .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-header">
+    <h1 class="doc-title">${docTitleHtml}</h1>
+    <p class="doc-subtitle">Tim Khidmat <span class="font-martel">jejak imani</span> Saudi Arabia</p>
+  </div>
+
+  ${bodyContentHtml}
+
+  <script>
+    window.onload = function() {
+      window.print();
+    };
+  </script>
+</body>
+</html>`;
+  }
+
   printHtmlContent(printDocumentHtml);
   mgmtPdfModal.classList.add('hidden');
 
   // 2. Automate PDF Upload to Google Drive & Log to Sheet 'Riwayat Dokumen'
   const createdBy = appState.activeUser ? appState.activeUser.name : 'Manajemen';
-  const fileName = `${docTypeName.replace(/\s+/g, '_')}_${Date.now()}`;
+  let pdfFileName = `${docTypeName.replace(/\s+/g, '_')}_${Date.now()}`;
+  if (docTypeVal === "2") {
+    const noRef = (document.getElementById('doc2NoRef').value || 'IN0001').trim();
+    pdfFileName = `Kwitansi - ${noRef}`;
+  }
   
   const formData = new URLSearchParams();
   formData.append('action', 'savePdfToDrive');
   formData.append('docType', docTypeName || docTitleHtml);
-  formData.append('fileName', fileName);
+  formData.append('fileName', pdfFileName);
   formData.append('htmlContent', printDocumentHtml);
   formData.append('createdBy', createdBy);
   formData.append('keterangan', `PDF ${docTypeName} berhasil dibuat & tersimpan di Drive`);
