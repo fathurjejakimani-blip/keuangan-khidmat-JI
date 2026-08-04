@@ -74,7 +74,7 @@
     <div id="appFormWrapper" class="hidden">
       
       <!-- Balance & Estimates Card -->
-      <section class="balance-card card-navy">
+      <section id="mainBalanceSection" class="balance-card card-navy">
         <div class="balance-info-group">
           <div class="user-badge">
             <i class="fa-solid fa-user-check"></i>
@@ -100,6 +100,47 @@
       <!-- Spacing Divider -->
       <div class="section-spacer"></div>
 
+      <!-- MANAJEMEN VIEW: Dashboard Persetujuan & Ringkasan Saldo Gabungan (Khusus Jenis Akun 'Manajemen') -->
+      <section id="managementSection" class="management-section card-navy hidden">
+        <div class="card-header border-bottom">
+          <h2><i class="fa-solid fa-user-shield"></i> Dashboard Manajemen</h2>
+        </div>
+
+        <!-- Banner Total Saldo Kas Tergabung -->
+        <div class="mgmt-summary-banner navy-panel">
+          <div class="summary-banner-info">
+            <span>Total Saldo Kas Tergabung (Semua Akun)</span>
+            <h2 id="totalCombinedBalance" class="combined-amount">SAR 0.00</h2>
+          </div>
+          <div class="summary-banner-badge">
+            <i class="fa-solid fa-vault"></i>
+          </div>
+        </div>
+
+        <!-- Section 1: Persetujuan Pengeluaran (Pending Approvals) -->
+        <div class="mgmt-sub-section">
+          <div class="sub-section-header">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Approval Pengeluaran Tim</h3>
+            <span id="pendingApprovalsBadge" class="badge-count">0 Pengeluaran</span>
+          </div>
+
+          <div id="pendingApprovalsContainer" class="pending-approvals-container">
+            <!-- Dynamic pending approval cards -->
+          </div>
+        </div>
+
+        <!-- Section 2: Ringkasan Saldo Semua Akun (Tim & Vendor) -->
+        <div class="mgmt-sub-section" style="margin-top: 24px;">
+          <div class="sub-section-header">
+            <h3><i class="fa-solid fa-users-rectangle"></i> Ringkasan Saldo Akun (Tim & Vendor)</h3>
+          </div>
+
+          <div id="accountBalancesContainer" class="account-balances-grid">
+            <!-- Dynamic account balance cards -->
+          </div>
+        </div>
+      </section>
+
       <!-- VENDOR VIEW: Pemesanan Section (Layar Awal Utama Khusus Vendor) -->
       <section id="ordersSection" class="orders-section card-navy hidden">
         <!-- Header Row with Title on Left and Filter Tanggal on Far Right -->
@@ -114,7 +155,7 @@
           </div>
         </div>
 
-        <!-- Filter Status Tabs (REMOVED 'Semua' TAB) -->
+        <!-- Filter Status Tabs -->
         <div class="status-filter-tabs">
           <button type="button" class="tab-btn active" data-status="Pesanan Baru">Pesanan Baru</button>
           <button type="button" class="tab-btn" data-status="Proses">Proses</button>
@@ -196,7 +237,7 @@
         </form>
       </section>
 
-      <!-- TIM VIEW: FULL PAGE SECTION - RIWAYAT TRANSAKSI KAS (Bukan Popup Modal!) -->
+      <!-- TIM / MANAJEMEN VIEW: FULL PAGE SECTION - RIWAYAT TRANSAKSI KAS -->
       <section id="txHistorySection" class="tx-history-section card-navy hidden">
         <div class="card-header border-bottom flex-header-back">
           <button type="button" id="btnBackFromHistory" class="btn-back-header">
@@ -507,7 +548,10 @@
           </svg>
         </div>
         
-        <h2 class="success-title">Transaksi Berhasil Dicatat!</h2>
+        <h2 class="success-title">Pengeluaran Berhasil Diinput!</h2>
+        <p style="text-align: center; color: #b45309; font-size: 13px; margin: -10px 0 15px 0; font-weight: 600;">
+          <i class="fa-solid fa-clock"></i> Menunggu persetujuan manajemen
+        </p>
 
         <div class="recap-card navy-panel">
           <div class="recap-row">
@@ -538,8 +582,8 @@
             <strong id="recapTotal" class="amount-minus">-</strong>
           </div>
           <div class="recap-row">
-            <span>Sisa Saldo Terbaru:</span>
-            <strong id="recapRemainingBalance" class="amount-remaining">-</strong>
+            <span>Status Persetujuan:</span>
+            <strong id="recapStatusApproval" style="color: #b45309;">Menunggu Persetujuan</strong>
           </div>
         </div>
 
