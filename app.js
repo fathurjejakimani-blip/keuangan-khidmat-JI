@@ -1591,21 +1591,22 @@ function generateManagementPdfDocument() {
 
   // 2. Automate PDF Upload to Google Drive & Log to Sheet 'Riwayat Dokumen'
   const createdBy = appState.activeUser ? appState.activeUser.name : 'Manajemen';
-  const drivePayload = {
-    action: 'savePdfToDrive',
-    docType: docTypeName || docTitleHtml,
-    fileName: `${docTypeName.replace(/\s+/g, '_')}_${Date.now()}`,
-    htmlContent: printDocumentHtml,
-    createdBy: createdBy,
-    keterangan: `PDF ${docTypeName} berhasil dibuat & tersimpan di Drive`
-  };
+  const fileName = `${docTypeName.replace(/\s+/g, '_')}_${Date.now()}`;
+  
+  const formData = new URLSearchParams();
+  formData.append('action', 'savePdfToDrive');
+  formData.append('docType', docTypeName || docTitleHtml);
+  formData.append('fileName', fileName);
+  formData.append('htmlContent', printDocumentHtml);
+  formData.append('createdBy', createdBy);
+  formData.append('keterangan', `PDF ${docTypeName} berhasil dibuat & tersimpan di Drive`);
 
   showAutoToast("Tersimpan ke Drive & Sheet!", `Dokumen tercatat di Sheet Riwayat Dokumen`);
 
   fetch(GAS_URL, {
     method: 'POST',
     mode: 'no-cors',
-    body: JSON.stringify(drivePayload)
+    body: formData
   }).catch(err => console.error('Auto save PDF Drive notice:', err));
 }
 
@@ -2149,21 +2150,21 @@ function generatePdfDocument() {
   pdfModal.classList.add('hidden');
 
   // Automate PDF Upload to Google Drive & Log to Sheet 'Riwayat Dokumen' for Vendor PDF
-  const vendorDrivePayload = {
-    action: 'savePdfToDrive',
-    docType: docType,
-    fileName: `${docType.replace(/\s+/g, '_')}_${vendorName.replace(/\s+/g, '_')}_${Date.now()}`,
-    htmlContent: printDocumentHtml,
-    createdBy: vendorName,
-    keterangan: `PDF Laporan Vendor ${docType} tersimpan otomatis ke Google Drive`
-  };
+  const vendorFileName = `${docType.replace(/\s+/g, '_')}_${vendorName.replace(/\s+/g, '_')}_${Date.now()}`;
+  const vendorFormData = new URLSearchParams();
+  vendorFormData.append('action', 'savePdfToDrive');
+  vendorFormData.append('docType', docType);
+  vendorFormData.append('fileName', vendorFileName);
+  vendorFormData.append('htmlContent', printDocumentHtml);
+  vendorFormData.append('createdBy', vendorName);
+  vendorFormData.append('keterangan', `PDF Laporan Vendor ${docType} tersimpan otomatis ke Google Drive`);
 
   showAutoToast("Tersimpan ke Drive & Sheet!", `Laporan ${docType} tercatat di Sheet Riwayat Dokumen`);
 
   fetch(GAS_URL, {
     method: 'POST',
     mode: 'no-cors',
-    body: JSON.stringify(vendorDrivePayload)
+    body: vendorFormData
   }).catch(err => console.error('Auto save Vendor PDF Drive notice:', err));
 }
 
