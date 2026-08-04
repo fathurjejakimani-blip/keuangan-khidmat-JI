@@ -1605,7 +1605,6 @@ function generateManagementPdfDocument() {
   fetch(GAS_URL, {
     method: 'POST',
     mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(drivePayload)
   }).catch(err => console.error('Auto save PDF Drive notice:', err));
 }
@@ -2148,6 +2147,24 @@ function generatePdfDocument() {
 
   printHtmlContent(printDocumentHtml);
   pdfModal.classList.add('hidden');
+
+  // Automate PDF Upload to Google Drive & Log to Sheet 'Riwayat Dokumen' for Vendor PDF
+  const vendorDrivePayload = {
+    action: 'savePdfToDrive',
+    docType: docType,
+    fileName: `${docType.replace(/\s+/g, '_')}_${vendorName.replace(/\s+/g, '_')}_${Date.now()}`,
+    htmlContent: printDocumentHtml,
+    createdBy: vendorName,
+    keterangan: `PDF Laporan Vendor ${docType} tersimpan otomatis ke Google Drive`
+  };
+
+  showAutoToast("Tersimpan ke Drive & Sheet!", `Laporan ${docType} tercatat di Sheet Riwayat Dokumen`);
+
+  fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify(vendorDrivePayload)
+  }).catch(err => console.error('Auto save Vendor PDF Drive notice:', err));
 }
 
 // Vendor Pemesanan System - Strictly Scoped Status Tabs
