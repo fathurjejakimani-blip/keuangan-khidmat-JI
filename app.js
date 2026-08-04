@@ -2259,6 +2259,25 @@ function generatePdfDocument() {
   }).catch(err => console.error('Auto save Vendor PDF Drive notice:', err));
 }
 
+// Vendor Estimates Calculation (Estimasi Kebutuhan Vendor)
+function calculateVendorEstimates() {
+  const estimatesBox = document.getElementById('estimatesBox');
+  const estimatesAmountDisplay = document.getElementById('estimatesAmountDisplay');
+  if (!estimatesAmountDisplay) return;
+
+  if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'vendor') {
+    if (estimatesBox) estimatesBox.classList.add('hidden');
+    return;
+  }
+
+  const vendorName = normString(appState.activeUser.name);
+  const pendingOrders = appState.orders.filter(o => normString(o.akun) === vendorName && o.status !== 'Selesai');
+  const totalEstimate = pendingOrders.reduce((sum, o) => sum + (o.jumlah || 0), 0);
+
+  estimatesAmountDisplay.textContent = formatSAR(totalEstimate);
+  if (estimatesBox) estimatesBox.classList.remove('hidden');
+}
+
 // Vendor Pemesanan System - Strictly Scoped Status Tabs
 function setupStatusFilterTabs() {
   const tabs = document.querySelectorAll('#ordersSection .status-filter-tabs .tab-btn');
@@ -2698,7 +2717,7 @@ function resetItems() {
 
 function addItemRow() {
   const itemIndex = appState.items.length;
-  const defaultCategory = appState.masterCategories[0] || '';
+  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
   const itemData = {
     id: Date.now() + Math.random(),
     kategori: defaultCategory,
@@ -2765,7 +2784,7 @@ function resetModalItems() {
 
 function addModalItemRow() {
   const idx = appState.modalItems.length;
-  const defaultCategory = appState.masterCategories[0] || '';
+  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
   const itemData = {
     id: Date.now() + Math.random(),
     kategori: defaultCategory,
