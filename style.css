@@ -844,10 +844,11 @@ input, select, textarea, button {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 2000;
+  z-index: 5000;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  pointer-events: auto;
 }
 
 .fab-main-btn {
