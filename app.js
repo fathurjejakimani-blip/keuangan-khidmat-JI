@@ -380,15 +380,15 @@ function applyUserSessionUI() {
 function renderManagementDashboard() {
   if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'manajemen') return;
 
-  const combinedTotal = appState.accounts.reduce((sum, acc) => {
-    const r = (acc.jenisAkun || '').toLowerCase();
-    if (r === 'tim' || r === 'vendor') {
-      return sum + (acc.saldo || 0);
-    }
-    return sum;
-  }, 0);
-
+  // 1. Total Saldo Kas Tergabung (SEMUA AKUN termasuk Akun Manajemen, Tim, & Vendor)
+  const combinedTotal = appState.accounts.reduce((sum, acc) => sum + (acc.saldo || 0), 0);
   totalCombinedBalance.textContent = formatSAR(combinedTotal);
+
+  // 2. Display Admin Account Name and Saldo
+  const mgmtAdminAccName = document.getElementById('mgmtAdminAccName');
+  const mgmtAdminBalanceDisplay = document.getElementById('mgmtAdminBalanceDisplay');
+  if (mgmtAdminAccName) mgmtAdminAccName.textContent = appState.activeUser.name;
+  if (mgmtAdminBalanceDisplay) mgmtAdminBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo || 0);
 
   const pendingTx = appState.transactions.filter(t => t.status === 'Menunggu Persetujuan');
   pendingApprovalsBadge.textContent = `${pendingTx.length} Pengeluaran`;
