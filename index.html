@@ -381,14 +381,14 @@
                     <label>Tanggal Pengajuan</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-calendar-days input-icon"></i>
-                      <input type="date" id="doc1Tanggal" required>
+                      <input type="date" id="doc1Tanggal" data-req="true">
                     </div>
                   </div>
                   <div class="input-group">
                     <label>Divisi Operational</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-sitemap input-icon"></i>
-                      <input type="text" id="doc1Divisi" value="Saudi Operational" required>
+                      <input type="text" id="doc1Divisi" value="Saudi Operational" data-req="true">
                     </div>
                   </div>
                 </div>
@@ -396,7 +396,7 @@
                   <label>Nama Program / Kegiatan Pengajuan</label>
                   <div class="input-wrapper navy-input">
                     <i class="fa-solid fa-clipboard-list input-icon"></i>
-                    <input type="text" id="doc1Program" placeholder="Misal: Operasional Layanan Umrah Makkah & Madinah" required>
+                    <input type="text" id="doc1Program" placeholder="Misal: Operasional Layanan Umrah Makkah & Madinah" data-req="true">
                   </div>
                 </div>
                 <div class="items-section mgmt-items-section">
@@ -421,14 +421,14 @@
                     <label>No. Referensi Kwitansi</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-hashtag input-icon"></i>
-                      <input type="text" id="doc2NoRef" placeholder="KWT-2026-001" required>
+                      <input type="text" id="doc2NoRef" placeholder="KWT-2026-001" data-req="true">
                     </div>
                   </div>
                   <div class="input-group">
                     <label>Tanggal Pembayaran</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-calendar input-icon"></i>
-                      <input type="date" id="doc2Tanggal" required>
+                      <input type="date" id="doc2Tanggal" data-req="true">
                     </div>
                   </div>
                 </div>
@@ -436,14 +436,14 @@
                   <label>Nominal Pembayaran (SAR)</label>
                   <div class="input-wrapper navy-input">
                     <span class="currency-prefix">SAR</span>
-                    <input type="number" min="0" step="any" id="doc2Nominal" placeholder="0.00" required>
+                    <input type="number" min="0" step="any" id="doc2Nominal" placeholder="0.00" data-req="true">
                   </div>
                 </div>
                 <div class="input-group">
                   <label>Keterangan Pembayaran</label>
                   <div class="input-wrapper navy-input">
                     <i class="fa-solid fa-pen-to-square input-icon"></i>
-                    <input type="text" id="doc2Keterangan" placeholder="Misal: Pembayaran Tiket Kereta Haramain Express" required>
+                    <input type="text" id="doc2Keterangan" placeholder="Misal: Pembayaran Tiket Kereta Haramain Express" data-req="true">
                   </div>
                 </div>
                 <div class="form-grid-2col">
@@ -451,14 +451,14 @@
                     <label>Nama Pengirim (Pemberi Uang)</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-user input-icon"></i>
-                      <input type="text" id="doc2Pengirim" placeholder="Nama pengirim / tim" required>
+                      <input type="text" id="doc2Pengirim" placeholder="Nama pengirim / tim" data-req="true">
                     </div>
                   </div>
                   <div class="input-group">
                     <label>Nama Penerima (Penerima Uang)</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-user-check input-icon"></i>
-                      <input type="text" id="doc2Penerima" placeholder="Nama penerima / vendor" required>
+                      <input type="text" id="doc2Penerima" placeholder="Nama penerima / vendor" data-req="true">
                     </div>
                   </div>
                 </div>
@@ -471,7 +471,7 @@
                     <label>Nama Grup Keberangkatan <span class="req">*</span></label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-plane-departure input-icon"></i>
-                      <input type="text" id="doc3GrupInput" placeholder="Ketik / pilih nama grup" autocomplete="off" required>
+                      <input type="text" id="doc3GrupInput" placeholder="Ketik / pilih nama grup" autocomplete="off" data-req="true">
                       <i class="fa-solid fa-magnifying-glass search-icon"></i>
                     </div>
                     <div id="doc3GrupSuggestions" class="suggestions-list hidden"></div>
@@ -480,7 +480,7 @@
                     <label>Nama Jamaah</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-user-tag input-icon"></i>
-                      <input type="text" id="doc3Jamaah" placeholder="Nama lengkap jamaah" required>
+                      <input type="text" id="doc3Jamaah" placeholder="Nama lengkap jamaah" data-req="true">
                     </div>
                   </div>
                 </div>
@@ -488,7 +488,7 @@
                   <label>Tanggal Dokumen</label>
                   <div class="input-wrapper navy-input">
                     <i class="fa-solid fa-calendar input-icon"></i>
-                    <input type="date" id="doc3Tanggal" required>
+                    <input type="date" id="doc3Tanggal" data-req="true">
                   </div>
                 </div>
                 <div class="items-section mgmt-items-section">
@@ -512,7 +512,7 @@
                   <label>Pilih Nama Grup Keberangkatan <span class="req">*</span></label>
                   <div class="input-wrapper navy-input">
                     <i class="fa-solid fa-layer-group input-icon"></i>
-                    <input type="text" id="doc4GrupInput" placeholder="Ketik / pilih nama grup" autocomplete="off" required>
+                    <input type="text" id="doc4GrupInput" placeholder="Ketik / pilih nama grup" autocomplete="off" data-req="true">
                     <i class="fa-solid fa-magnifying-glass search-icon"></i>
                   </div>
                   <div id="doc4GrupSuggestions" class="suggestions-list hidden"></div>
@@ -530,14 +530,14 @@
                     <label>Tanggal Mulai</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-calendar input-icon"></i>
-                      <input type="date" id="doc5StartDate" required>
+                      <input type="date" id="doc5StartDate" data-req="true">
                     </div>
                   </div>
                   <div class="input-group">
                     <label>Tanggal Selesai</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-calendar input-icon"></i>
-                      <input type="date" id="doc5EndDate" required>
+                      <input type="date" id="doc5EndDate" data-req="true">
                     </div>
                   </div>
                 </div>
@@ -550,14 +550,14 @@
                     <label>Tanggal Mulai</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-calendar input-icon"></i>
-                      <input type="date" id="doc6StartDate" required>
+                      <input type="date" id="doc6StartDate" data-req="true">
                     </div>
                   </div>
                   <div class="input-group">
                     <label>Tanggal Selesai</label>
                     <div class="input-wrapper navy-input">
                       <i class="fa-solid fa-calendar input-icon"></i>
-                      <input type="date" id="doc6EndDate" required>
+                      <input type="date" id="doc6EndDate" data-req="true">
                     </div>
                   </div>
                 </div>
@@ -569,7 +569,7 @@
                   <label>Pilihan Bulan Operasional</label>
                   <div class="input-wrapper navy-input">
                     <i class="fa-solid fa-calendar-check input-icon"></i>
-                    <input type="month" id="doc7Bulan" required>
+                    <input type="month" id="doc7Bulan" data-req="true">
                   </div>
                 </div>
               </div>
