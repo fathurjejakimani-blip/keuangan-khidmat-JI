@@ -100,7 +100,7 @@
       <!-- Spacing Divider -->
       <div class="section-spacer"></div>
 
-      <!-- MANAJEMEN VIEW: Dashboard Persetujuan & Ringkasan Saldo Gabungan (Khusus Jenis Akun 'Manajemen') -->
+      <!-- MANAJEMEN VIEW: Dashboard Persetujuan & Ringkasan Saldo Terpisah (Khusus Jenis Akun 'Manajemen') -->
       <section id="managementSection" class="management-section card-navy hidden">
         <div class="card-header border-bottom">
           <h2><i class="fa-solid fa-user-shield"></i> Dashboard Manajemen</h2>
@@ -124,19 +124,28 @@
             <span id="pendingApprovalsBadge" class="badge-count">0 Pengeluaran</span>
           </div>
 
-          <div id="pendingApprovalsContainer" class="pending-approvals-container">
+          <div id="pendingApprovalsContainer" class="pending-approvals-container scrollable-sub-box">
             <!-- Dynamic pending approval cards -->
           </div>
         </div>
 
-        <!-- Section 2: Ringkasan Saldo Semua Akun (Tim & Vendor) -->
-        <div class="mgmt-sub-section" style="margin-top: 24px;">
+        <!-- Section 2: Ringkasan Saldo Akun Tim (Terpisah & Scrollable Mandiri) -->
+        <div class="mgmt-sub-section" style="margin-top: 20px;">
           <div class="sub-section-header">
-            <h3><i class="fa-solid fa-users-rectangle"></i> Ringkasan Saldo Akun (Tim & Vendor)</h3>
+            <h3><i class="fa-solid fa-users"></i> Saldo Akun Tim</h3>
           </div>
+          <div id="teamBalancesContainer" class="account-balances-grid scrollable-sub-box">
+            <!-- Dynamic Tim account balance cards -->
+          </div>
+        </div>
 
-          <div id="accountBalancesContainer" class="account-balances-grid">
-            <!-- Dynamic account balance cards -->
+        <!-- Section 3: Ringkasan Saldo Akun Vendor (Terpisah & Scrollable Mandiri) -->
+        <div class="mgmt-sub-section" style="margin-top: 20px;">
+          <div class="sub-section-header">
+            <h3><i class="fa-solid fa-store"></i> Saldo Akun Vendor</h3>
+          </div>
+          <div id="vendorBalancesContainer" class="account-balances-grid scrollable-sub-box">
+            <!-- Dynamic Vendor account balance cards -->
           </div>
         </div>
       </section>
@@ -549,7 +558,7 @@
         </div>
         
         <h2 class="success-title">Pengeluaran Berhasil Diinput!</h2>
-        <p style="text-align: center; color: #b45309; font-size: 13px; margin: -10px 0 15px 0; font-weight: 600;">
+        <p style="text-align: center; color: #f59e0b; font-size: 13px; margin: -10px 0 15px 0; font-weight: 600;">
           <i class="fa-solid fa-clock"></i> Menunggu persetujuan manajemen
         </p>
 
@@ -583,7 +592,7 @@
           </div>
           <div class="recap-row">
             <span>Status Persetujuan:</span>
-            <strong id="recapStatusApproval" style="color: #b45309;">Menunggu Persetujuan</strong>
+            <strong id="recapStatusApproval" style="color: #f59e0b;">Menunggu Persetujuan</strong>
           </div>
         </div>
 
