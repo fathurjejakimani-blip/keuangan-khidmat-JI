@@ -329,6 +329,43 @@ input, select, textarea, button {
   margin-bottom: 12px;
 }
 
+.flex-header-badge {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.user-badge-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon-reload {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  color: var(--navy-dark);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.btn-icon-reload:hover, .btn-icon-reload:active {
+  background-color: var(--gold-accent);
+  color: #ffffff;
+  border-color: var(--gold-accent);
+}
+
+.btn-icon-reload i.spinning {
+  animation: fa-spin 1s infinite linear;
+}
+
 .account-type-tag {
   background-color: rgba(245, 158, 11, 0.15);
   color: var(--gold-primary);
