@@ -86,10 +86,16 @@
       <!-- Balance & Estimates Card -->
       <section id="mainBalanceSection" class="balance-card card-navy">
         <div class="balance-info-group">
-          <div class="user-badge">
-            <i class="fa-solid fa-user-check"></i>
-            <span id="activeAccountName">Tim Khidmat Operasional</span>
-            <span id="activeAccountType" class="account-type-tag">Tim</span>
+          <div class="user-badge flex-header-badge">
+            <div class="user-badge-left">
+              <i class="fa-solid fa-user-check"></i>
+              <span id="activeAccountName">Tim Khidmat Operasional</span>
+              <span id="activeAccountType" class="account-type-tag">Tim</span>
+            </div>
+            <!-- Tombol Reload Data di Paling Kanan -->
+            <button type="button" id="btnAppReload" class="btn-icon-reload" title="Refresh Data Transaksi">
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
           </div>
           
           <div class="balance-metrics">
@@ -637,16 +643,15 @@
                 </div>
               </div>
 
-              <!-- Pilih Penerima (Akun) -->
-              <div class="input-group">
-                <label for="transferReceiverSelect">Pilih Penerima (Akun) <span class="req">*</span></label>
-                <div class="select-wrapper navy-input">
-                  <i class="fa-solid fa-user-plus select-icon"></i>
-                  <select id="transferReceiverSelect" required>
-                    <option value="">-- Pilih Akun Penerima --</option>
-                  </select>
-                  <i class="fa-solid fa-chevron-down arrow-icon"></i>
+              <!-- Pilih Penerima (Akun - Searchbar Autocomplete) -->
+              <div class="input-group autocomplete-group">
+                <label for="transferReceiverInput">Pilih Penerima (Akun) <span class="req">*</span></label>
+                <div class="input-wrapper navy-input">
+                  <i class="fa-solid fa-user-plus input-icon"></i>
+                  <input type="text" id="transferReceiverInput" placeholder="Ketik / pilih akun penerima..." autocomplete="off" required>
+                  <i class="fa-solid fa-magnifying-glass search-icon"></i>
                 </div>
+                <div id="transferReceiverSuggestions" class="suggestions-list hidden"></div>
               </div>
             </div>
 
@@ -675,13 +680,6 @@
           <div class="modal-footer" style="margin-top: 16px;">
             <button type="submit" id="btnSubmitTransfer" class="btn-navy btn-primary btn-block btn-lg">
               <i class="fa-solid fa-paper-plane"></i> Kirim Transfer Sekarang
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-            <button type="submit" id="btnSubmitTransfer" class="btn-navy btn-primary btn-block">
-              Kirim Transfer Sekarang
             </button>
           </div>
         </form>
