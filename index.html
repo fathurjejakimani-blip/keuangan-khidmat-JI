@@ -2,10 +2,20 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <!-- Viewport meta preventing mobile auto-zoom on input focus (user-scalable=no & max-scale 1.0) -->
+  <!-- Viewport meta preventing mobile auto-zoom on input focus -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TIM KHIDMAT - jejak imani Saudi Arabia</title>
-  <!-- Google Fonts: Mulish (Body & UI) & Martel (Headings & Numbers) -->
+  <title>Kas JI - Tim Khidmat jejak imani</title>
+  
+  <!-- PWA Add to Homescreen Meta Tags & Icons (Kas JI) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kas JI">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+
+  <!-- Google Fonts: Mulish & Martel -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Martel:wght@400;600;700;800&family=Mulish:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -600,45 +610,55 @@
       </div>
     </div>
 
-    <!-- POPUP MODAL: Transfer Kas (Khusus Tim) -->
+    <!-- POPUP MODAL: Transfer Kas -->
     <div id="transferModal" class="modal-backdrop hidden">
-      <div class="modal-card card-navy">
+      <div class="modal-card modal-lg card-navy mgmt-pdf-modal-card">
         <div class="modal-header">
-          <h3><i class="fa-solid fa-paper-plane"></i> Transfer Kas Akun</h3>
+          <div class="modal-title-with-icon">
+            <div class="modal-icon-badge" style="background: linear-gradient(135deg, #1e3a8a, #2563eb);">
+              <i class="fa-solid fa-money-bill-transfer"></i>
+            </div>
+            <div>
+              <h3>Transfer Kas Akun</h3>
+              <p class="modal-subtitle-text">Kirim saldo kas antar akun tim dengan mudah & tercatat otomatis</p>
+            </div>
+          </div>
           <button id="btnCloseTransferModal" class="btn-close">&times;</button>
         </div>
         <form id="transferForm">
           <div class="modal-body">
-            <!-- Tujuan Pengiriman -->
-            <div class="input-group">
-              <label for="transferTujuanInput">Tujuan Pengiriman / Peruntukan <span class="req">*</span></label>
-              <div class="input-wrapper navy-input">
-                <i class="fa-solid fa-bullseye input-icon"></i>
-                <input type="text" id="transferTujuanInput" placeholder="Misal: Operasional Lapangan Makkah" required>
+            <div class="form-grid-2col">
+              <!-- Tujuan Pengiriman -->
+              <div class="input-group">
+                <label for="transferTujuanInput">Tujuan Pengiriman / Peruntukan <span class="req">*</span></label>
+                <div class="input-wrapper navy-input">
+                  <i class="fa-solid fa-bullseye input-icon"></i>
+                  <input type="text" id="transferTujuanInput" placeholder="Misal: Operasional Lapangan Makkah" required>
+                </div>
               </div>
-            </div>
 
-            <!-- Pilih Penerima (Akun) -->
-            <div class="input-group">
-              <label for="transferReceiverSelect">Pilih Penerima (Akun) <span class="req">*</span></label>
-              <div class="select-wrapper navy-input">
-                <i class="fa-solid fa-user-plus select-icon"></i>
-                <select id="transferReceiverSelect" required>
-                  <option value="">-- Pilih Akun Penerima --</option>
-                </select>
-                <i class="fa-solid fa-chevron-down arrow-icon"></i>
+              <!-- Pilih Penerima (Akun) -->
+              <div class="input-group">
+                <label for="transferReceiverSelect">Pilih Penerima (Akun) <span class="req">*</span></label>
+                <div class="select-wrapper navy-input">
+                  <i class="fa-solid fa-user-plus select-icon"></i>
+                  <select id="transferReceiverSelect" required>
+                    <option value="">-- Pilih Akun Penerima --</option>
+                  </select>
+                  <i class="fa-solid fa-chevron-down arrow-icon"></i>
+                </div>
               </div>
             </div>
 
             <!-- Nominal Transfer -->
-            <div class="input-group">
+            <div class="input-group" style="margin-top: 10px;">
               <label for="transferAmountInput">Nominal Transfer (SAR) <span class="req">*</span></label>
               <div class="input-wrapper navy-input">
                 <span class="currency-prefix">SAR</span>
-                <input type="number" id="transferAmountInput" min="1" step="any" placeholder="0.00" required>
+                <input type="number" id="transferAmountInput" min="1" step="any" placeholder="0.00" required style="padding-left: 56px;">
               </div>
-              <div class="sub-balance-info">
-                Saldo Kas Saat Ini: <strong id="transferCurrentBalanceDisplay">SAR 0.00</strong>
+              <div class="sub-balance-info" style="margin-top: 6px; font-size: 12px; color: #64748b;">
+                Sisa Saldo Kas Saya Saat Ini: <strong id="transferCurrentBalanceDisplay" style="color: #d97706;">SAR 0.00</strong>
               </div>
             </div>
 
@@ -652,7 +672,14 @@
             </div>
           </div>
 
-          <div class="modal-footer">
+          <div class="modal-footer" style="margin-top: 16px;">
+            <button type="submit" id="btnSubmitTransfer" class="btn-navy btn-primary btn-block btn-lg">
+              <i class="fa-solid fa-paper-plane"></i> Kirim Transfer Sekarang
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
             <button type="submit" id="btnSubmitTransfer" class="btn-navy btn-primary btn-block">
               Kirim Transfer Sekarang
             </button>
@@ -776,11 +803,19 @@
       </div>
     </div>
 
-    <!-- Modal Topup Saldo -->
+    <!-- POPUP MODAL: Isi Saldo Kas (Khusus Manajemen) -->
     <div id="topupModal" class="modal-backdrop hidden">
-      <div class="modal-card card-navy">
+      <div class="modal-card modal-lg card-navy mgmt-pdf-modal-card">
         <div class="modal-header">
-          <h3>Isi Saldo Kas Tim</h3>
+          <div class="modal-title-with-icon">
+            <div class="modal-icon-badge" style="background: linear-gradient(135deg, #059669, #10b981);">
+              <i class="fa-solid fa-wallet"></i>
+            </div>
+            <div>
+              <h3>Isi Saldo Kas Akun</h3>
+              <p class="modal-subtitle-text">Tambahkan deposit kas ke akun tim / manajemen</p>
+            </div>
+          </div>
           <button id="btnCloseTopup" class="btn-close">&times;</button>
         </div>
         <form id="topupForm">
@@ -789,7 +824,7 @@
               <label>Akun Terpilih</label>
               <div class="input-wrapper navy-input disabled-input">
                 <i class="fa-solid fa-user-check input-icon"></i>
-                <input type="text" id="topupAccountName" readonly disabled>
+                <input type="text" id="topupAccountName" readonly disabled style="background-color: #f1f5f9; font-weight: 700; color: #0f172a;">
               </div>
             </div>
 
@@ -797,7 +832,7 @@
               <label for="topupAmountInput">Jumlah Saldo Ditambahkan (SAR) <span class="req">*</span></label>
               <div class="input-wrapper navy-input">
                 <span class="currency-prefix">SAR</span>
-                <input type="number" id="topupAmountInput" min="1" step="any" placeholder="0.00" required>
+                <input type="number" id="topupAmountInput" min="1" step="any" placeholder="0.00" required style="padding-left: 56px;">
               </div>
             </div>
 
@@ -809,9 +844,9 @@
               </div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="submit" id="btnSubmitTopup" class="btn-navy btn-primary btn-block">
-              Tambahkan Saldo Sekarang
+          <div class="modal-footer" style="margin-top: 16px;">
+            <button type="submit" id="btnSubmitTopup" class="btn-navy btn-primary btn-block btn-lg" style="background: linear-gradient(135deg, #059669, #047857);">
+              <i class="fa-solid fa-plus-circle"></i> Tambahkan Saldo Sekarang
             </button>
           </div>
         </form>
