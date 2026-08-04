@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.5
- * Scrollable Vendor Data Container, Iconless Action Buttons, Exact Wording Confirmation Alerts & Reverse Chronological Transaction History
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v5.8
+ * Fixed Negative Balance Formatting (-SAR X,XXX.XX) & Async Sheet Balance Syncing
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -468,7 +468,8 @@ async function handleTransferSubmit(e) {
     // Show Animated Checkmark Toast (Auto Closes in 2.5s)
     showAutoToast("Transfer Berhasil!", `Nominal ${formatSAR(amount)} telah dikirim ke ${receiverName}`);
 
-    fetchDataFromSpreadsheet();
+    // Delay background sync so Google Apps Script finishes writing row
+    setTimeout(fetchDataFromSpreadsheet, 2500);
 
   } catch (err) {
     console.error('Transfer error:', err);
@@ -1042,7 +1043,6 @@ function renderOrdersList() {
     if (order.status === 'Proses') statusClass = 'proses';
     if (order.status === 'Selesai') statusClass = 'selesai';
 
-    // REMOVED ICONS FROM ACTION BUTTONS ACCORDING TO USER DIRECTIVE
     let actionBtnHtml = '';
     if (order.status === 'Pesanan Baru') {
       actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Proses')">Konfirmasi Pemesanan</button>`;
@@ -1308,7 +1308,7 @@ window.handleShareCompletedOrder = function(orderId) {
   }
 };
 
-// UPDATED STATUS CONFIRMATION ALERTS WORDING ACCORDING TO USER DIRECTIVES
+// UPDATED STATUS CONFIRMATION ALERTS & ASYNC BALANCE SYNC
 window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   const confirmMsg = newStatus === 'Selesai' 
     ? "Mengonfirmasi pesanan ini akan otomatis memotong saldo akun Anda. Lanjutkan?"
@@ -1323,19 +1323,14 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       newStatus: newStatus
     };
 
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
+    // Optimistically update status and balance locally
     const orderIndex = appState.orders.findIndex(o => o.id.toString().trim() === orderId.toString().trim());
     if (orderIndex !== -1) {
       appState.orders[orderIndex].status = newStatus;
       
       if (newStatus === 'Selesai') {
-        appState.activeUser.saldo -= appState.orders[orderIndex].jumlah;
+        const orderAmount = appState.orders[orderIndex].jumlah || 0;
+        appState.activeUser.saldo -= orderAmount;
         activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
         localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
@@ -1347,7 +1342,16 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
     // Show Animated Checkmark Toast (Auto Closes in 2.5s)
     showAutoToast("Status Diperbarui!", `Status pemesanan diubah menjadi ${newStatus}`);
 
-    fetchDataFromSpreadsheet();
+    // Send POST request to Apps Script
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    // Delay background sync by 2500ms so Apps Script finishes writing row to Sheet Akun
+    setTimeout(fetchDataFromSpreadsheet, 2500);
 
   } catch (err) {
     console.error('Update status error:', err);
@@ -1394,7 +1398,7 @@ async function handleTopupSubmit(e) {
     // Show Animated Checkmark Toast (Auto Closes in 2.5s)
     showAutoToast("Isi Saldo Berhasil!", `Kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}`);
 
-    fetchDataFromSpreadsheet();
+    setTimeout(fetchDataFromSpreadsheet, 2500);
 
   } catch (err) {
     console.error('Topup error:', err);
@@ -1906,7 +1910,7 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
 
     successOverlay.classList.remove('hidden');
-    fetchDataFromSpreadsheet();
+    setTimeout(fetchDataFromSpreadsheet, 2500);
 
   } catch (error) {
     console.error('Submit error:', error);
@@ -1948,7 +1952,7 @@ function resetForm() {
   resetModalItems();
 }
 
-// Fetch Live Data
+// Fetch Live Data from Spreadsheet
 async function fetchDataFromSpreadsheet() {
   try {
     const res = await fetch(`${GAS_URL}?action=getData`);
@@ -1962,7 +1966,10 @@ async function fetchDataFromSpreadsheet() {
     if (data.transactions && data.transactions.length > 0) appState.transactions = data.transactions;
 
     if (appState.activeUser) {
-      const refreshedAcc = appState.accounts.find(a => a.id.toString().trim() === appState.activeUser.id.toString().trim());
+      const refreshedAcc = appState.accounts.find(a => 
+        a.id.toString().trim() === appState.activeUser.id.toString().trim() ||
+        a.name.toLowerCase() === appState.activeUser.name.toLowerCase()
+      );
       if (refreshedAcc) {
         appState.activeUser.saldo = refreshedAcc.saldo;
         activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
@@ -1976,12 +1983,17 @@ async function fetchDataFromSpreadsheet() {
   }
 }
 
-// Helper: Format SAR Currency
+// Helper: Format SAR Currency (Handles Negative Numbers -SAR X,XXX.XX)
 function formatSAR(num) {
+  const n = parseFloat(num) || 0;
+  if (n < 0) {
+    const absVal = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `-SAR ${absVal}`;
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'SAR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(num || 0).replace('SAR', 'SAR ');
+  }).format(n).replace('SAR', 'SAR ');
 }
