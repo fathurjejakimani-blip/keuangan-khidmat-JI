@@ -2640,21 +2640,21 @@ function addItemRow() {
       <div class="input-group">
         <label>Harga Satuan (SAR)</label>
         <div class="input-wrapper input-sm">
-          <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="" oninput="updateItemData(${itemIndex}, 'hargaSatuan', this.value)" required>
+          <input type="number" min="0" step="any" placeholder="0.00" class="item-harga has-no-icon" value="" oninput="updateItemData(${itemIndex}, 'hargaSatuan', this.value)" required>
         </div>
       </div>
 
       <div class="input-group">
         <label>QTY</label>
         <div class="input-wrapper input-sm">
-          <input type="number" min="1" placeholder="1" class="item-qty" value="1" oninput="updateItemData(${itemIndex}, 'qty', this.value)" required>
+          <input type="number" min="1" placeholder="1" class="item-qty has-no-icon" value="1" oninput="updateItemData(${itemIndex}, 'qty', this.value)" required>
         </div>
       </div>
 
       <div class="input-group full-width">
         <label>Jumlah Subtotal (SAR)</label>
         <div class="input-wrapper input-sm">
-          <input type="text" class="item-jumlah amount-disabled" value="SAR 0.00" disabled readonly>
+          <input type="text" class="item-jumlah amount-disabled has-no-icon" value="SAR 0.00" disabled readonly>
         </div>
       </div>
     </div>
@@ -2707,21 +2707,21 @@ function addModalItemRow() {
       <div class="input-group">
         <label>Harga Satuan (SAR)</label>
         <div class="input-wrapper input-sm">
-          <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="" oninput="updateModalItemData(${idx}, 'hargaSatuan', this.value)" required>
+          <input type="number" min="0" step="any" placeholder="0.00" class="item-harga has-no-icon" value="" oninput="updateModalItemData(${idx}, 'hargaSatuan', this.value)" required>
         </div>
       </div>
 
       <div class="input-group">
         <label>QTY</label>
         <div class="input-wrapper input-sm">
-          <input type="number" min="1" placeholder="1" class="item-qty" value="1" oninput="updateModalItemData(${idx}, 'qty', this.value)" required>
+          <input type="number" min="1" placeholder="1" class="item-qty has-no-icon" value="1" oninput="updateModalItemData(${idx}, 'qty', this.value)" required>
         </div>
       </div>
 
       <div class="input-group full-width">
         <label>Jumlah Subtotal (SAR)</label>
         <div class="input-wrapper input-sm">
-          <input type="text" class="item-jumlah amount-disabled" value="SAR 0.00" disabled readonly>
+          <input type="text" class="item-jumlah amount-disabled has-no-icon" value="SAR 0.00" disabled readonly>
         </div>
       </div>
     </div>
@@ -2813,21 +2813,21 @@ function reRenderItems() {
         <div class="input-group">
           <label>Harga Satuan (SAR)</label>
           <div class="input-wrapper input-sm">
-            <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="${item.hargaSatuan || ''}" oninput="updateItemData(${idx}, 'hargaSatuan', this.value)" required>
+            <input type="number" min="0" step="any" placeholder="0.00" class="item-harga has-no-icon" value="${item.hargaSatuan || ''}" oninput="updateItemData(${idx}, 'hargaSatuan', this.value)" required>
           </div>
         </div>
 
         <div class="input-group">
           <label>QTY</label>
           <div class="input-wrapper input-sm">
-            <input type="number" min="1" placeholder="1" class="item-qty" value="${item.qty || 1}" oninput="updateItemData(${idx}, 'qty', this.value)" required>
+            <input type="number" min="1" placeholder="1" class="item-qty has-no-icon" value="${item.qty || 1}" oninput="updateItemData(${idx}, 'qty', this.value)" required>
           </div>
         </div>
 
         <div class="input-group full-width">
           <label>Jumlah Subtotal (SAR)</label>
           <div class="input-wrapper input-sm">
-            <input type="text" class="item-jumlah amount-disabled" value="${formatSAR(item.jumlah)}" disabled readonly>
+            <input type="text" class="item-jumlah amount-disabled has-no-icon" value="${formatSAR(item.jumlah)}" disabled readonly>
           </div>
         </div>
       </div>
@@ -2870,21 +2870,21 @@ function reRenderModalItems() {
         <div class="input-group">
           <label>Harga Satuan (SAR)</label>
           <div class="input-wrapper input-sm">
-            <input type="number" min="0" step="any" placeholder="0.00" class="item-harga" value="${item.hargaSatuan || ''}" oninput="updateModalItemData(${idx}, 'hargaSatuan', this.value)" required>
+            <input type="number" min="0" step="any" placeholder="0.00" class="item-harga has-no-icon" value="${item.hargaSatuan || ''}" oninput="updateModalItemData(${idx}, 'hargaSatuan', this.value)" required>
           </div>
         </div>
 
         <div class="input-group">
           <label>QTY</label>
           <div class="input-wrapper input-sm">
-            <input type="number" min="1" placeholder="1" class="item-qty" value="${item.qty || 1}" oninput="updateModalItemData(${idx}, 'qty', this.value)" required>
+            <input type="number" min="1" placeholder="1" class="item-qty has-no-icon" value="${item.qty || 1}" oninput="updateModalItemData(${idx}, 'qty', this.value)" required>
           </div>
         </div>
 
         <div class="input-group full-width">
           <label>Jumlah Subtotal (SAR)</label>
           <div class="input-wrapper input-sm">
-            <input type="text" class="item-jumlah amount-disabled" value="${formatSAR(item.jumlah)}" disabled readonly>
+            <input type="text" class="item-jumlah amount-disabled has-no-icon" value="${formatSAR(item.jumlah)}" disabled readonly>
           </div>
         </div>
       </div>
