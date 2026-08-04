@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v6.0
- * Robust normString account matching and safe live balance synchronization
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v6.2
+ * Instant UI Status & Balance Update with Optimistic Merge Protection
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -156,6 +156,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 function normString(str) {
   if (!str) return '';
   return str.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+// Order ID Normalizer
+function normId(id) {
+  if (id === null || id === undefined) return '';
+  return id.toString().replace(/[^0-9a-zA-Z]+/g, '').toLowerCase().trim();
 }
 
 // Check & Restore Active Session Synchronously
@@ -455,13 +461,7 @@ async function handleTransferSubmit(e) {
   };
 
   try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
+    // INSTANT LOCAL BALANCE UPDATE
     appState.activeUser.saldo -= amount;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
     localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
@@ -470,12 +470,16 @@ async function handleTransferSubmit(e) {
     if (receiverAcc) receiverAcc.saldo += amount;
 
     transferModal.classList.add('hidden');
-    
-    // Show Animated Checkmark Toast (Auto Closes in 2.5s)
     showAutoToast("Transfer Berhasil!", `Nominal ${formatSAR(amount)} telah dikirim ke ${receiverName}`);
 
-    // Delay background sync so Google Apps Script finishes writing row
-    setTimeout(fetchDataFromSpreadsheet, 3000);
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    setTimeout(fetchDataFromSpreadsheet, 4000);
 
   } catch (err) {
     console.error('Transfer error:', err);
@@ -503,7 +507,6 @@ function setupTxHistorySection() {
     appState.txDateFilterVal = '';
     appState.txTypeFilterVal = 'Semua';
 
-    // Reset tabs active state
     const typeTabs = document.querySelectorAll('.tx-type-tabs .tx-tab-btn');
     typeTabs.forEach(t => t.classList.remove('active'));
     if (typeTabs[0]) typeTabs[0].classList.add('active');
@@ -522,7 +525,7 @@ function setupTxHistorySection() {
   });
 
   txDateFilter.addEventListener('change', (e) => {
-    appState.txDateFilterVal = e.target.value; // YYYY-MM-DD
+    appState.txDateFilterVal = e.target.value;
     renderGroupedTxHistory();
   });
 
@@ -532,7 +535,6 @@ function setupTxHistorySection() {
     renderGroupedTxHistory();
   });
 
-  // Transaction Type Tabs (Semua, Uang Masuk, Uang Keluar, Transfer)
   const typeTabs = document.querySelectorAll('.tx-type-tabs .tx-tab-btn');
   typeTabs.forEach(tab => {
     tab.addEventListener('click', () => {
@@ -549,7 +551,6 @@ function renderGroupedTxHistory() {
 
   const activeNorm = appState.activeUser ? normString(appState.activeUser.name) : '';
   
-  // Filter transactions including Incoming Transfers from other accounts
   let myTxs = appState.transactions.filter(t => {
     const isSender = normString(t.akun) === activeNorm;
     const isReceiver = (t.kegiatan && normString(t.kegiatan).includes('transfer ke ' + activeNorm)) || 
@@ -559,14 +560,12 @@ function renderGroupedTxHistory() {
     const accMatch = isSender || isReceiver;
     if (!accMatch) return false;
 
-    // Search query filter
     if (appState.txSearchQuery) {
       const q = appState.txSearchQuery;
       const matchText = `${t.kegiatan} ${t.kategori} ${t.rincian} ${t.akun}`.toLowerCase();
       if (!matchText.includes(q)) return false;
     }
 
-    // Date filter
     if (appState.txDateFilterVal) {
       const txIsoDate = normalizeDateToISO(t.waktu);
       if (txIsoDate !== appState.txDateFilterVal) return false;
@@ -575,7 +574,6 @@ function renderGroupedTxHistory() {
     return true;
   });
 
-  // Map each transaction item to determine its exact Type Category
   const categorizedTxs = myTxs.map(t => {
     let txTypeLabel = 'Uang Keluar';
     let txBadgeClass = 'badge-tx-out';
@@ -610,7 +608,6 @@ function renderGroupedTxHistory() {
     };
   });
 
-  // Type Filter Tabs Filtering
   let filteredTxs = categorizedTxs;
   if (appState.txTypeFilterVal !== 'Semua') {
     filteredTxs = categorizedTxs.filter(t => t.categoryGroup === appState.txTypeFilterVal);
@@ -626,10 +623,8 @@ function renderGroupedTxHistory() {
     return;
   }
 
-  // REVERSE CHRONOLOGICAL SORTING: Newest transactions at the top!
   filteredTxs.reverse();
 
-  // SINGLE GROUP PER DATE: Group all transactions by ISO Date String
   const groupsByDate = {};
   filteredTxs.forEach(t => {
     const isoDate = normalizeDateToISO(t.waktu);
@@ -642,7 +637,6 @@ function renderGroupedTxHistory() {
     groupsByDate[isoDate].items.push(t);
   });
 
-  // Sort dates descending (Newest dates first)
   const sortedDateKeys = Object.keys(groupsByDate).sort().reverse();
 
   sortedDateKeys.forEach(dateKey => {
@@ -714,8 +708,8 @@ function setupPdfModal() {
 // Generate Printable PDF Document Function (With Martel Font for "jejak imani")
 function generatePdfDocument() {
   const docType = pdfDocType.value;
-  const startDate = pdfStartDate.value; // YYYY-MM-DD
-  const endDate = pdfEndDate.value;     // YYYY-MM-DD
+  const startDate = pdfStartDate.value;
+  const endDate = pdfEndDate.value;
   const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
   const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
   const generatedDate = new Date().toLocaleString('id-ID');
@@ -741,7 +735,6 @@ function generatePdfDocument() {
       grandTotalOrders += o.jumlah || 0;
       const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
       
-      // Support multi-item lines in PDF table
       const productsFormatted = parseMultiItemsText(o.itemProduk, o.qty, o.satuan, o.harga);
 
       return `
@@ -910,7 +903,7 @@ function generatePdfDocument() {
 // Date Filter Setup
 function setupDateFilter() {
   orderDateFilter.addEventListener('change', (e) => {
-    appState.selectedDateFilter = e.target.value; // YYYY-MM-DD
+    appState.selectedDateFilter = e.target.value;
     renderOrdersList();
   });
 
@@ -1020,12 +1013,10 @@ function renderOrdersList() {
   const userNorm = normString(appState.activeUser.name);
   let vendorOrders = appState.orders.filter(o => normString(o.akun) === userNorm);
 
-  // Filter by selected status tab (Default: 'Pesanan Baru')
   if (appState.selectedStatusFilter) {
     vendorOrders = vendorOrders.filter(o => o.status === appState.selectedStatusFilter);
   }
 
-  // Filter orders by normalized ISO Date if selected
   if (appState.selectedDateFilter) {
     vendorOrders = vendorOrders.filter(o => {
       const orderIsoDate = normalizeDateToISO(o.tanggal);
@@ -1033,9 +1024,6 @@ function renderOrdersList() {
     });
   }
 
-  // SORTING DIRECTIVES:
-  // 1. For 'Pesanan Baru' & 'Proses': Sort by date closest to today
-  // 2. For 'Selesai': Sort by most recently completed (newest date/ID first)
   const todayMs = new Date().setHours(0, 0, 0, 0);
 
   if (appState.selectedStatusFilter === 'Selesai') {
@@ -1046,12 +1034,11 @@ function renderOrdersList() {
       const dateBMs = dateBStr ? new Date(dateBStr).getTime() : 0;
 
       if (dateBMs !== dateAMs) {
-        return dateBMs - dateAMs; // Newest date first
+        return dateBMs - dateAMs;
       }
-      return b.id.localeCompare(a.id); // Newest order ID first
+      return b.id.localeCompare(a.id);
     });
   } else {
-    // 'Pesanan Baru' & 'Proses'
     vendorOrders.sort((a, b) => {
       const dateAStr = normalizeDateToISO(a.tanggal);
       const dateBStr = normalizeDateToISO(b.tanggal);
@@ -1063,7 +1050,7 @@ function renderOrdersList() {
       const diffB = Math.abs(dateBMs - todayMs);
 
       if (diffA !== diffB) {
-        return diffA - diffB; // Closest date to today first
+        return diffA - diffB;
       }
       return a.id.localeCompare(b.id);
     });
@@ -1107,9 +1094,7 @@ function renderOrdersList() {
     card.innerHTML = `
       <div class="order-card-header">
         <div>
-          <!-- Judul Kegiatan -->
           <h3 class="order-title">${order.tujuan}</h3>
-          <!-- Format Waktu Saudi Langsung di Bawah Judul Kegiatan -->
           <div class="order-time-sub">
             <i class="fa-solid fa-clock"></i> ${saudiFormattedTime}
           </div>
@@ -1117,7 +1102,6 @@ function renderOrdersList() {
         <span class="order-status-badge ${statusClass}">${order.status}</span>
       </div>
 
-      <!-- Stacked 2-Line Format for Details -->
       <div class="order-details-grid">
         <div class="order-detail-item">
           <span class="order-detail-label">Grup</span>
@@ -1149,13 +1133,11 @@ function renderOrdersList() {
   });
 }
 
-// Multi-line Cell Sanitizer (Handles \r\n and removes whitespace)
 function splitMultiLineCell(val) {
   if (val === null || val === undefined) return [];
   return val.toString().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(s => s.trim()).filter(s => s !== '');
 }
 
-// Multi-item Parser for Sheet Pemesanan (Guarantees ALL 4 COLUMNS: Item, Satuan, Harga, QTY align 100%)
 function renderMultiItemsCard(itemStr, qtyStr, unitStr, priceStr) {
   if (!itemStr) return '<div class="order-product-name">-</div>';
 
@@ -1204,7 +1186,6 @@ function parseMultiItemsText(itemStr, qtyStr, unitStr, priceStr) {
   }).join('<br>');
 }
 
-// BULLETPROOF ISO Date Normalizer (Extracts Date Part Cleanly from Timestamps & Indonesian Month Names)
 function normalizeDateToISO(rawDateStr) {
   if (!rawDateStr) return '';
   let str = rawDateStr.toString().trim();
@@ -1225,7 +1206,6 @@ function normalizeDateToISO(rawDateStr) {
     'desember': '12', 'des': '12', 'dec': '12'
   };
 
-  // Match Indonesian / Written Month Format: "04 Agustus 2026" or "04 Aug 2026"
   const matchIndoStr = str.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
   if (matchIndoStr) {
     const day = matchIndoStr[1].padStart(2, '0');
@@ -1236,7 +1216,6 @@ function normalizeDateToISO(rawDateStr) {
     }
   }
 
-  // Handle DD/MM/YYYY or DD/MM/YYYY HH:MM:SS
   const matchSlashDate = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
   if (matchSlashDate) {
     const day = matchSlashDate[1].padStart(2, '0');
@@ -1245,7 +1224,6 @@ function normalizeDateToISO(rawDateStr) {
     return `${year}-${month}-${day}`;
   }
 
-  // Handle YYYY-MM-DD or YYYY-MM-DD HH:MM:SS
   const matchIsoDate = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
   if (matchIsoDate) {
     const year = matchIsoDate[1];
@@ -1254,7 +1232,6 @@ function normalizeDateToISO(rawDateStr) {
     return `${year}-${month}-${day}`;
   }
 
-  // If raw GAS Date object string (e.g. "Tue Aug 04 2026 00:00:00 GMT+0300...")
   if (str.includes('GMT') || str.includes('1899')) {
     const match = str.match(/([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{4})/);
     if (match) {
@@ -1273,7 +1250,6 @@ function normalizeDateToISO(rawDateStr) {
   return str;
 }
 
-// Format Saudi Date Only (e.g. "04 Agustus 2026")
 function formatSaudiDateOnly(rawDateStr) {
   const isoStr = normalizeDateToISO(rawDateStr);
   if (isoStr && isoStr.includes('-')) {
@@ -1290,14 +1266,12 @@ function formatSaudiDateOnly(rawDateStr) {
   return rawDateStr || '-';
 }
 
-// Robust Helper to Parse Raw GAS Date Strings to Clean "04 Agustus 2026 | 07:00"
 function formatSaudiDateTime(dateStr, timeStr) {
   if (!dateStr) return '-';
 
   try {
     const isoDateStr = normalizeDateToISO(dateStr);
     
-    // Clean timeStr if it contains 1899 or GMT
     let cleanTime = '07:00';
     if (timeStr && !timeStr.includes('1899') && !timeStr.includes('GMT')) {
       const tMatch = timeStr.toString().match(/(\d{1,2}:\d{2})/);
@@ -1326,7 +1300,7 @@ function formatSaudiDateTime(dateStr, timeStr) {
 }
 
 window.handleShareCompletedOrder = function(orderId) {
-  const order = appState.orders.find(o => o.id.toString().trim() === orderId.toString().trim());
+  const order = appState.orders.find(o => normId(o.id) === normId(orderId));
   if (!order) return;
 
   const saudiTime = formatSaudiDateTime(order.tanggal, order.jam);
@@ -1352,7 +1326,7 @@ window.handleShareCompletedOrder = function(orderId) {
   }
 };
 
-// UPDATED STATUS CONFIRMATION ALERTS & ASYNC BALANCE SYNC
+// INSTANT STATUS CHANGE & OPTIMISTIC BALANCE SYNC
 window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   const confirmMsg = newStatus === 'Selesai' 
     ? "Mengonfirmasi pesanan ini akan otomatis memotong saldo akun Anda. Lanjutkan?"
@@ -1367,11 +1341,15 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       newStatus: newStatus
     };
 
-    // Optimistically update status and balance locally
-    const orderIndex = appState.orders.findIndex(o => o.id.toString().trim() === orderId.toString().trim());
+    const targetNormId = normId(orderId);
+    const orderIndex = appState.orders.findIndex(o => normId(o.id) === targetNormId);
+
     if (orderIndex !== -1) {
+      // 1. INSTANTLY UPDATE ORDER STATUS LOCALLY
       appState.orders[orderIndex].status = newStatus;
+      appState.orders[orderIndex]._localOptimistic = true;
       
+      // 2. INSTANTLY DEDUCT VENDOR BALANCE LOCALLY IF SELESAI
       if (newStatus === 'Selesai') {
         const orderAmount = appState.orders[orderIndex].jumlah || 0;
         appState.activeUser.saldo -= orderAmount;
@@ -1380,13 +1358,14 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       }
     }
 
+    // 3. INSTANTLY RE-RENDER UI (No delay for user!)
     calculateVendorEstimates();
     renderOrdersList();
     
     // Show Animated Checkmark Toast (Auto Closes in 2.5s)
     showAutoToast("Status Diperbarui!", `Status pemesanan diubah menjadi ${newStatus}`);
 
-    // Send POST request to Apps Script
+    // Send POST request to Apps Script asynchronously
     await fetch(GAS_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -1394,8 +1373,8 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       body: JSON.stringify(payload)
     });
 
-    // Delay background sync by 3000ms so Apps Script finishes writing row to Sheet Akun
-    setTimeout(fetchDataFromSpreadsheet, 3000);
+    // Schedule background sync after Apps Script completes writing row to Sheet
+    setTimeout(fetchDataFromSpreadsheet, 4000);
 
   } catch (err) {
     console.error('Update status error:', err);
@@ -1426,6 +1405,13 @@ async function handleTopupSubmit(e) {
   };
 
   try {
+    appState.activeUser.saldo += amount;
+    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
+
+    topupModal.classList.add('hidden');
+    showAutoToast("Isi Saldo Berhasil!", `Kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}`);
+
     await fetch(GAS_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -1433,16 +1419,7 @@ async function handleTopupSubmit(e) {
       body: JSON.stringify(payload)
     });
 
-    appState.activeUser.saldo += amount;
-    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
-
-    topupModal.classList.add('hidden');
-    
-    // Show Animated Checkmark Toast (Auto Closes in 2.5s)
-    showAutoToast("Isi Saldo Berhasil!", `Kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}`);
-
-    setTimeout(fetchDataFromSpreadsheet, 3000);
+    setTimeout(fetchDataFromSpreadsheet, 4000);
 
   } catch (err) {
     console.error('Topup error:', err);
@@ -1915,13 +1892,6 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
   };
 
   try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
     appState.activeUser.saldo -= totalExpense;
     activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
     localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
@@ -1954,7 +1924,15 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     document.getElementById('recapRemainingBalance').textContent = formatSAR(appState.activeUser.saldo);
 
     successOverlay.classList.remove('hidden');
-    setTimeout(fetchDataFromSpreadsheet, 3000);
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    setTimeout(fetchDataFromSpreadsheet, 4000);
 
   } catch (error) {
     console.error('Submit error:', error);
@@ -1996,17 +1974,31 @@ function resetForm() {
   resetModalItems();
 }
 
-// Fetch Live Data from Spreadsheet (Safe Balance Sync with normString)
+// Fetch Live Data from Spreadsheet with Optimistic Merge Protection
 async function fetchDataFromSpreadsheet() {
   try {
     const res = await fetch(`${GAS_URL}?action=getData`);
     const data = await res.json();
 
+    // 1. SMART MERGE ORDERS: Preserve optimistic local status changes if remote hasn't updated yet!
+    if (data.orders && data.orders.length > 0) {
+      data.orders.forEach(remoteOrder => {
+        const localOrder = appState.orders.find(o => normId(o.id) === normId(remoteOrder.id));
+        if (localOrder && localOrder._localOptimistic) {
+          // Keep optimistic local status if remote still returns old status
+          if (localOrder.status === 'Selesai' || (localOrder.status === 'Proses' && remoteOrder.status === 'Pesanan Baru')) {
+            remoteOrder.status = localOrder.status;
+            remoteOrder._localOptimistic = true;
+          }
+        }
+      });
+      appState.orders = data.orders;
+    }
+
     if (data.accounts && data.accounts.length > 0) appState.accounts = data.accounts;
     if (data.groups && data.groups.length > 0) appState.masterGroups = data.groups;
     if (data.activities && data.activities.length > 0) appState.masterActivities = data.activities;
     if (data.categories && data.categories.length > 0) appState.masterCategories = data.categories;
-    if (data.orders && data.orders.length > 0) appState.orders = data.orders;
     if (data.transactions && data.transactions.length > 0) appState.transactions = data.transactions;
 
     if (appState.activeUser) {
@@ -2018,9 +2010,14 @@ async function fetchDataFromSpreadsheet() {
         (a.id && normString(a.id) === activeIdNorm)
       );
 
+      // 2. SMART MERGE BALANCE: If local active user balance was modified and remote saldo is 0 or outdated, preserve local active balance
       if (refreshedAcc && typeof refreshedAcc.saldo === 'number' && !isNaN(refreshedAcc.saldo)) {
-        appState.activeUser.saldo = refreshedAcc.saldo;
-        activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
+        if (refreshedAcc.saldo === 0 && appState.activeUser.saldo !== 0) {
+          console.log('Preserving active non-zero balance during sync delay');
+        } else {
+          appState.activeUser.saldo = refreshedAcc.saldo;
+        }
+        activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
         localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
       calculateVendorEstimates();
