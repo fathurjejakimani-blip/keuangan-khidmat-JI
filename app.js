@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v7.1
- * Management Dashboard, Separate Scrollable Containers for Tim & Vendor Balances, Light Page Theme
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v8.0
+ * 100% Light Theme, Management PDF Generator (7 Document Types), Separate Scroll Sub-Boxes
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -22,7 +22,11 @@ const appState = {
   txDateFilterVal: '',
   txTypeFilterVal: 'Semua',
   items: [],
-  modalItems: []
+  modalItems: [],
+
+  // Dynamic Management PDF Items State
+  doc1Items: [],
+  doc3Items: []
 };
 
 // DOM Elements
@@ -52,6 +56,12 @@ const vendorBalancesContainer = document.getElementById('vendorBalancesContainer
 const fabContainer = document.getElementById('fabContainer');
 const btnToggleFab = document.getElementById('btnToggleFab');
 const fabMenu = document.getElementById('fabMenu');
+
+const btnOpenMgmtPdfModal = document.getElementById('btnOpenMgmtPdfModal');
+const mgmtPdfModal = document.getElementById('mgmtPdfModal');
+const btnCloseMgmtPdfModal = document.getElementById('btnCloseMgmtPdfModal');
+const mgmtPdfForm = document.getElementById('mgmtPdfForm');
+const mgmtDocTypeSelect = document.getElementById('mgmtDocTypeSelect');
 
 const btnOpenPdfModal = document.getElementById('btnOpenPdfModal');
 const pdfModal = document.getElementById('pdfModal');
@@ -150,6 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupStatusFilterTabs();
   setupDateFilter();
   setupPdfModal();
+  setupMgmtPdfModal();
   setupTransferModal();
   setupTxHistorySection();
   setupFabMenu();
@@ -208,6 +219,7 @@ function applyUserSessionUI() {
     expenseFormSection.classList.add('hidden');
     managementSection.classList.remove('hidden');
 
+    btnOpenMgmtPdfModal.classList.remove('hidden');
     btnOpenPdfModal.classList.add('hidden');
     btnOpenTransferModal.classList.remove('hidden');
     btnOpenTxHistoryModal.classList.remove('hidden');
@@ -222,6 +234,7 @@ function applyUserSessionUI() {
     expenseFormSection.classList.add('hidden');
     managementSection.classList.add('hidden');
 
+    btnOpenMgmtPdfModal.classList.add('hidden');
     btnOpenPdfModal.classList.remove('hidden');
     btnOpenTransferModal.classList.add('hidden');
     btnOpenTxHistoryModal.classList.add('hidden');
@@ -237,6 +250,7 @@ function applyUserSessionUI() {
     expenseFormSection.classList.remove('hidden');
     managementSection.classList.add('hidden');
 
+    btnOpenMgmtPdfModal.classList.add('hidden');
     btnOpenPdfModal.classList.add('hidden');
     btnOpenTransferModal.classList.remove('hidden');
     btnOpenTxHistoryModal.classList.remove('hidden');
@@ -247,7 +261,6 @@ function applyUserSessionUI() {
 function renderManagementDashboard() {
   if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'manajemen') return;
 
-  // 1. Calculate Total Combined Saldo (Sum of all Tim & Vendor accounts)
   const combinedTotal = appState.accounts.reduce((sum, acc) => {
     const r = (acc.jenisAkun || '').toLowerCase();
     if (r === 'tim' || r === 'vendor') {
@@ -258,7 +271,6 @@ function renderManagementDashboard() {
 
   totalCombinedBalance.textContent = formatSAR(combinedTotal);
 
-  // 2. Render Pending Approvals List (Status: 'Menunggu Persetujuan')
   const pendingTx = appState.transactions.filter(t => t.status === 'Menunggu Persetujuan');
   pendingApprovalsBadge.textContent = `${pendingTx.length} Pengeluaran`;
 
@@ -301,7 +313,6 @@ function renderManagementDashboard() {
     });
   }
 
-  // 3. Render Separate Scrollable Containers for Tim & Vendor Accounts
   teamBalancesContainer.innerHTML = '';
   vendorBalancesContainer.innerHTML = '';
 
@@ -339,707 +350,713 @@ function renderManagementDashboard() {
   }
 }
 
-// MANAGEMENT ACTION: APPROVE EXPENSE (Opsi B)
-window.handleApproveExpense = async function(txId) {
-  const tx = appState.transactions.find(t => normId(t.id) === normId(txId));
-  if (!tx) return;
+// MANAGEMENT PDF EXPORT MODAL SETUP (7 DOCUMENT TYPES)
+function setupMgmtPdfModal() {
+  btnOpenMgmtPdfModal.addEventListener('click', (e) => {
+    if (e) e.stopPropagation();
+    closeFabMenu();
+    
+    // Populate Group dropdowns for Doc 4
+    populateDoc4GroupSelect();
+    
+    // Set default dates
+    const today = new Date().toISOString().split('T')[0];
+    const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
 
-  if (!confirm(`Setujui laporan pengeluaran dari ${tx.akun} sebesar ${formatSAR(tx.total)}? Saldo kas ${tx.akun} akan dipotong.`)) return;
+    document.getElementById('doc1Tanggal').value = today;
+    document.getElementById('doc2Tanggal').value = today;
+    document.getElementById('doc3Tanggal').value = today;
 
-  try {
-    const payload = {
-      action: 'updateExpenseStatus',
-      txId: txId,
-      newStatus: 'Disetujui'
-    };
+    document.getElementById('doc5StartDate').value = firstDay;
+    document.getElementById('doc5EndDate').value = today;
 
-    tx.status = 'Disetujui';
+    document.getElementById('doc6StartDate').value = firstDay;
+    document.getElementById('doc6EndDate').value = today;
 
-    const senderAcc = appState.accounts.find(a => normString(a.name) === normString(tx.akun));
-    if (senderAcc) {
-      senderAcc.saldo -= tx.total;
-    }
+    const currentYearMonth = new Date().toISOString().slice(0, 7);
+    document.getElementById('doc7Bulan').value = currentYearMonth;
 
-    renderManagementDashboard();
-    showAutoToast("Pengeluaran Disetujui!", `Saldo ${tx.akun} telah dipotong ${formatSAR(tx.total)}`);
+    resetDoc1Items();
+    resetDoc3Items();
 
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    mgmtDocTypeSelect.value = "1";
+    switchMgmtPdfFields("1");
 
-    setTimeout(fetchDataFromSpreadsheet, 3000);
-
-  } catch (err) {
-    console.error('Approve expense error:', err);
-    alert('Terjadi kesalahan saat menyetujui pengeluaran: ' + err.message);
-  }
-};
-
-// MANAGEMENT ACTION: REJECT EXPENSE
-window.handleRejectExpense = async function(txId) {
-  const tx = appState.transactions.find(t => normId(t.id) === normId(txId));
-  if (!tx) return;
-
-  if (!confirm(`Tolak laporan pengeluaran dari ${tx.akun} sebesar ${formatSAR(tx.total)}?`)) return;
-
-  try {
-    const payload = {
-      action: 'updateExpenseStatus',
-      txId: txId,
-      newStatus: 'Ditolak'
-    };
-
-    tx.status = 'Ditolak';
-
-    renderManagementDashboard();
-    showAutoToast("Pengeluaran Ditolak!", `Laporan pengeluaran dari ${tx.akun} telah ditolak`);
-
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    setTimeout(fetchDataFromSpreadsheet, 3000);
-
-  } catch (err) {
-    console.error('Reject expense error:', err);
-    alert('Terjadi kesalahan saat menolak pengeluaran: ' + err.message);
-  }
-};
-
-// Auto-closing Toast with Animated Checkmark (2.5 Seconds)
-function showAutoToast(titleText, subtitleText) {
-  toastTitle.textContent = titleText;
-  toastSubtitle.textContent = subtitleText;
-  toastOverlay.classList.remove('hidden');
-
-  setTimeout(() => {
-    toastOverlay.classList.add('hidden');
-  }, 2500);
-}
-
-// Setup Floating Action Button (FAB) Floating Menu
-function setupFabMenu() {
-  btnToggleFab.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isHidden = fabMenu.classList.contains('hidden');
-    if (isHidden) {
-      fabMenu.classList.remove('hidden');
-      btnToggleFab.classList.add('active');
-    } else {
-      closeFabMenu();
-    }
+    mgmtPdfModal.classList.remove('hidden');
   });
 
-  document.addEventListener('click', (e) => {
-    if (!fabContainer.contains(e.target)) {
-      closeFabMenu();
-    }
-  });
-}
-
-function closeFabMenu() {
-  fabMenu.classList.add('hidden');
-  btnToggleFab.classList.remove('active');
-}
-
-// Account Searchbar Autocomplete
-function setupAccountSearchbar() {
-  accountSearchInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    appState.selectedAccount = null;
-    appState.enteredPin = '';
-    updatePinDots();
-
-    if (!query) {
-      accountSuggestions.classList.add('hidden');
-      return;
-    }
-
-    const filtered = appState.accounts.filter(acc => acc.name.toLowerCase().includes(query));
-    renderAccountSuggestions(filtered);
+  btnCloseMgmtPdfModal.addEventListener('click', () => {
+    mgmtPdfModal.classList.add('hidden');
   });
 
-  accountSearchInput.addEventListener('focus', () => {
-    renderAccountSuggestions(appState.accounts);
+  mgmtDocTypeSelect.addEventListener('change', (e) => {
+    switchMgmtPdfFields(e.target.value);
   });
 
-  document.addEventListener('click', (e) => {
-    if (!accountSearchInput.contains(e.target) && !accountSuggestions.contains(e.target)) {
-      accountSuggestions.classList.add('hidden');
-    }
-  });
-}
+  document.getElementById('btnAddDoc1Item').addEventListener('click', () => addDoc1ItemRow());
+  document.getElementById('btnAddDoc3Item').addEventListener('click', () => addDoc3ItemRow());
 
-function renderAccountSuggestions(accList) {
-  if (!accList || accList.length === 0) {
-    accountSuggestions.classList.add('hidden');
-    return;
-  }
-
-  accountSuggestions.innerHTML = '';
-  accList.forEach(acc => {
-    const div = document.createElement('div');
-    div.className = 'suggestion-item';
-    div.innerHTML = `
-      <i class="fa-solid ${acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'vendor' ? 'fa-store' : (acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'manajemen' ? 'fa-user-shield' : 'fa-user-circle')}"></i> 
-      <span>${acc.name} <small style="color:#64748b">(${acc.jenisAkun || 'Tim'})</small></span>
-    `;
-    div.addEventListener('click', () => {
-      accountSearchInput.value = acc.name;
-      appState.selectedAccount = acc;
-      accountSuggestions.classList.add('hidden');
-      appState.enteredPin = '';
-      updatePinDots();
-    });
-    accountSuggestions.appendChild(div);
-  });
-  accountSuggestions.classList.remove('hidden');
-}
-
-// Ultra Responsive Keypad
-function setupResponsiveKeypad() {
-  const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
-  const btnBackspace = document.getElementById('btnKeypadBackspace');
-
-  keypadBtns.forEach(btn => {
-    const handleKeyPress = (e) => {
-      e.preventDefault();
-      btn.classList.add('pressed');
-      setTimeout(() => btn.classList.remove('pressed'), 120);
-
-      if (appState.enteredPin.length < 6) {
-        appState.enteredPin += btn.dataset.val;
-        updatePinDots();
-
-        if (appState.enteredPin.length === 6) {
-          setTimeout(verifyAndLoginAuto, 50);
-        }
-      }
-    };
-
-    btn.addEventListener('pointerdown', handleKeyPress);
-  });
-
-  const handleBackspace = (e) => {
+  mgmtPdfForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    btnBackspace.classList.add('pressed');
-    setTimeout(() => btnBackspace.classList.remove('pressed'), 120);
-
-    if (appState.enteredPin.length > 0) {
-      appState.enteredPin = appState.enteredPin.slice(0, -1);
-      updatePinDots();
-    }
-  };
-
-  btnBackspace.addEventListener('pointerdown', handleBackspace);
-}
-
-function updatePinDots() {
-  const dots = document.querySelectorAll('.pin-dot');
-  dots.forEach((dot, idx) => {
-    if (idx < appState.enteredPin.length) {
-      dot.classList.add('filled');
-    } else {
-      dot.classList.remove('filled');
-    }
+    generateManagementPdfDocument();
   });
 }
 
-function verifyAndLoginAuto() {
-  if (!appState.selectedAccount) {
-    const match = appState.accounts.find(a => normString(a.name) === normString(accountSearchInput.value));
-    if (match) {
-      appState.selectedAccount = match;
-    } else {
-      alert('Pilih Akun / Tim yang valid terlebih dahulu.');
-      appState.enteredPin = '';
-      updatePinDots();
-      return;
-    }
-  }
-
-  if (appState.selectedAccount.pin === appState.enteredPin) {
-    appState.activeUser = appState.selectedAccount;
-    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
-    applyUserSessionUI();
-  } else {
-    alert('PIN / Password salah! Silakan coba lagi.');
-    appState.enteredPin = '';
-    updatePinDots();
-  }
-}
-
-function logoutAccount() {
-  appState.activeUser = null;
-  appState.selectedAccount = null;
-  appState.enteredPin = '';
-  accountSearchInput.value = '';
-  localStorage.removeItem('ACTIVE_KHIDMAT_USER');
-  updatePinDots();
-  closeFabMenu();
-  fabContainer.classList.add('hidden');
-  appFormWrapper.classList.add('hidden');
-  authSection.classList.remove('hidden');
-}
-
-// Transfer Modal Handling
-function setupTransferModal() {
-  const openTransferHandler = (e) => {
-    if (e) e.stopPropagation();
-    closeFabMenu();
-    if (!appState.activeUser) return;
-
-    transferTujuanInput.value = '';
-    transferAmountInput.value = '';
-    transferNoteInput.value = '';
-    transferCurrentBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-
-    transferReceiverSelect.innerHTML = '<option value="">-- Pilih Akun Penerima --</option>';
-    appState.accounts.forEach(acc => {
-      if (normString(acc.name) !== normString(appState.activeUser.name)) {
-        const opt = document.createElement('option');
-        opt.value = acc.name;
-        opt.textContent = `${acc.name} (${acc.jenisAkun || 'Tim'})`;
-        transferReceiverSelect.appendChild(opt);
-      }
-    });
-
-    transferModal.classList.remove('hidden');
-  };
-
-  btnOpenTransferModal.addEventListener('click', openTransferHandler);
-
-  btnCloseTransferModal.addEventListener('click', () => {
-    transferModal.classList.add('hidden');
-  });
-
-  transferForm.addEventListener('submit', handleTransferSubmit);
-}
-
-async function handleTransferSubmit(e) {
-  e.preventDefault();
-
-  const receiverName = transferReceiverSelect.value;
-  const amount = parseFloat(transferAmountInput.value);
-  const purpose = transferTujuanInput.value.trim();
-  const note = transferNoteInput.value.trim();
-
-  if (!receiverName) {
-    alert('Pilih akun penerima transfer.');
-    return;
-  }
-
-  if (isNaN(amount) || amount <= 0) {
-    alert('Masukkan nominal transfer yang valid.');
-    return;
-  }
-
-  if (appState.activeUser.saldo < amount) {
-    alert(`Saldo kas Anda (${formatSAR(appState.activeUser.saldo)}) tidak mencukupi untuk transfer sebesar ${formatSAR(amount)}.`);
-    return;
-  }
-
-  btnSubmitTransfer.disabled = true;
-  btnSubmitTransfer.textContent = 'Memproses Transfer...';
-
-  const payload = {
-    action: 'transferBalance',
-    senderAccount: appState.activeUser.name,
-    receiverAccount: receiverName,
-    amount: amount,
-    tujuan: purpose,
-    catatan: note
-  };
-
-  try {
-    appState.activeUser.saldo -= amount;
-    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
-
-    const receiverAcc = appState.accounts.find(a => normString(a.name) === normString(receiverName));
-    if (receiverAcc) receiverAcc.saldo += amount;
-
-    transferModal.classList.add('hidden');
-    showAutoToast("Transfer Berhasil!", `Nominal ${formatSAR(amount)} telah dikirim ke ${receiverName}`);
-
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    setTimeout(fetchDataFromSpreadsheet, 4000);
-
-  } catch (err) {
-    console.error('Transfer error:', err);
-    alert('Terjadi kesalahan saat memproses transfer: ' + err.message);
-  } finally {
-    btnSubmitTransfer.disabled = false;
-    btnSubmitTransfer.textContent = 'Kirim Transfer Sekarang';
-  }
-}
-
-// RIWAYAT TRANSAKSI KAS WITH STATUS BADGES & REVERSE CHRONOLOGICAL SORTING
-function setupTxHistorySection() {
-  btnOpenTxHistoryModal.addEventListener('click', (e) => {
-    if (e) e.stopPropagation();
-    closeFabMenu();
-    if (!appState.activeUser) return;
-
-    expenseFormSection.classList.add('hidden');
-    ordersSection.classList.add('hidden');
-    managementSection.classList.add('hidden');
-    txHistorySection.classList.remove('hidden');
-
-    txSearchInput.value = '';
-    txDateFilter.value = '';
-    appState.txSearchQuery = '';
-    appState.txDateFilterVal = '';
-    appState.txTypeFilterVal = 'Semua';
-
-    const typeTabs = document.querySelectorAll('.tx-type-tabs .tx-tab-btn');
-    typeTabs.forEach(t => t.classList.remove('active'));
-    if (typeTabs[0]) typeTabs[0].classList.add('active');
-
-    renderGroupedTxHistory();
-  });
-
-  btnBackFromHistory.addEventListener('click', () => {
-    txHistorySection.classList.add('hidden');
-    applyUserSessionUI();
-  });
-
-  txSearchInput.addEventListener('input', (e) => {
-    appState.txSearchQuery = e.target.value.toLowerCase().trim();
-    renderGroupedTxHistory();
-  });
-
-  txDateFilter.addEventListener('change', (e) => {
-    appState.txDateFilterVal = e.target.value;
-    renderGroupedTxHistory();
-  });
-
-  btnClearTxDateFilter.addEventListener('click', () => {
-    txDateFilter.value = '';
-    appState.txDateFilterVal = '';
-    renderGroupedTxHistory();
-  });
-
-  const typeTabs = document.querySelectorAll('.tx-type-tabs .tx-tab-btn');
-  typeTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      typeTabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      appState.txTypeFilterVal = tab.dataset.txtype;
-      renderGroupedTxHistory();
-    });
-  });
-}
-
-function renderGroupedTxHistory() {
-  txHistoryContainer.innerHTML = '';
-
-  const activeNorm = appState.activeUser ? normString(appState.activeUser.name) : '';
-  const isMgmt = appState.activeUser && (appState.activeUser.jenisAkun || '').toLowerCase() === 'manajemen';
-
-  let myTxs = appState.transactions.filter(t => {
-    if (isMgmt) {
-      if (appState.txSearchQuery) {
-        const q = appState.txSearchQuery;
-        const matchText = `${t.kegiatan} ${t.kategori} ${t.rincian} ${t.akun}`.toLowerCase();
-        if (!matchText.includes(q)) return false;
-      }
-      if (appState.txDateFilterVal) {
-        const txIsoDate = normalizeDateToISO(t.waktu);
-        if (txIsoDate !== appState.txDateFilterVal) return false;
-      }
-      return true;
-    }
-
-    const isSender = normString(t.akun) === activeNorm;
-    const isReceiver = (t.kegiatan && normString(t.kegiatan).includes('transfer ke ' + activeNorm)) || 
-                       (t.rincian && normString(t.rincian).includes(activeNorm)) ||
-                       (t.namaGrup && normString(t.namaGrup) === activeNorm);
-
-    const accMatch = isSender || isReceiver;
-    if (!accMatch) return false;
-
-    if (appState.txSearchQuery) {
-      const q = appState.txSearchQuery;
-      const matchText = `${t.kegiatan} ${t.kategori} ${t.rincian} ${t.akun}`.toLowerCase();
-      if (!matchText.includes(q)) return false;
-    }
-
-    if (appState.txDateFilterVal) {
-      const txIsoDate = normalizeDateToISO(t.waktu);
-      if (txIsoDate !== appState.txDateFilterVal) return false;
-    }
-
-    return true;
-  });
-
-  const categorizedTxs = myTxs.map(t => {
-    let txTypeLabel = 'Uang Keluar';
-    let txBadgeClass = 'badge-tx-out';
-    let isIncome = false;
-    let categoryGroup = 'Uang Keluar';
-
-    if (t.kategori === 'Isi Saldo' || t.kategori === 'Kas Masuk') {
-      txTypeLabel = 'Uang Masuk';
-      txBadgeClass = 'badge-tx-in';
-      isIncome = true;
-      categoryGroup = 'Uang Masuk';
-    } else if (t.kategori === 'Transfer') {
-      if (normString(t.akun) === activeNorm) {
-        txTypeLabel = 'Transfer Out';
-        txBadgeClass = 'badge-tx-trf';
-        isIncome = false;
-        categoryGroup = 'Transfer';
+function switchMgmtPdfFields(docTypeVal) {
+  for (let i = 1; i <= 7; i++) {
+    const el = document.getElementById(`fieldDoc${i}`);
+    if (el) {
+      if (i.toString() === docTypeVal) {
+        el.classList.remove('hidden');
       } else {
-        txTypeLabel = 'Uang Masuk (Transfer)';
-        txBadgeClass = 'badge-tx-in';
-        isIncome = true;
-        categoryGroup = 'Uang Masuk';
+        el.classList.add('hidden');
       }
     }
+  }
+}
 
-    let approvalBadgeClass = 'badge-status-pending';
-    let statusDisplay = t.status || 'Menunggu Persetujuan';
-    if (statusDisplay === 'Disetujui') approvalBadgeClass = 'badge-status-approved';
-    if (statusDisplay === 'Ditolak') approvalBadgeClass = 'badge-status-rejected';
+function populateDoc4GroupSelect() {
+  const doc4GrupSelect = document.getElementById('doc4GrupSelect');
+  if (!doc4GrupSelect) return;
 
-    return {
-      ...t,
-      txTypeLabel,
-      txBadgeClass,
-      isIncome,
-      categoryGroup,
-      approvalBadgeClass,
-      statusDisplay
-    };
+  doc4GrupSelect.innerHTML = '<option value="">-- Pilih Grup --</option>';
+
+  const allGroups = new Set();
+  appState.masterGroups.forEach(g => allGroups.add(g));
+  appState.transactions.forEach(t => {
+    if (t.grup && t.grup !== '-') allGroups.add(t.grup);
   });
 
-  let filteredTxs = categorizedTxs;
-  if (appState.txTypeFilterVal !== 'Semua') {
-    filteredTxs = categorizedTxs.filter(t => t.categoryGroup === appState.txTypeFilterVal);
-  }
+  allGroups.forEach(grp => {
+    const opt = document.createElement('option');
+    opt.value = grp;
+    opt.textContent = grp;
+    doc4GrupSelect.appendChild(opt);
+  });
+}
 
-  if (filteredTxs.length === 0) {
-    txHistoryContainer.innerHTML = `
-      <div style="text-align: center; padding: 40px 20px; color: #64748b; font-size: 13px;">
-        <i class="fa-solid fa-receipt" style="font-size: 32px; margin-bottom: 10px; display: block; color: #cbd5e1;"></i>
-        Tidak ada data riwayat transaksi kas untuk filter ini.
+// DOC 1 (Approval Pengajuan) DYNAMIC ITEMS
+function resetDoc1Items() {
+  appState.doc1Items = [];
+  document.getElementById('doc1ItemsContainer').innerHTML = '';
+  addDoc1ItemRow();
+}
+
+function addDoc1ItemRow() {
+  const idx = appState.doc1Items.length;
+  const itemData = {
+    id: Date.now() + Math.random(),
+    program: '',
+    unit: 'Pax',
+    hargaSatuan: 0,
+    jumlah: 0,
+    dueDate: new Date().toISOString().split('T')[0],
+    tujuanPenerima: ''
+  };
+  appState.doc1Items.push(itemData);
+
+  const container = document.getElementById('doc1ItemsContainer');
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.dataset.idx = idx;
+
+  card.innerHTML = `
+    <div class="item-card-header">
+      <span class="item-number">Item Program #${idx + 1}</span>
+      ${appState.doc1Items.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeDoc1ItemRow(${idx})"><i class="fa-solid fa-xmark"></i></button>` : ''}
+    </div>
+    <div class="item-grid">
+      <div class="input-group full-width">
+        <label>Program / Item</label>
+        <input type="text" class="navy-input doc1-item-program" placeholder="Misal: Bus Operasional Madinah" oninput="updateDoc1Item(${idx}, 'program', this.value)" required>
       </div>
-    `;
-    return;
-  }
+      <div class="input-group">
+        <label>Satuan / Pax</label>
+        <input type="text" class="navy-input doc1-item-unit" value="Pax" oninput="updateDoc1Item(${idx}, 'unit', this.value)" required>
+      </div>
+      <div class="input-group">
+        <label>Harga Satuan (SAR)</label>
+        <input type="number" step="any" class="navy-input doc1-item-harga" placeholder="0.00" oninput="updateDoc1Item(${idx}, 'hargaSatuan', this.value)" required>
+      </div>
+      <div class="input-group">
+        <label>Due Date</label>
+        <input type="date" class="navy-input doc1-item-date" value="${itemData.dueDate}" oninput="updateDoc1Item(${idx}, 'dueDate', this.value)" required>
+      </div>
+      <div class="input-group">
+        <label>Tujuan Penerima</label>
+        <input type="text" class="navy-input doc1-item-penerima" placeholder="Nama vendor / pihak ke-3" oninput="updateDoc1Item(${idx}, 'tujuanPenerima', this.value)" required>
+      </div>
+    </div>
+  `;
+  container.appendChild(card);
+}
 
-  filteredTxs.reverse();
+window.removeDoc1ItemRow = function(idx) {
+  if (appState.doc1Items.length <= 1) return;
+  appState.doc1Items.splice(idx, 1);
+  reRenderDoc1Items();
+};
 
-  const groupsByDate = {};
-  filteredTxs.forEach(t => {
-    const isoDate = normalizeDateToISO(t.waktu);
-    if (!groupsByDate[isoDate]) {
-      groupsByDate[isoDate] = {
-        displayDate: formatSaudiDateOnly(t.waktu),
-        items: []
-      };
+function reRenderDoc1Items() {
+  const container = document.getElementById('doc1ItemsContainer');
+  container.innerHTML = '';
+  const current = [...appState.doc1Items];
+  appState.doc1Items = [];
+
+  current.forEach((it, i) => {
+    addDoc1ItemRow();
+    const lastIdx = appState.doc1Items.length - 1;
+    appState.doc1Items[lastIdx] = it;
+    const card = container.children[lastIdx];
+    if (card) {
+      card.querySelector('.doc1-item-program').value = it.program || '';
+      card.querySelector('.doc1-item-unit').value = it.unit || 'Pax';
+      card.querySelector('.doc1-item-harga').value = it.hargaSatuan || '';
+      card.querySelector('.doc1-item-date').value = it.dueDate || '';
+      card.querySelector('.doc1-item-penerima').value = it.tujuanPenerima || '';
     }
-    groupsByDate[isoDate].items.push(t);
-  });
-
-  const sortedDateKeys = Object.keys(groupsByDate).sort().reverse();
-
-  sortedDateKeys.forEach(dateKey => {
-    const group = groupsByDate[dateKey];
-    const groupDiv = document.createElement('div');
-    groupDiv.className = 'tx-date-group';
-
-    const groupHeader = document.createElement('div');
-    groupHeader.className = 'tx-date-group-header';
-    groupHeader.innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${group.displayDate}`;
-    groupDiv.appendChild(groupHeader);
-
-    const itemsWrapper = document.createElement('div');
-    itemsWrapper.className = 'tx-group-items';
-
-    group.items.forEach(t => {
-      const amountSign = t.isIncome ? '+' : '-';
-      const amountClass = t.isIncome ? 'income' : 'expense';
-
-      const card = document.createElement('div');
-      card.className = 'tx-card';
-
-      card.innerHTML = `
-        <div class="tx-card-left">
-          <div class="tx-badge-row">
-            <span class="badge-tx-type ${t.txBadgeClass}">${t.txTypeLabel}</span>
-            <span class="badge-tx-type ${t.approvalBadgeClass}">${t.statusDisplay}</span>
-            <span class="tx-meta">${t.waktu}</span>
-          </div>
-          <div class="tx-title">${t.kegiatan || t.kategori} <small style="color:#64748b">(${t.akun})</small></div>
-          ${t.rincian ? `<div class="tx-keterangan">${t.rincian}</div>` : ''}
-        </div>
-        <div class="tx-amount ${amountClass}">${amountSign} ${formatSAR(t.total)}</div>
-      `;
-
-      itemsWrapper.appendChild(card);
-    });
-
-    groupDiv.appendChild(itemsWrapper);
-    txHistoryContainer.appendChild(groupDiv);
   });
 }
 
-// PDF Export Modal Setup
-function setupPdfModal() {
-  btnOpenPdfModal.addEventListener('click', (e) => {
-    if (e) e.stopPropagation();
-    closeFabMenu();
-    if (!appState.activeUser) return;
+window.updateDoc1Item = function(idx, field, val) {
+  if (!appState.doc1Items[idx]) return;
+  if (field === 'hargaSatuan') {
+    appState.doc1Items[idx].hargaSatuan = parseFloat(val) || 0;
+  } else {
+    appState.doc1Items[idx][field] = val;
+  }
+};
 
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const today = now.toISOString().split('T')[0];
+// DOC 3 (Add on Tagihan Jamaah) DYNAMIC ITEMS
+function resetDoc3Items() {
+  appState.doc3Items = [];
+  document.getElementById('doc3ItemsContainer').innerHTML = '';
+  addDoc3ItemRow();
+}
 
-    pdfStartDate.value = firstDay;
-    pdfEndDate.value = today;
-    pdfModal.classList.remove('hidden');
-  });
+function addDoc3ItemRow() {
+  const idx = appState.doc3Items.length;
+  const itemData = {
+    id: Date.now() + Math.random(),
+    keterangan: '',
+    hargaSatuan: 0,
+    qty: 1,
+    jumlah: 0
+  };
+  appState.doc3Items.push(itemData);
 
-  btnClosePdfModal.addEventListener('click', () => {
-    pdfModal.classList.add('hidden');
-  });
+  const container = document.getElementById('doc3ItemsContainer');
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.dataset.idx = idx;
 
-  pdfForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    generatePdfDocument();
+  card.innerHTML = `
+    <div class="item-card-header">
+      <span class="item-number">Item Add-On #${idx + 1}</span>
+      ${appState.doc3Items.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeDoc3ItemRow(${idx})"><i class="fa-solid fa-xmark"></i></button>` : ''}
+    </div>
+    <div class="item-grid">
+      <div class="input-group full-width">
+        <label>Keterangan Item</label>
+        <input type="text" class="navy-input doc3-item-ket" placeholder="Misal: Upgrade Kamar Double" oninput="updateDoc3Item(${idx}, 'keterangan', this.value)" required>
+      </div>
+      <div class="input-group">
+        <label>Harga Satuan (SAR)</label>
+        <input type="number" step="any" class="navy-input doc3-item-harga" placeholder="0.00" oninput="updateDoc3Item(${idx}, 'hargaSatuan', this.value)" required>
+      </div>
+      <div class="input-group">
+        <label>QTY</label>
+        <input type="number" min="1" class="navy-input doc3-item-qty" value="1" oninput="updateDoc3Item(${idx}, 'qty', this.value)" required>
+      </div>
+    </div>
+  `;
+  container.appendChild(card);
+}
+
+window.removeDoc3ItemRow = function(idx) {
+  if (appState.doc3Items.length <= 1) return;
+  appState.doc3Items.splice(idx, 1);
+  reRenderDoc3Items();
+};
+
+function reRenderDoc3Items() {
+  const container = document.getElementById('doc3ItemsContainer');
+  container.innerHTML = '';
+  const current = [...appState.doc3Items];
+  appState.doc3Items = [];
+
+  current.forEach((it, i) => {
+    addDoc3ItemRow();
+    const lastIdx = appState.doc3Items.length - 1;
+    appState.doc3Items[lastIdx] = it;
+    const card = container.children[lastIdx];
+    if (card) {
+      card.querySelector('.doc3-item-ket').value = it.keterangan || '';
+      card.querySelector('.doc3-item-harga').value = it.hargaSatuan || '';
+      card.querySelector('.doc3-item-qty').value = it.qty || 1;
+    }
   });
 }
 
-// Generate Printable PDF Document Function (With Martel Font for "jejak imani")
-function generatePdfDocument() {
-  const docType = pdfDocType.value;
-  const startDate = pdfStartDate.value;
-  const endDate = pdfEndDate.value;
-  const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
-  const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
-  const generatedDate = new Date().toLocaleString('id-ID');
+window.updateDoc3Item = function(idx, field, val) {
+  if (!appState.doc3Items[idx]) return;
+  if (field === 'hargaSatuan') {
+    appState.doc3Items[idx].hargaSatuan = parseFloat(val) || 0;
+  } else if (field === 'qty') {
+    appState.doc3Items[idx].qty = parseInt(val) || 1;
+  } else {
+    appState.doc3Items[idx][field] = val;
+  }
+};
 
-  const filteredOrders = appState.orders.filter(o => {
-    if (normString(o.akun) !== normString(vendorName)) return false;
-    const orderIsoDate = normalizeDateToISO(o.tanggal);
-    if (!orderIsoDate) return true;
-    return orderIsoDate >= startDate && orderIsoDate <= endDate;
-  });
-
+// PRINTABLE PDF GENERATOR FOR MANAGEMENT (7 DOCUMENT TYPES)
+function generateManagementPdfDocument() {
+  const docTypeVal = mgmtDocTypeSelect.value;
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     alert('Pop-up terblokir oleh browser. Izinkan pop-up untuk mencetak PDF.');
     return;
   }
 
-  let tableContentHtml = '';
+  let docTitleHtml = '';
+  let bodyContentHtml = '';
 
-  if (docType === 'Rekapitulasi Pemesanan') {
-    let grandTotalOrders = 0;
-    const rowsHtml = filteredOrders.map((o, idx) => {
-      grandTotalOrders += o.jumlah || 0;
-      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
-      const productsFormatted = parseMultiItemsText(o.itemProduk, o.qty, o.satuan, o.harga);
+  if (docTypeVal === "1") {
+    // 1. Approval Pengajuan
+    const tanggal = document.getElementById('doc1Tanggal').value;
+    const divisi = document.getElementById('doc1Divisi').value;
+    const program = document.getElementById('doc1Program').value;
 
+    let grandTotal = 0;
+    const rowsHtml = appState.doc1Items.map((it, idx) => {
+      const subtotal = (it.hargaSatuan || 0) * 1;
+      grandTotal += subtotal;
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
-          <td><strong>${o.id}</strong><br><small>${cleanTime}</small></td>
-          <td>${o.grup}</td>
-          <td><strong>${o.tujuan}</strong><br><small>Muthowwif: ${o.muthowwif}</small></td>
-          <td>${o.lokasi}</td>
-          <td>${productsFormatted}</td>
-          <td style="text-align:right;"><strong>${formatSAR(o.jumlah)}</strong></td>
-          <td style="text-align:center;"><span class="badge badge-${o.status.toLowerCase().replace(/\s+/g, '-')}">${o.status}</span></td>
+          <td><strong>${it.program || '-'}</strong></td>
+          <td style="text-align:center;">${it.unit || 'Pax'}</td>
+          <td style="text-align:right;">${formatSAR(it.hargaSatuan)}</td>
+          <td style="text-align:right;"><strong>${formatSAR(subtotal)}</strong></td>
+          <td style="text-align:center;">${it.dueDate || '-'}</td>
+          <td>${it.tujuanPenerima || '-'}</td>
         </tr>
       `;
     }).join('');
 
-    tableContentHtml = `
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th style="width: 30px;">No</th>
-            <th>ID / Waktu</th>
-            <th>Grup</th>
-            <th>Tujuan Kegiatan</th>
-            <th>Lokasi</th>
-            <th>Item Produk & Qty</th>
-            <th style="text-align:right;">Jumlah (SAR)</th>
-            <th style="text-align:center;">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding: 20px;">Tidak ada data pemesanan pada periode ini</td></tr>'}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="6" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PEMESANAN:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotalOrders)}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    `;
-  } else {
-    let totalUangKeluar = 0;
-    const completedOrders = filteredOrders.filter(o => o.status === 'Selesai');
-    
-    const rowsHtml = completedOrders.map((o, idx) => {
-      totalUangKeluar += o.jumlah || 0;
-      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
-      return `
-        <tr>
-          <td style="text-align:center;">${idx + 1}</td>
-          <td>${cleanTime}</td>
-          <td><strong>${o.id}</strong> - ${o.tujuan} (${o.grup})</td>
-          <td>Vendor / Selesai</td>
-          <td style="text-align:right;">-</td>
-          <td style="text-align:right; color:#dc2626;"><strong>${formatSAR(o.jumlah)}</strong></td>
-        </tr>
-      `;
-    }).join('');
-
-    tableContentHtml = `
-      <div class="financial-summary-box">
-        <div class="summary-card">
-          <span>Total Pengeluaran (Selesai):</span>
-          <strong>${formatSAR(totalUangKeluar)}</strong>
-        </div>
-        <div class="summary-card">
-          <span>Sisa Saldo Kas Aktif:</span>
-          <strong>${currentSaldo}</strong>
-        </div>
+    docTitleHtml = `APPROVAL PENGAJUAN PROGRAM`;
+    bodyContentHtml = `
+      <div class="biodata-grid">
+        <div class="biodata-item"><span>Tanggal Pengajuan:</span><strong>${tanggal}</strong></div>
+        <div class="biodata-item"><span>Divisi:</span><strong>${divisi}</strong></div>
+        <div class="biodata-item" style="grid-column: span 2;"><span>Nama Program:</span><strong>${program}</strong></div>
       </div>
 
       <table class="report-table">
         <thead>
           <tr>
             <th style="width: 30px;">No</th>
-            <th>Tanggal & Waktu</th>
-            <th>Keterangan Transaksi</th>
-            <th>Kategori</th>
-            <th style="text-align:right;">Kas Masuk (SAR)</th>
-            <th style="text-align:right;">Kas Keluar (SAR)</th>
+            <th>Program / Item</th>
+            <th style="text-align:center;">Satuan/Pax</th>
+            <th style="text-align:right;">Harga Satuan (SAR)</th>
+            <th style="text-align:right;">Jumlah (SAR)</th>
+            <th style="text-align:center;">Due Date</th>
+            <th>Tujuan Penerima</th>
           </tr>
         </thead>
         <tbody>
-          ${rowsHtml || '<tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada transaksi keuangan selesai pada periode ini</td></tr>'}
+          ${rowsHtml}
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align:right; font-weight: bold;">TOTAL JUMLAH PENGAJUAN:</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotal)}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="margin-top: 40px; display: flex; justify-content: space-between; text-align: center;">
+        <div>
+          <p style="font-size: 11px; color: #64748b;">Diajukan Oleh:</p>
+          <div style="height: 50px;"></div>
+          <strong>(${divisi})</strong>
+        </div>
+        <div>
+          <p style="font-size: 11px; color: #64748b;">Disetujui Oleh:</p>
+          <div style="height: 50px;"></div>
+          <strong>(Manajemen Tim Khidmat)</strong>
+        </div>
+      </div>
+    `;
+
+  } else if (docTypeVal === "2") {
+    // 2. Kwitansi
+    const noRef = document.getElementById('doc2NoRef').value;
+    const tanggal = document.getElementById('doc2Tanggal').value;
+    const nominal = parseFloat(document.getElementById('doc2Nominal').value) || 0;
+    const keterangan = document.getElementById('doc2Keterangan').value;
+    const pengirim = document.getElementById('doc2Pengirim').value;
+    const penerima = document.getElementById('doc2Penerima').value;
+
+    docTitleHtml = `KWITANSI PEMBAYARAN`;
+    bodyContentHtml = `
+      <div style="border: 2px solid #0f172a; padding: 20px; border-radius: 8px; background: #fff;">
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px; margin-bottom: 15px;">
+          <div><strong>No. Referensi:</strong> ${noRef}</div>
+          <div><strong>Tanggal:</strong> ${tanggal}</div>
+        </div>
+
+        <div style="margin-bottom: 12px;"><strong>Telah Diterima Dari:</strong> ${pengirim}</div>
+        <div style="margin-bottom: 12px;"><strong>Kepada / Penerima:</strong> ${penerima}</div>
+        <div style="margin-bottom: 12px;"><strong>Jumlah Uang:</strong> <span style="font-family:'Martel'; font-size: 18px; font-weight: 800; color: #d97706;">${formatSAR(nominal)}</span></div>
+        <div style="margin-bottom: 15px;"><strong>Untuk Pembayaran:</strong> ${keterangan}</div>
+
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; text-align: center;">
+          <div>
+            <p style="font-size: 11px; color: #64748b;">Pengirim:</p>
+            <div style="height: 40px;"></div>
+            <strong>(${pengirim})</strong>
+          </div>
+          <div>
+            <p style="font-size: 11px; color: #64748b;">Penerima:</p>
+            <div style="height: 40px;"></div>
+            <strong>(${penerima})</strong>
+          </div>
+        </div>
+      </div>
+    `;
+
+  } else if (docTypeVal === "3") {
+    // 3. Add on Tagihan Jamaah
+    const grup = document.getElementById('doc3Grup').value;
+    const jamaah = document.getElementById('doc3Jamaah').value;
+    const tanggal = document.getElementById('doc3Tanggal').value;
+
+    let grandTotal = 0;
+    const rowsHtml = appState.doc3Items.map((it, idx) => {
+      const subtotal = (it.hargaSatuan || 0) * (it.qty || 1);
+      grandTotal += subtotal;
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td><strong>${it.keterangan || '-'}</strong></td>
+          <td style="text-align:right;">${formatSAR(it.hargaSatuan)}</td>
+          <td style="text-align:center;">${it.qty || 1}</td>
+          <td style="text-align:right;"><strong>${formatSAR(subtotal)}</strong></td>
+        </tr>
+      `;
+    }).join('');
+
+    docTitleHtml = `ADD ON TAGIHAN JAMAAH`;
+    bodyContentHtml = `
+      <div class="biodata-grid">
+        <div class="biodata-item"><span>Nama Jamaah:</span><strong>${jamaah}</strong></div>
+        <div class="biodata-item"><span>Nama Grup:</span><strong>${grup}</strong></div>
+        <div class="biodata-item" style="grid-column: span 2;"><span>Tanggal Dokumen:</span><strong>${tanggal}</strong></div>
+      </div>
+
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>Keterangan Item Add-On</th>
+            <th style="text-align:right;">Harga Satuan (SAR)</th>
+            <th style="text-align:center;">QTY</th>
+            <th style="text-align:right;">Jumlah (SAR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align:right; font-weight: bold;">TOTAL TAGIHAN ADD-ON:</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotal)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
+
+  } else if (docTypeVal === "4") {
+    // 4. Laporan Pengeluaran Grup (5 Kategori: Jeddah, Madinah, Makkah, Vendor, Lainnya)
+    const selectedGroup = document.getElementById('doc4GrupSelect').value;
+    const groupTxs = appState.transactions.filter(t => normString(t.grup) === normString(selectedGroup));
+
+    const categories = {
+      'Operasional Jeddah': [],
+      'Operasional Madinah': [],
+      'Operasional Makkah': [],
+      'Pemesanan Vendor': [],
+      'Lainnya': []
+    };
+
+    groupTxs.forEach(t => {
+      const keg = (t.kegiatan || '').toLowerCase();
+      const kat = (t.kategori || '').toLowerCase();
+      if (keg.includes('jeddah')) categories['Operasional Jeddah'].push(t);
+      else if (keg.includes('madinah')) categories['Operasional Madinah'].push(t);
+      else if (keg.includes('makkah') || keg.includes('mecca')) categories['Operasional Makkah'].push(t);
+      else if (kat.includes('vendor')) categories['Pemesanan Vendor'].push(t);
+      else categories['Lainnya'].push(t);
+    });
+
+    let overallGrandTotal = 0;
+    let summaryRowsHtml = '';
+    let categoryTablesHtml = '';
+
+    Object.keys(categories).forEach((catName, idx) => {
+      const txs = categories[catName];
+      const catTotal = txs.reduce((sum, item) => sum + (item.total || 0), 0);
+      overallGrandTotal += catTotal;
+
+      summaryRowsHtml += `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${catName}</td>
+          <td style="text-align:right;"><strong>${formatSAR(catTotal)}</strong></td>
+        </tr>
+      `;
+
+      let itemRows = txs.map((t, i) => `
+        <tr>
+          <td style="text-align:center;">${i + 1}</td>
+          <td>${t.waktu}</td>
+          <td>${t.kegiatan} (${t.akun})</td>
+          <td>${t.rincian || '-'}</td>
+          <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
+        </tr>
+      `).join('');
+
+      if (txs.length === 0) {
+        itemRows = `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Tidak ada pengeluaran pada kategori ini</td></tr>`;
+      }
+
+      categoryTablesHtml += `
+        <h3 style="font-size: 14px; margin: 20px 0 8px 0; color: #0f172a; border-left: 4px solid #d97706; padding-left: 8px;">
+          ${catName} (Total: ${formatSAR(catTotal)})
+        </h3>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th style="width: 30px;">No</th>
+              <th>Waktu</th>
+              <th>Kegiatan / Akun</th>
+              <th>Rincian Item</th>
+              <th style="text-align:right;">Total (SAR)</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+      `;
+    });
+
+    docTitleHtml = `LAPORAN PENGELUARAN GRUP - ${selectedGroup.toUpperCase()}`;
+    bodyContentHtml = `
+      <div style="margin-bottom: 20px;">
+        <h3 style="font-size: 14px; margin-bottom: 10px;">Rangkuman Pengeluaran Per Kategori</h3>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th style="width: 30px;">No</th>
+              <th>Kategori Operasional</th>
+              <th style="text-align:right;">Total Jumlah (SAR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summaryRowsHtml}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PENGELUARAN GRUP:</td>
+              <td style="text-align:right; font-weight: bold; font-size: 15px; color:#d97706;">${formatSAR(overallGrandTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      ${categoryTablesHtml}
+    `;
+
+  } else if (docTypeVal === "5") {
+    // 5. Rekapitulasi Rincian Transaksi
+    const startDate = document.getElementById('doc5StartDate').value;
+    const endDate = document.getElementById('doc5EndDate').value;
+
+    const filteredTxs = appState.transactions.filter(t => {
+      const iso = normalizeDateToISO(t.waktu);
+      return iso >= startDate && iso <= endDate;
+    });
+
+    const accSummaryHtml = appState.accounts.map((a, idx) => `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td><strong>${a.name}</strong></td>
+        <td style="text-align:center;">${a.jenisAkun || 'Tim'}</td>
+        <td style="text-align:right; font-weight:bold;">${formatSAR(a.saldo)}</td>
+      </tr>
+    `).join('');
+
+    const txRowsHtml = filteredTxs.map((t, idx) => `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td>${t.waktu}</td>
+        <td><strong>${t.akun}</strong></td>
+        <td>${t.kategori}</td>
+        <td>${t.kegiatan}</td>
+        <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
+        <td style="text-align:center;">${t.status || 'Disetujui'}</td>
+      </tr>
+    `).join('');
+
+    docTitleHtml = `REKAPITULASI RINCIAN TRANSAKSI KAS`;
+    bodyContentHtml = `
+      <div class="biodata-grid">
+        <div class="biodata-item"><span>Periode Rentang Tanggal:</span><strong>${startDate} s/d ${endDate}</strong></div>
+        <div class="biodata-item"><span>Total Transaksi Tercatat:</span><strong>${filteredTxs.length} Transaksi</strong></div>
+      </div>
+
+      <h3 style="font-size: 14px; margin: 15px 0 8px 0;">1. Ringkasan Saldo Akun Aktif</h3>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>Nama Akun</th>
+            <th style="text-align:center;">Jenis Akun</th>
+            <th style="text-align:right;">Sisa Saldo Kas (SAR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${accSummaryHtml}
+        </tbody>
+      </table>
+
+      <h3 style="font-size: 14px; margin: 25px 0 8px 0;">2. Rincian Seluruh Transaksi Kas</h3>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>Waktu</th>
+            <th>Akun</th>
+            <th>Kategori</th>
+            <th>Kegiatan</th>
+            <th style="text-align:right;">Total (SAR)</th>
+            <th style="text-align:center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${txRowsHtml || '<tr><td colspan="7" style="text-align:center;">Tidak ada transaksi dalam rentang tanggal ini</td></tr>'}
+        </tbody>
+      </table>
+    `;
+
+  } else if (docTypeVal === "6") {
+    // 6. Rekapitulasi Transaksi Grup (Debit / Kredit per Bulan)
+    const startDate = document.getElementById('doc6StartDate').value;
+    const endDate = document.getElementById('doc6EndDate').value;
+
+    const filteredTxs = appState.transactions.filter(t => {
+      const iso = normalizeDateToISO(t.waktu);
+      return iso >= startDate && iso <= endDate;
+    });
+
+    let totalDebit = 0;
+    let totalKredit = 0;
+
+    const rowsHtml = filteredTxs.map((t, idx) => {
+      const isMasuk = t.kategori === 'Isi Saldo' || t.kategori === 'Kas Masuk';
+      if (isMasuk) totalDebit += t.total;
+      else totalKredit += t.total;
+
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${t.waktu}</td>
+          <td>${t.grup || '-'}</td>
+          <td>${t.kegiatan} (${t.akun})</td>
+          <td style="text-align:right; color:#047857;">${isMasuk ? formatSAR(t.total) : '-'}</td>
+          <td style="text-align:right; color:#b91c1c;">${!isMasuk ? formatSAR(t.total) : '-'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    docTitleHtml = `REKAPITULASI TRANSAKSI GRUP (DEBIT / KREDIT)`;
+    bodyContentHtml = `
+      <div class="biodata-grid">
+        <div class="biodata-item"><span>Periode Rentang Tanggal:</span><strong>${startDate} s/d ${endDate}</strong></div>
+        <div class="biodata-item"><span>Total Debit (Kas Masuk):</span><strong style="color:#047857;">${formatSAR(totalDebit)}</strong></div>
+        <div class="biodata-item"><span>Total Kredit (Pengeluaran):</span><strong style="color:#b91c1c;">${formatSAR(totalKredit)}</strong></div>
+        <div class="biodata-item"><span>Selisih (Net):</span><strong>${formatSAR(totalDebit - totalKredit)}</strong></div>
+      </div>
+
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>Tanggal</th>
+            <th>Nama Grup</th>
+            <th>Keterangan Operasional</th>
+            <th style="text-align:right;">Debit / Masuk (SAR)</th>
+            <th style="text-align:right;">Kredit / Keluar (SAR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada transaksi grup pada periode ini</td></tr>'}
+        </tbody>
+      </table>
+    `;
+
+  } else if (docTypeVal === "7") {
+    // 7. Laporan Biaya Operasional Tim
+    const bulanVal = document.getElementById('doc7Bulan').value; // YYYY-MM
+
+    const filteredTxs = appState.transactions.filter(t => {
+      const iso = normalizeDateToISO(t.waktu);
+      return iso.startsWith(bulanVal) && (t.kategori === 'Operasional Tim' || t.kategori === 'Operasional');
+    });
+
+    let totalOpTim = 0;
+    const rowsHtml = filteredTxs.map((t, idx) => {
+      totalOpTim += t.total;
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${t.waktu}</td>
+          <td><strong>${t.akun}</strong></td>
+          <td>${t.kegiatan}</td>
+          <td>${t.rincian || '-'}</td>
+          <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
+        </tr>
+      `;
+    }).join('');
+
+    docTitleHtml = `LAPORAN BIAYA OPERASIONAL TIM - BULAN ${bulanVal}`;
+    bodyContentHtml = `
+      <div class="biodata-grid">
+        <div class="biodata-item"><span>Bulan Operasional:</span><strong>${bulanVal}</strong></div>
+        <div class="biodata-item"><span>Total Pengeluaran Operasional:</span><strong style="color:#d97706;">${formatSAR(totalOpTim)}</strong></div>
+      </div>
+
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>Waktu</th>
+            <th>Akun Tim</th>
+            <th>Nama Kegiatan</th>
+            <th>Rincian Item</th>
+            <th style="text-align:right;">Jumlah (SAR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="6" style="text-align:center;">Tidak ada pengeluaran operasional tim pada bulan ini</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="text-align:right; font-weight: bold;">TOTAL BIAYA OPERASIONAL TIM:</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(totalOpTim)}</td>
+          </tr>
+        </tfoot>
       </table>
     `;
   }
@@ -1048,60 +1065,32 @@ function generatePdfDocument() {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${docType} - ${vendorName}</title>
+      <title>${docTitleHtml}</title>
       <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
       <style>
-        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; }
+        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; background: #fff; }
         .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-        .doc-title { font-family: 'Martel', serif; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
-        .doc-subtitle { font-size: 14px; font-weight: 600; color: #1e3a8a; margin: 0; }
+        .doc-title { font-family: 'Martel', serif; font-size: 18px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
+        .doc-subtitle { font-size: 13px; font-weight: 600; color: #1e3a8a; margin: 0; }
         .doc-subtitle .font-martel { font-family: 'Martel', serif; font-weight: 700; color: #0f172a; }
-        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; font-size: 13px; }
-        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 11px; text-transform: uppercase; }
+        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; font-size: 12px; }
+        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 10px; text-transform: uppercase; }
         .biodata-item strong { color: #0f172a; }
         .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
         .report-table th, .report-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
         .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; }
-        .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; }
-        .badge-pesanan-baru { background: #fef3c7; color: #b45309; }
-        .badge-proses { background: #dbeafe; color: #1d4ed8; }
-        .badge-selesai { background: #d1fae5; color: #047857; }
-        .financial-summary-box { display: flex; gap: 15px; margin-bottom: 15px; }
-        .summary-card { flex: 1; background: #f1f5f9; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; }
-        .summary-card span { font-size: 11px; color: #64748b; font-weight: 600; display: block; }
-        .summary-card strong { font-family: 'Martel', serif; font-size: 16px; color: #0f172a; }
         @media print {
           body { padding: 0; }
-          .no-print { display: none; }
         }
       </style>
     </head>
     <body>
       <div class="doc-header">
-        <h1 class="doc-title">${docType.toUpperCase()}</h1>
+        <h1 class="doc-title">${docTitleHtml}</h1>
         <p class="doc-subtitle">Tim Khidmat <span class="font-martel">jejak imani</span> Saudi Arabia</p>
       </div>
 
-      <div class="biodata-grid">
-        <div class="biodata-item">
-          <span>Nama Vendor / Akun:</span>
-          <strong>${vendorName}</strong>
-        </div>
-        <div class="biodata-item">
-          <span>Periode Dokumen:</span>
-          <strong>${startDate} s/d ${endDate}</strong>
-        </div>
-        <div class="biodata-item">
-          <span>Mata Uang:</span>
-          <strong>SAR (Saudi Riyal)</strong>
-        </div>
-        <div class="biodata-item">
-          <span>Tanggal Cetak:</span>
-          <strong>${generatedDate}</strong>
-        </div>
-      </div>
-
-      ${tableContentHtml}
+      ${bodyContentHtml}
 
       <script>
         window.onload = function() {
@@ -1115,91 +1104,7 @@ function generatePdfDocument() {
   printWindow.document.open();
   printWindow.document.write(printDocumentHtml);
   printWindow.document.close();
-  pdfModal.classList.add('hidden');
-}
-
-// Date Filter Setup
-function setupDateFilter() {
-  orderDateFilter.addEventListener('change', (e) => {
-    appState.selectedDateFilter = e.target.value;
-    renderOrdersList();
-  });
-
-  btnClearDateFilter.addEventListener('click', () => {
-    orderDateFilter.value = '';
-    appState.selectedDateFilter = '';
-    renderOrdersList();
-  });
-}
-
-// Event Listeners
-function setupEventListeners() {
-  btnOpenExpenseModal.addEventListener('click', (e) => {
-    if (e) e.stopPropagation();
-    closeFabMenu();
-    resetModalItems();
-    const isVendor = appState.activeUser && appState.activeUser.jenisAkun && appState.activeUser.jenisAkun.toLowerCase() === 'vendor';
-    modalKategoriLaporan.value = isVendor ? 'Vendor' : 'Grup Keberangkatan';
-    modalKategoriLaporan.dispatchEvent(new Event('change'));
-    expenseModal.classList.remove('hidden');
-  });
-
-  btnCloseExpenseModal.addEventListener('click', () => {
-    expenseModal.classList.add('hidden');
-  });
-
-  btnOpenTopup.addEventListener('click', (e) => {
-    if (e) e.stopPropagation();
-    closeFabMenu();
-    if (!appState.activeUser) return;
-    topupAccountName.value = appState.activeUser.name;
-    topupAmountInput.value = '';
-    topupNoteInput.value = '';
-    topupModal.classList.remove('hidden');
-  });
-  btnCloseTopup.addEventListener('click', () => topupModal.classList.add('hidden'));
-
-  topupForm.addEventListener('submit', handleTopupSubmit);
-
-  kategoriLaporan.addEventListener('change', (e) => {
-    if (e.target.value === 'Grup Keberangkatan') {
-      grupKeberangkatanWrapper.classList.remove('hidden');
-      namaGrupInput.setAttribute('required', 'true');
-    } else {
-      grupKeberangkatanWrapper.classList.add('hidden');
-      namaGrupInput.removeAttribute('required');
-      namaGrupInput.value = '';
-    }
-  });
-
-  modalKategoriLaporan.addEventListener('change', (e) => {
-    if (e.target.value === 'Grup Keberangkatan') {
-      modalGrupWrapper.classList.remove('hidden');
-      modalNamaGrupInput.setAttribute('required', 'true');
-    } else {
-      modalGrupWrapper.classList.add('hidden');
-      modalNamaGrupInput.removeAttribute('required');
-      modalNamaGrupInput.value = '';
-    }
-  });
-
-  btnAddItem.addEventListener('click', () => addItemRow());
-  modalBtnAddItem.addEventListener('click', () => addModalItemRow());
-
-  document.getElementById('btnLogout').addEventListener('click', (e) => {
-    if (e) e.stopPropagation();
-    logoutAccount();
-  });
-
-  expenseForm.addEventListener('submit', handleFormSubmit);
-  modalExpenseForm.addEventListener('submit', handleModalFormSubmit);
-
-  btnNewTransaction.addEventListener('click', () => {
-    successOverlay.classList.add('hidden');
-    resetForm();
-  });
-
-  btnShareReceipt.addEventListener('click', handleShareReceipt);
+  mgmtPdfModal.classList.add('hidden');
 }
 
 // Vendor Pemesanan System
