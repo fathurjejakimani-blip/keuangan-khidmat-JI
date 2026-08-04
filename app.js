@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v9.2
- * Bug Fix: Defined missing setupEventListeners() & setupDateFilter(), Scoped Status Tabs, Vendor History Access
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v10.0
+ * Modern Management PDF UI, Dropdown without numbers, Autocomplete for Doc 3 & 4, QTY & Subtotal/Total for Doc 1, 100% Reliable Iframe PDF Print
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -157,6 +157,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupResponsiveKeypad();
   setupFormAutocomplete();
   setupModalAutocomplete();
+  setupMgmtGroupAutocomplete();
   setupStatusFilterTabs();
   setupDateFilter();
   setupPdfModal();
@@ -355,7 +356,7 @@ function applyUserSessionUI() {
     btnOpenMgmtPdfModal.classList.add('hidden');
     btnOpenPdfModal.classList.remove('hidden');
     btnOpenTransferModal.classList.add('hidden');
-    btnOpenTxHistoryModal.classList.remove('hidden'); // Vendor can also view transaction history!
+    btnOpenTxHistoryModal.classList.remove('hidden');
 
     calculateVendorEstimates();
     renderOrdersList();
@@ -375,7 +376,7 @@ function applyUserSessionUI() {
   }
 }
 
-// MANAGEMENT DASHBOARD RENDERER (Separated Tim & Vendor Scrollable Balances)
+// MANAGEMENT DASHBOARD RENDERER
 function renderManagementDashboard() {
   if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'manajemen') return;
 
@@ -554,7 +555,7 @@ function showAutoToast(titleText, subtitleText) {
 
 // Setup Floating Action Button (FAB) Floating Menu
 function setupFabMenu() {
-  const toggleAction = (e) => {
+  btnToggleFab.addEventListener('click', (e) => {
     e.stopPropagation();
     const isHidden = fabMenu.classList.contains('hidden');
     if (isHidden) {
@@ -563,9 +564,7 @@ function setupFabMenu() {
     } else {
       closeFabMenu();
     }
-  };
-
-  btnToggleFab.addEventListener('click', toggleAction);
+  });
 
   document.addEventListener('click', (e) => {
     if (!fabContainer.contains(e.target)) {
@@ -631,6 +630,41 @@ function renderAccountSuggestions(accList) {
     accountSuggestions.appendChild(div);
   });
   accountSuggestions.classList.remove('hidden');
+}
+
+// MANAGEMENT MODAL AUTOCOMPLETE SETUP FOR DOC 3 & DOC 4 (Grup Keberangkatan)
+function setupMgmtGroupAutocomplete() {
+  const doc3Input = document.getElementById('doc3GrupInput');
+  const doc3Sugg = document.getElementById('doc3GrupSuggestions');
+
+  if (doc3Input && doc3Sugg) {
+    doc3Input.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      if (!query) { doc3Sugg.classList.add('hidden'); return; }
+      const filtered = appState.masterGroups.filter(g => g.toLowerCase().includes(query));
+      renderSuggestions(doc3Sugg, filtered, (val) => { doc3Input.value = val; doc3Sugg.classList.add('hidden'); });
+    });
+
+    doc3Input.addEventListener('focus', () => {
+      renderSuggestions(doc3Sugg, appState.masterGroups, (val) => { doc3Input.value = val; doc3Sugg.classList.add('hidden'); });
+    });
+  }
+
+  const doc4Input = document.getElementById('doc4GrupInput');
+  const doc4Sugg = document.getElementById('doc4GrupSuggestions');
+
+  if (doc4Input && doc4Sugg) {
+    doc4Input.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      if (!query) { doc4Sugg.classList.add('hidden'); return; }
+      const filtered = appState.masterGroups.filter(g => g.toLowerCase().includes(query));
+      renderSuggestions(doc4Sugg, filtered, (val) => { doc4Input.value = val; doc4Sugg.classList.add('hidden'); });
+    });
+
+    doc4Input.addEventListener('focus', () => {
+      renderSuggestions(doc4Sugg, appState.masterGroups, (val) => { doc4Input.value = val; doc4Sugg.classList.add('hidden'); });
+    });
+  }
 }
 
 // Ultra Responsive Keypad
@@ -725,8 +759,6 @@ function setupMgmtPdfModal() {
     if (e) e.stopPropagation();
     closeFabMenu();
     
-    populateDoc4GroupSelect();
-    
     const today = new Date().toISOString().split('T')[0];
     const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
 
@@ -782,27 +814,7 @@ function switchMgmtPdfFields(docTypeVal) {
   }
 }
 
-function populateDoc4GroupSelect() {
-  const doc4GrupSelect = document.getElementById('doc4GrupSelect');
-  if (!doc4GrupSelect) return;
-
-  doc4GrupSelect.innerHTML = '<option value="">-- Pilih Grup --</option>';
-
-  const allGroups = new Set();
-  appState.masterGroups.forEach(g => allGroups.add(g));
-  appState.transactions.forEach(t => {
-    if (t.grup && t.grup !== '-') allGroups.add(t.grup);
-  });
-
-  allGroups.forEach(grp => {
-    const opt = document.createElement('option');
-    opt.value = grp;
-    opt.textContent = grp;
-    doc4GrupSelect.appendChild(opt);
-  });
-}
-
-// DOC 1 (Approval Pengajuan) DYNAMIC ITEMS
+// DOC 1 (Approval Pengajuan) DYNAMIC ITEMS (QTY, Subtotal, Grand Total)
 function resetDoc1Items() {
   appState.doc1Items = [];
   document.getElementById('doc1ItemsContainer').innerHTML = '';
@@ -814,7 +826,7 @@ function addDoc1ItemRow() {
   const itemData = {
     id: Date.now() + Math.random(),
     program: '',
-    unit: 'Pax',
+    qty: 1,
     hargaSatuan: 0,
     jumlah: 0,
     dueDate: new Date().toISOString().split('T')[0],
@@ -838,8 +850,8 @@ function addDoc1ItemRow() {
         <input type="text" class="navy-input doc1-item-program" placeholder="Misal: Bus Operasional Madinah" oninput="updateDoc1Item(${idx}, 'program', this.value)" required>
       </div>
       <div class="input-group">
-        <label>Satuan / Pax</label>
-        <input type="text" class="navy-input doc1-item-unit" value="Pax" oninput="updateDoc1Item(${idx}, 'unit', this.value)" required>
+        <label>QTY</label>
+        <input type="number" min="1" class="navy-input doc1-item-qty" value="1" oninput="updateDoc1Item(${idx}, 'qty', this.value)" required>
       </div>
       <div class="input-group">
         <label>Harga Satuan (SAR)</label>
@@ -853,9 +865,14 @@ function addDoc1ItemRow() {
         <label>Tujuan Penerima</label>
         <input type="text" class="navy-input doc1-item-penerima" placeholder="Nama vendor / pihak ke-3" oninput="updateDoc1Item(${idx}, 'tujuanPenerima', this.value)" required>
       </div>
+      <div class="input-group full-width" style="margin-top: 4px;">
+        <label style="font-size: 11px; color: var(--text-muted);">Subtotal Item:</label>
+        <div class="item-subtotal-badge doc1-item-subtotal">SAR 0.00</div>
+      </div>
     </div>
   `;
   container.appendChild(card);
+  calculateDoc1GrandTotal();
 }
 
 window.removeDoc1ItemRow = function(idx) {
@@ -877,22 +894,47 @@ function reRenderDoc1Items() {
     const card = container.children[lastIdx];
     if (card) {
       card.querySelector('.doc1-item-program').value = it.program || '';
-      card.querySelector('.doc1-item-unit').value = it.unit || 'Pax';
+      card.querySelector('.doc1-item-qty').value = it.qty || 1;
       card.querySelector('.doc1-item-harga').value = it.hargaSatuan || '';
       card.querySelector('.doc1-item-date').value = it.dueDate || '';
       card.querySelector('.doc1-item-penerima').value = it.tujuanPenerima || '';
     }
   });
+
+  calculateDoc1GrandTotal();
 }
 
 window.updateDoc1Item = function(idx, field, val) {
   if (!appState.doc1Items[idx]) return;
   if (field === 'hargaSatuan') {
     appState.doc1Items[idx].hargaSatuan = parseFloat(val) || 0;
+  } else if (field === 'qty') {
+    appState.doc1Items[idx].qty = parseInt(val) || 1;
   } else {
     appState.doc1Items[idx][field] = val;
   }
+
+  const qty = appState.doc1Items[idx].qty || 1;
+  const harga = appState.doc1Items[idx].hargaSatuan || 0;
+  const subtotal = qty * harga;
+  appState.doc1Items[idx].jumlah = subtotal;
+
+  const container = document.getElementById('doc1ItemsContainer');
+  const card = container.children[idx];
+  if (card) {
+    const subBadge = card.querySelector('.doc1-item-subtotal');
+    if (subBadge) subBadge.textContent = formatSAR(subtotal);
+  }
+
+  calculateDoc1GrandTotal();
 };
+
+function calculateDoc1GrandTotal() {
+  const total = appState.doc1Items.reduce((sum, it) => sum + ((it.qty || 1) * (it.hargaSatuan || 0)), 0);
+  const displayEl = document.getElementById('doc1GrandTotalDisplay');
+  if (displayEl) displayEl.textContent = formatSAR(total);
+  return total;
+}
 
 // DOC 3 (Add on Tagihan Jamaah) DYNAMIC ITEMS
 function resetDoc3Items() {
@@ -935,9 +977,14 @@ function addDoc3ItemRow() {
         <label>QTY</label>
         <input type="number" min="1" class="navy-input doc3-item-qty" value="1" oninput="updateDoc3Item(${idx}, 'qty', this.value)" required>
       </div>
+      <div class="input-group full-width" style="margin-top: 4px;">
+        <label style="font-size: 11px; color: var(--text-muted);">Subtotal Item:</label>
+        <div class="item-subtotal-badge doc3-item-subtotal">SAR 0.00</div>
+      </div>
     </div>
   `;
   container.appendChild(card);
+  calculateDoc3GrandTotal();
 }
 
 window.removeDoc3ItemRow = function(idx) {
@@ -963,6 +1010,8 @@ function reRenderDoc3Items() {
       card.querySelector('.doc3-item-qty').value = it.qty || 1;
     }
   });
+
+  calculateDoc3GrandTotal();
 }
 
 window.updateDoc3Item = function(idx, field, val) {
@@ -974,16 +1023,63 @@ window.updateDoc3Item = function(idx, field, val) {
   } else {
     appState.doc3Items[idx][field] = val;
   }
+
+  const qty = appState.doc3Items[idx].qty || 1;
+  const harga = appState.doc3Items[idx].hargaSatuan || 0;
+  const subtotal = qty * harga;
+  appState.doc3Items[idx].jumlah = subtotal;
+
+  const container = document.getElementById('doc3ItemsContainer');
+  const card = container.children[idx];
+  if (card) {
+    const subBadge = card.querySelector('.doc3-item-subtotal');
+    if (subBadge) subBadge.textContent = formatSAR(subtotal);
+  }
+
+  calculateDoc3GrandTotal();
 };
 
-// PRINTABLE PDF GENERATOR FOR MANAGEMENT (7 DOCUMENT TYPES + AUTOMATIC DRIVE STORAGE & SHEET LOGGING)
+function calculateDoc3GrandTotal() {
+  const total = appState.doc3Items.reduce((sum, it) => sum + ((it.qty || 1) * (it.hargaSatuan || 0)), 0);
+  const displayEl = document.getElementById('doc3GrandTotalDisplay');
+  if (displayEl) displayEl.textContent = formatSAR(total);
+  return total;
+}
+
+// 100% RELIABLE IFRAME PRINTING FUNCTION (BYPASSES POPUP BLOCKERS IN ALL BROWSERS)
+function printHtmlContent(htmlContent) {
+  let printFrame = document.getElementById('printIframe');
+  if (!printFrame) {
+    printFrame = document.createElement('iframe');
+    printFrame.id = 'printIframe';
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0px';
+    printFrame.style.height = '0px';
+    printFrame.style.border = '0';
+    printFrame.style.zIndex = '-9999';
+    document.body.appendChild(printFrame);
+  }
+
+  const frameDoc = printFrame.contentWindow.document;
+  frameDoc.open();
+  frameDoc.write(htmlContent);
+  frameDoc.close();
+
+  setTimeout(() => {
+    try {
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+    } catch (err) {
+      console.error('Iframe print notice:', err);
+    }
+  }, 400);
+}
+
+// PRINTABLE PDF GENERATOR FOR MANAGEMENT (7 DOCUMENT TYPES)
 function generateManagementPdfDocument() {
   const docTypeVal = mgmtDocTypeSelect.value;
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('Pop-up terblokir oleh browser. Izinkan pop-up untuk mencetak PDF.');
-    return;
-  }
 
   let docTitleHtml = '';
   let bodyContentHtml = '';
@@ -997,14 +1093,16 @@ function generateManagementPdfDocument() {
 
     let grandTotal = 0;
     const rowsHtml = appState.doc1Items.map((it, idx) => {
-      const subtotal = (it.hargaSatuan || 0) * 1;
+      const qty = it.qty || 1;
+      const hargaSatuan = it.hargaSatuan || 0;
+      const subtotal = qty * hargaSatuan;
       grandTotal += subtotal;
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
           <td><strong>${it.program || '-'}</strong></td>
-          <td style="text-align:center;">${it.unit || 'Pax'}</td>
-          <td style="text-align:right;">${formatSAR(it.hargaSatuan)}</td>
+          <td style="text-align:center;">${qty}</td>
+          <td style="text-align:right;">${formatSAR(hargaSatuan)}</td>
           <td style="text-align:right;"><strong>${formatSAR(subtotal)}</strong></td>
           <td style="text-align:center;">${it.dueDate || '-'}</td>
           <td>${it.tujuanPenerima || '-'}</td>
@@ -1025,7 +1123,7 @@ function generateManagementPdfDocument() {
           <tr>
             <th style="width: 30px;">No</th>
             <th>Program / Item</th>
-            <th style="text-align:center;">Satuan/Pax</th>
+            <th style="text-align:center;">QTY</th>
             <th style="text-align:right;">Harga Satuan (SAR)</th>
             <th style="text-align:right;">Jumlah (SAR)</th>
             <th style="text-align:center;">Due Date</th>
@@ -1036,7 +1134,7 @@ function generateManagementPdfDocument() {
         <tfoot>
           <tr>
             <td colspan="4" style="text-align:right; font-weight: bold;">TOTAL JUMLAH PENGAJUAN:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotal)}</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(grandTotal)}</td>
             <td colspan="2"></td>
           </tr>
         </tfoot>
@@ -1095,20 +1193,22 @@ function generateManagementPdfDocument() {
 
   } else if (docTypeVal === "3") {
     docTypeName = 'Add on Tagihan Jamaah';
-    const grup = document.getElementById('doc3Grup').value;
+    const grup = document.getElementById('doc3GrupInput').value;
     const jamaah = document.getElementById('doc3Jamaah').value;
     const tanggal = document.getElementById('doc3Tanggal').value;
 
     let grandTotal = 0;
     const rowsHtml = appState.doc3Items.map((it, idx) => {
-      const subtotal = (it.hargaSatuan || 0) * (it.qty || 1);
+      const qty = it.qty || 1;
+      const hargaSatuan = it.hargaSatuan || 0;
+      const subtotal = qty * hargaSatuan;
       grandTotal += subtotal;
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
           <td><strong>${it.keterangan || '-'}</strong></td>
-          <td style="text-align:right;">${formatSAR(it.hargaSatuan)}</td>
-          <td style="text-align:center;">${it.qty || 1}</td>
+          <td style="text-align:right;">${formatSAR(hargaSatuan)}</td>
+          <td style="text-align:center;">${qty}</td>
           <td style="text-align:right;"><strong>${formatSAR(subtotal)}</strong></td>
         </tr>
       `;
@@ -1136,7 +1236,7 @@ function generateManagementPdfDocument() {
         <tfoot>
           <tr>
             <td colspan="4" style="text-align:right; font-weight: bold;">TOTAL TAGIHAN ADD-ON:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotal)}</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(grandTotal)}</td>
           </tr>
         </tfoot>
       </table>
@@ -1144,7 +1244,7 @@ function generateManagementPdfDocument() {
 
   } else if (docTypeVal === "4") {
     docTypeName = 'Laporan Pengeluaran Grup';
-    const selectedGroup = document.getElementById('doc4GrupSelect').value;
+    const selectedGroup = document.getElementById('doc4GrupInput').value.trim();
     const groupTxs = appState.transactions.filter(t => normString(t.grup) === normString(selectedGroup));
 
     const categories = {
@@ -1408,7 +1508,7 @@ function generateManagementPdfDocument() {
         <tfoot>
           <tr>
             <td colspan="5" style="text-align:right; font-weight: bold;">TOTAL BIAYA OPERASIONAL TIM:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(totalOpTim)}</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(totalOpTim)}</td>
           </tr>
         </tfoot>
       </table>
@@ -1455,13 +1555,11 @@ function generateManagementPdfDocument() {
     </html>
   `;
 
-  // 1. Open Local Browser Print Window
-  printWindow.document.open();
-  printWindow.document.write(printDocumentHtml);
-  printWindow.document.close();
+  // 1. Trigger Print via 100% Reliable Invisible Iframe (Bypasses Popup Blockers)
+  printHtmlContent(printDocumentHtml);
   mgmtPdfModal.classList.add('hidden');
 
-  // 2. Automate PDF Upload to Google Drive & Log to Sheet 'Riwayat Dokumen' (Col A: ID, B: Jenis, C: Tanggal, D: File, E: Oleh, F: Ket)
+  // 2. Automate PDF Upload to Google Drive & Log to Sheet 'Riwayat Dokumen'
   const createdBy = appState.activeUser ? appState.activeUser.name : 'Manajemen';
   const drivePayload = {
     action: 'savePdfToDrive',
@@ -1853,12 +1951,6 @@ function generatePdfDocument() {
     return orderIsoDate >= startDate && orderIsoDate <= endDate;
   });
 
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('Pop-up terblokir oleh browser. Izinkan pop-up untuk mencetak PDF.');
-    return;
-  }
-
   let tableContentHtml = '';
 
   if (docType === 'Rekapitulasi Pemesanan') {
@@ -1902,7 +1994,7 @@ function generatePdfDocument() {
         <tfoot>
           <tr>
             <td colspan="6" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PEMESANAN:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotalOrders)}</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(grandTotalOrders)}</td>
             <td></td>
           </tr>
         </tfoot>
@@ -1964,7 +2056,7 @@ function generatePdfDocument() {
       <title>${docType} - ${vendorName}</title>
       <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
       <style>
-        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; }
+        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; background: #fff; }
         .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
         .doc-title { font-family: 'Martel', serif; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
         .doc-subtitle { font-size: 14px; font-weight: 600; color: #1e3a8a; margin: 0; }
@@ -1985,7 +2077,6 @@ function generatePdfDocument() {
         .summary-card strong { font-family: 'Martel', serif; font-size: 16px; color: #0f172a; }
         @media print {
           body { padding: 0; }
-          .no-print { display: none; }
         }
       </style>
     </head>
@@ -2025,9 +2116,7 @@ function generatePdfDocument() {
     </html>
   `;
 
-  printWindow.document.open();
-  printWindow.document.write(printDocumentHtml);
-  printWindow.document.close();
+  printHtmlContent(printDocumentHtml);
   pdfModal.classList.add('hidden');
 }
 
