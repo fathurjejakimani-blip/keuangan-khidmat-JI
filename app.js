@@ -342,6 +342,7 @@ function applyUserSessionUI() {
     btnOpenPdfModal.classList.add('hidden');
     btnOpenTransferModal.classList.remove('hidden');
     btnOpenTxHistoryModal.classList.remove('hidden');
+    if (btnOpenTopup) btnOpenTopup.classList.remove('hidden');
 
     renderManagementDashboard();
 
@@ -357,6 +358,7 @@ function applyUserSessionUI() {
     btnOpenPdfModal.classList.remove('hidden');
     btnOpenTransferModal.classList.add('hidden');
     btnOpenTxHistoryModal.classList.remove('hidden');
+    if (btnOpenTopup) btnOpenTopup.classList.add('hidden');
 
     calculateVendorEstimates();
     renderOrdersList();
@@ -373,6 +375,7 @@ function applyUserSessionUI() {
     btnOpenPdfModal.classList.add('hidden');
     btnOpenTransferModal.classList.remove('hidden');
     btnOpenTxHistoryModal.classList.remove('hidden');
+    if (btnOpenTopup) btnOpenTopup.classList.add('hidden');
   }
 }
 
@@ -1905,9 +1908,12 @@ function renderGroupedTxHistory() {
     const itemsWrapper = document.createElement('div');
     itemsWrapper.className = 'tx-group-items';
 
+    const showAccountName = appState.activeUser && (appState.activeUser.jenisAkun || '').toLowerCase() === 'manajemen';
+
     group.items.forEach(t => {
       const amountSign = t.isIncome ? '+' : '-';
       const amountClass = t.isIncome ? 'income' : 'expense';
+      const accountSubHtml = showAccountName ? ` <small style="color:#64748b">(${t.akun})</small>` : '';
 
       const card = document.createElement('div');
       card.className = 'tx-card';
@@ -1919,7 +1925,7 @@ function renderGroupedTxHistory() {
             <span class="badge-tx-type ${t.approvalBadgeClass}">${t.statusDisplay}</span>
             <span class="tx-meta">${t.waktu}</span>
           </div>
-          <div class="tx-title">${t.kegiatan || t.kategori} <small style="color:#64748b">(${t.akun})</small></div>
+          <div class="tx-title">${t.kegiatan || t.kategori}${accountSubHtml}</div>
           ${t.rincian ? `<div class="tx-keterangan">${t.rincian}</div>` : ''}
         </div>
         <div class="tx-amount ${amountClass}">${amountSign} ${formatSAR(t.total)}</div>
@@ -3197,4 +3203,13 @@ function formatSAR(num) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(n).replace('SAR', 'SAR ');
+}
+
+// Register PWA Service Worker for "Kas JI"
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('ServiceWorker registered for Kas JI:', reg.scope))
+      .catch(err => console.error('ServiceWorker registration notice:', err));
+  });
 }
