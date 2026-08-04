@@ -196,6 +196,20 @@ function setupEventListeners() {
     });
   }
 
+  const btnAppReload = document.getElementById('btnAppReload');
+  if (btnAppReload) {
+    btnAppReload.addEventListener('click', () => {
+      const icon = btnAppReload.querySelector('i');
+      if (icon) icon.classList.add('spinning');
+      showAutoToast("Memperbarui Data...", "Mengambil data transaksi terbaru dari server");
+      fetchDataFromSpreadsheet().then(() => {
+        setTimeout(() => {
+          if (icon) icon.classList.remove('spinning');
+        }, 600);
+      });
+    });
+  }
+
   if (btnOpenTopup) {
     btnOpenTopup.addEventListener('click', (e) => {
       if (e) e.stopPropagation();
@@ -1613,8 +1627,72 @@ function generateManagementPdfDocument() {
   }).catch(err => console.error('Auto save PDF Drive notice:', err));
 }
 
-// Transfer Modal Handling
+// Transfer Modal Handling with Searchbar Autocomplete & Unregistered Account Warning
 function setupTransferModal() {
+  const receiverInput = document.getElementById('transferReceiverInput');
+  const receiverSugg = document.getElementById('transferReceiverSuggestions');
+
+  const getAvailableAccounts = () => {
+    const activeName = appState.activeUser ? normString(appState.activeUser.name) : '';
+    return appState.accounts.filter(acc => normString(acc.name) !== activeName);
+  };
+
+  const renderReceiverSuggestions = (accList) => {
+    if (!receiverSugg) return;
+
+    if (!accList || accList.length === 0) {
+      receiverSugg.innerHTML = `
+        <div class="suggestion-item" style="color: #ef4444; font-weight: 600; cursor: default;">
+          <i class="fa-solid fa-circle-xmark"></i> Akun tidak terdaftar
+        </div>
+      `;
+      receiverSugg.classList.remove('hidden');
+      return;
+    }
+
+    receiverSugg.innerHTML = '';
+    accList.forEach(acc => {
+      const div = document.createElement('div');
+      div.className = 'suggestion-item';
+      div.innerHTML = `
+        <i class="fa-solid ${acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'vendor' ? 'fa-store' : (acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'manajemen' ? 'fa-user-shield' : 'fa-user-circle')}"></i> 
+        <span>${acc.name} <small style="color:#64748b">(${acc.jenisAkun || 'Tim'})</small></span>
+      `;
+      div.addEventListener('click', () => {
+        if (receiverInput) receiverInput.value = acc.name;
+        receiverSugg.classList.add('hidden');
+      });
+      receiverSugg.appendChild(div);
+    });
+    receiverSugg.classList.remove('hidden');
+  };
+
+  if (receiverInput && receiverSugg) {
+    receiverInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      const avail = getAvailableAccounts();
+
+      if (!query) {
+        renderReceiverSuggestions(avail);
+        return;
+      }
+
+      const filtered = avail.filter(acc => acc.name.toLowerCase().includes(query));
+      renderReceiverSuggestions(filtered);
+    });
+
+    receiverInput.addEventListener('focus', () => {
+      const avail = getAvailableAccounts();
+      renderReceiverSuggestions(avail);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!receiverInput.contains(e.target) && !receiverSugg.contains(e.target)) {
+        receiverSugg.classList.add('hidden');
+      }
+    });
+  }
+
   const openTransferHandler = (e) => {
     if (e) e.stopPropagation();
     closeFabMenu();
@@ -1623,17 +1701,9 @@ function setupTransferModal() {
     transferTujuanInput.value = '';
     transferAmountInput.value = '';
     transferNoteInput.value = '';
+    if (receiverInput) receiverInput.value = '';
+    if (receiverSugg) receiverSugg.classList.add('hidden');
     transferCurrentBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
-
-    transferReceiverSelect.innerHTML = '<option value="">-- Pilih Akun Penerima --</option>';
-    appState.accounts.forEach(acc => {
-      if (normString(acc.name) !== normString(appState.activeUser.name)) {
-        const opt = document.createElement('option');
-        opt.value = acc.name;
-        opt.textContent = `${acc.name} (${acc.jenisAkun || 'Tim'})`;
-        transferReceiverSelect.appendChild(opt);
-      }
-    });
 
     transferModal.classList.remove('hidden');
   };
@@ -1652,15 +1722,30 @@ function setupTransferModal() {
 async function handleTransferSubmit(e) {
   e.preventDefault();
 
-  const receiverName = transferReceiverSelect.value;
+  const receiverInput = document.getElementById('transferReceiverInput');
+  const typedName = receiverInput ? receiverInput.value.trim() : '';
   const amount = parseFloat(transferAmountInput.value);
   const purpose = transferTujuanInput.value.trim();
   const note = transferNoteInput.value.trim();
 
-  if (!receiverName) {
-    alert('Pilih akun penerima transfer.');
+  if (!typedName) {
+    alert('Ketik atau pilih akun penerima transfer.');
     return;
   }
+
+  // Validate if typed account exists in registered accounts list
+  const matchedAcc = appState.accounts.find(a => normString(a.name) === normString(typedName));
+  if (!matchedAcc) {
+    alert(`Akun "${typedName}" tidak terdaftar! Silakan pilih dari daftar akun yang valid.`);
+    return;
+  }
+
+  if (normString(matchedAcc.name) === normString(appState.activeUser.name)) {
+    alert('Anda tidak dapat melakukan transfer ke akun Anda sendiri.');
+    return;
+  }
+
+  const receiverName = matchedAcc.name;
 
   if (isNaN(amount) || amount <= 0) {
     alert('Masukkan nominal transfer yang valid.');
