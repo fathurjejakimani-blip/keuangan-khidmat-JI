@@ -1,6 +1,6 @@
 /**
- * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v9.0
- * 100% Light Theme, Management PDF Generator (7 Document Types), Auto PDF Storage to Google Drive & Sheet 'Riwayat Dokumen'
+ * Keuangan Tim Khidmat & Vendor Management - Frontend Logic v9.2
+ * Bug Fix: Defined missing setupEventListeners() & setupDateFilter(), Scoped Status Tabs, Vendor History Access
  */
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
@@ -170,6 +170,124 @@ document.addEventListener('DOMContentLoaded', async () => {
   await fetchDataFromSpreadsheet();
 });
 
+// Setup Main App Event Listeners
+function setupEventListeners() {
+  const btnLogout = document.getElementById('btnLogout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', (e) => {
+      if (e) e.stopPropagation();
+      logoutAccount();
+    });
+  }
+
+  if (btnOpenExpenseModal) {
+    btnOpenExpenseModal.addEventListener('click', (e) => {
+      if (e) e.stopPropagation();
+      closeFabMenu();
+      resetModalItems();
+      expenseModal.classList.remove('hidden');
+    });
+  }
+
+  if (btnCloseExpenseModal) {
+    btnCloseExpenseModal.addEventListener('click', () => {
+      expenseModal.classList.add('hidden');
+    });
+  }
+
+  if (btnOpenTopup) {
+    btnOpenTopup.addEventListener('click', (e) => {
+      if (e) e.stopPropagation();
+      closeFabMenu();
+      if (!appState.activeUser) return;
+      topupAccountName.textContent = appState.activeUser.name;
+      topupAmountInput.value = '';
+      topupNoteInput.value = '';
+      topupModal.classList.remove('hidden');
+    });
+  }
+
+  if (btnCloseTopup) {
+    btnCloseTopup.addEventListener('click', () => {
+      topupModal.classList.add('hidden');
+    });
+  }
+
+  if (topupForm) {
+    topupForm.addEventListener('submit', handleTopupSubmit);
+  }
+
+  if (btnAddItem) {
+    btnAddItem.addEventListener('click', addItemRow);
+  }
+
+  if (modalBtnAddItem) {
+    modalBtnAddItem.addEventListener('click', addModalItemRow);
+  }
+
+  const expenseForm = document.getElementById('expenseForm');
+  if (expenseForm) {
+    expenseForm.addEventListener('submit', handleFormSubmit);
+  }
+
+  if (modalExpenseForm) {
+    modalExpenseForm.addEventListener('submit', handleModalFormSubmit);
+  }
+
+  if (btnNewTransaction) {
+    btnNewTransaction.addEventListener('click', () => {
+      successOverlay.classList.add('hidden');
+      resetForm();
+    });
+  }
+
+  if (btnShareReceipt) {
+    btnShareReceipt.addEventListener('click', handleShareReceipt);
+  }
+
+  if (kategoriLaporan) {
+    kategoriLaporan.addEventListener('change', (e) => {
+      if (e.target.value === 'Grup Keberangkatan') {
+        grupKeberangkatanWrapper.classList.remove('hidden');
+        namaGrupInput.setAttribute('required', 'required');
+      } else {
+        grupKeberangkatanWrapper.classList.add('hidden');
+        namaGrupInput.removeAttribute('required');
+      }
+    });
+  }
+
+  if (modalKategoriLaporan) {
+    modalKategoriLaporan.addEventListener('change', (e) => {
+      if (e.target.value === 'Grup Keberangkatan') {
+        modalGrupWrapper.classList.remove('hidden');
+        modalNamaGrupInput.setAttribute('required', 'required');
+      } else {
+        modalGrupWrapper.classList.add('hidden');
+        modalNamaGrupInput.removeAttribute('required');
+      }
+    });
+  }
+}
+
+// Vendor Date Filter Setup
+function setupDateFilter() {
+  if (orderDateFilter) {
+    orderDateFilter.addEventListener('change', (e) => {
+      appState.selectedDateFilter = e.target.value;
+      renderOrdersList();
+    });
+  }
+
+  if (btnClearDateFilter) {
+    btnClearDateFilter.addEventListener('click', () => {
+      orderDateFilter.value = '';
+      appState.selectedDateFilter = '';
+      renderOrdersList();
+    });
+  }
+}
+
 // String Normalizer for 100% Reliable Account Name Matching
 function normString(str) {
   if (!str) return '';
@@ -237,7 +355,7 @@ function applyUserSessionUI() {
     btnOpenMgmtPdfModal.classList.add('hidden');
     btnOpenPdfModal.classList.remove('hidden');
     btnOpenTransferModal.classList.add('hidden');
-    btnOpenTxHistoryModal.classList.add('hidden');
+    btnOpenTxHistoryModal.classList.remove('hidden'); // Vendor can also view transaction history!
 
     calculateVendorEstimates();
     renderOrdersList();
@@ -348,6 +466,257 @@ function renderManagementDashboard() {
       vendorBalancesContainer.appendChild(card);
     });
   }
+}
+
+// MANAGEMENT ACTION: APPROVE EXPENSE (Opsi B)
+window.handleApproveExpense = async function(txId) {
+  const tx = appState.transactions.find(t => normId(t.id) === normId(txId));
+  if (!tx) return;
+
+  if (!confirm(`Setujui laporan pengeluaran dari ${tx.akun} sebesar ${formatSAR(tx.total)}? Saldo kas ${tx.akun} akan dipotong.`)) return;
+
+  try {
+    const payload = {
+      action: 'updateExpenseStatus',
+      txId: txId,
+      newStatus: 'Disetujui'
+    };
+
+    tx.status = 'Disetujui';
+
+    const senderAcc = appState.accounts.find(a => normString(a.name) === normString(tx.akun));
+    if (senderAcc) {
+      senderAcc.saldo -= tx.total;
+    }
+
+    renderManagementDashboard();
+    showAutoToast("Pengeluaran Disetujui!", `Saldo ${tx.akun} telah dipotong ${formatSAR(tx.total)}`);
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    setTimeout(fetchDataFromSpreadsheet, 3000);
+
+  } catch (err) {
+    console.error('Approve expense error:', err);
+    alert('Terjadi kesalahan saat menyetujui pengeluaran: ' + err.message);
+  }
+};
+
+// MANAGEMENT ACTION: REJECT EXPENSE
+window.handleRejectExpense = async function(txId) {
+  const tx = appState.transactions.find(t => normId(t.id) === normId(txId));
+  if (!tx) return;
+
+  if (!confirm(`Tolak laporan pengeluaran dari ${tx.akun} sebesar ${formatSAR(tx.total)}?`)) return;
+
+  try {
+    const payload = {
+      action: 'updateExpenseStatus',
+      txId: txId,
+      newStatus: 'Ditolak'
+    };
+
+    tx.status = 'Ditolak';
+
+    renderManagementDashboard();
+    showAutoToast("Pengeluaran Ditolak!", `Laporan pengeluaran dari ${tx.akun} telah ditolak`);
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    setTimeout(fetchDataFromSpreadsheet, 3000);
+
+  } catch (err) {
+    console.error('Reject expense error:', err);
+    alert('Terjadi kesalahan saat menolak pengeluaran: ' + err.message);
+  }
+};
+
+// Auto-closing Toast with Animated Checkmark (2.5 Seconds)
+function showAutoToast(titleText, subtitleText) {
+  toastTitle.textContent = titleText;
+  toastSubtitle.textContent = subtitleText;
+  toastOverlay.classList.remove('hidden');
+
+  setTimeout(() => {
+    toastOverlay.classList.add('hidden');
+  }, 2500);
+}
+
+// Setup Floating Action Button (FAB) Floating Menu
+function setupFabMenu() {
+  const toggleAction = (e) => {
+    e.stopPropagation();
+    const isHidden = fabMenu.classList.contains('hidden');
+    if (isHidden) {
+      fabMenu.classList.remove('hidden');
+      btnToggleFab.classList.add('active');
+    } else {
+      closeFabMenu();
+    }
+  };
+
+  btnToggleFab.addEventListener('click', toggleAction);
+
+  document.addEventListener('click', (e) => {
+    if (!fabContainer.contains(e.target)) {
+      closeFabMenu();
+    }
+  });
+}
+
+function closeFabMenu() {
+  fabMenu.classList.add('hidden');
+  btnToggleFab.classList.remove('active');
+}
+
+// Account Searchbar Autocomplete
+function setupAccountSearchbar() {
+  accountSearchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    appState.selectedAccount = null;
+    appState.enteredPin = '';
+    updatePinDots();
+
+    if (!query) {
+      accountSuggestions.classList.add('hidden');
+      return;
+    }
+
+    const filtered = appState.accounts.filter(acc => acc.name.toLowerCase().includes(query));
+    renderAccountSuggestions(filtered);
+  });
+
+  accountSearchInput.addEventListener('focus', () => {
+    renderAccountSuggestions(appState.accounts);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!accountSearchInput.contains(e.target) && !accountSuggestions.contains(e.target)) {
+      accountSuggestions.classList.add('hidden');
+    }
+  });
+}
+
+function renderAccountSuggestions(accList) {
+  if (!accList || accList.length === 0) {
+    accountSuggestions.classList.add('hidden');
+    return;
+  }
+
+  accountSuggestions.innerHTML = '';
+  accList.forEach(acc => {
+    const div = document.createElement('div');
+    div.className = 'suggestion-item';
+    div.innerHTML = `
+      <i class="fa-solid ${acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'vendor' ? 'fa-store' : (acc.jenisAkun && acc.jenisAkun.toLowerCase() === 'manajemen' ? 'fa-user-shield' : 'fa-user-circle')}"></i> 
+      <span>${acc.name} <small style="color:#64748b">(${acc.jenisAkun || 'Tim'})</small></span>
+    `;
+    div.addEventListener('click', () => {
+      accountSearchInput.value = acc.name;
+      appState.selectedAccount = acc;
+      accountSuggestions.classList.add('hidden');
+      appState.enteredPin = '';
+      updatePinDots();
+    });
+    accountSuggestions.appendChild(div);
+  });
+  accountSuggestions.classList.remove('hidden');
+}
+
+// Ultra Responsive Keypad
+function setupResponsiveKeypad() {
+  const keypadBtns = document.querySelectorAll('.keypad-btn[data-val]');
+  const btnBackspace = document.getElementById('btnKeypadBackspace');
+
+  keypadBtns.forEach(btn => {
+    const handleKeyPress = (e) => {
+      e.preventDefault();
+      btn.classList.add('pressed');
+      setTimeout(() => btn.classList.remove('pressed'), 120);
+
+      if (appState.enteredPin.length < 6) {
+        appState.enteredPin += btn.dataset.val;
+        updatePinDots();
+
+        if (appState.enteredPin.length === 6) {
+          setTimeout(verifyAndLoginAuto, 50);
+        }
+      }
+    };
+
+    btn.addEventListener('pointerdown', handleKeyPress);
+  });
+
+  const handleBackspace = (e) => {
+    e.preventDefault();
+    btnBackspace.classList.add('pressed');
+    setTimeout(() => btnBackspace.classList.remove('pressed'), 120);
+
+    if (appState.enteredPin.length > 0) {
+      appState.enteredPin = appState.enteredPin.slice(0, -1);
+      updatePinDots();
+    }
+  };
+
+  btnBackspace.addEventListener('pointerdown', handleBackspace);
+}
+
+function updatePinDots() {
+  const dots = document.querySelectorAll('.pin-dot');
+  dots.forEach((dot, idx) => {
+    if (idx < appState.enteredPin.length) {
+      dot.classList.add('filled');
+    } else {
+      dot.classList.remove('filled');
+    }
+  });
+}
+
+function verifyAndLoginAuto() {
+  if (!appState.selectedAccount) {
+    const match = appState.accounts.find(a => normString(a.name) === normString(accountSearchInput.value));
+    if (match) {
+      appState.selectedAccount = match;
+    } else {
+      alert('Pilih Akun / Tim yang valid terlebih dahulu.');
+      appState.enteredPin = '';
+      updatePinDots();
+      return;
+    }
+  }
+
+  if (appState.selectedAccount.pin === appState.enteredPin) {
+    appState.activeUser = appState.selectedAccount;
+    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
+    applyUserSessionUI();
+  } else {
+    alert('PIN / Password salah! Silakan coba lagi.');
+    appState.enteredPin = '';
+    updatePinDots();
+  }
+}
+
+function logoutAccount() {
+  appState.activeUser = null;
+  appState.selectedAccount = null;
+  appState.enteredPin = '';
+  accountSearchInput.value = '';
+  localStorage.removeItem('ACTIVE_KHIDMAT_USER');
+  updatePinDots();
+  closeFabMenu();
+  fabContainer.classList.add('hidden');
+  appFormWrapper.classList.add('hidden');
+  authSection.classList.remove('hidden');
 }
 
 // MANAGEMENT PDF EXPORT MODAL SETUP (7 DOCUMENT TYPES)
@@ -1113,22 +1482,564 @@ function generateManagementPdfDocument() {
   }).catch(err => console.error('Auto save PDF Drive notice:', err));
 }
 
-// Vendor Pemesanan System
-function calculateVendorEstimates() {
-  if (!appState.activeUser || !appState.activeUser.jenisAkun || appState.activeUser.jenisAkun.toLowerCase() !== 'vendor') return;
+// Transfer Modal Handling
+function setupTransferModal() {
+  const openTransferHandler = (e) => {
+    if (e) e.stopPropagation();
+    closeFabMenu();
+    if (!appState.activeUser) return;
 
-  const vendorOrders = appState.orders.filter(o => normString(o.akun) === normString(appState.activeUser.name) && o.status === 'Pesanan Baru');
-  const totalEstimate = vendorOrders.reduce((sum, o) => sum + (o.jumlah || 0), 0);
-  estimatesAmountDisplay.textContent = formatSAR(totalEstimate);
+    transferTujuanInput.value = '';
+    transferAmountInput.value = '';
+    transferNoteInput.value = '';
+    transferCurrentBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+
+    transferReceiverSelect.innerHTML = '<option value="">-- Pilih Akun Penerima --</option>';
+    appState.accounts.forEach(acc => {
+      if (normString(acc.name) !== normString(appState.activeUser.name)) {
+        const opt = document.createElement('option');
+        opt.value = acc.name;
+        opt.textContent = `${acc.name} (${acc.jenisAkun || 'Tim'})`;
+        transferReceiverSelect.appendChild(opt);
+      }
+    });
+
+    transferModal.classList.remove('hidden');
+  };
+
+  if (btnOpenTransferModal) btnOpenTransferModal.addEventListener('click', openTransferHandler);
+
+  if (btnCloseTransferModal) {
+    btnCloseTransferModal.addEventListener('click', () => {
+      transferModal.classList.add('hidden');
+    });
+  }
+
+  if (transferForm) transferForm.addEventListener('submit', handleTransferSubmit);
 }
 
+async function handleTransferSubmit(e) {
+  e.preventDefault();
+
+  const receiverName = transferReceiverSelect.value;
+  const amount = parseFloat(transferAmountInput.value);
+  const purpose = transferTujuanInput.value.trim();
+  const note = transferNoteInput.value.trim();
+
+  if (!receiverName) {
+    alert('Pilih akun penerima transfer.');
+    return;
+  }
+
+  if (isNaN(amount) || amount <= 0) {
+    alert('Masukkan nominal transfer yang valid.');
+    return;
+  }
+
+  if (appState.activeUser.saldo < amount) {
+    alert(`Saldo kas Anda (${formatSAR(appState.activeUser.saldo)}) tidak mencukupi untuk transfer sebesar ${formatSAR(amount)}.`);
+    return;
+  }
+
+  btnSubmitTransfer.disabled = true;
+  btnSubmitTransfer.textContent = 'Memproses Transfer...';
+
+  const payload = {
+    action: 'transferBalance',
+    senderAccount: appState.activeUser.name,
+    receiverAccount: receiverName,
+    amount: amount,
+    tujuan: purpose,
+    catatan: note
+  };
+
+  try {
+    appState.activeUser.saldo -= amount;
+    activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+    localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
+
+    const receiverAcc = appState.accounts.find(a => normString(a.name) === normString(receiverName));
+    if (receiverAcc) receiverAcc.saldo += amount;
+
+    transferModal.classList.add('hidden');
+    showAutoToast("Transfer Berhasil!", `Nominal ${formatSAR(amount)} telah dikirim ke ${receiverName}`);
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    setTimeout(fetchDataFromSpreadsheet, 4000);
+
+  } catch (err) {
+    console.error('Transfer error:', err);
+    alert('Terjadi kesalahan saat memproses transfer: ' + err.message);
+  } finally {
+    btnSubmitTransfer.disabled = false;
+    btnSubmitTransfer.textContent = 'Kirim Transfer Sekarang';
+  }
+}
+
+// RIWAYAT TRANSAKSI KAS WITH STATUS BADGES & REVERSE CHRONOLOGICAL SORTING
+function setupTxHistorySection() {
+  if (btnOpenTxHistoryModal) {
+    btnOpenTxHistoryModal.addEventListener('click', (e) => {
+      if (e) e.stopPropagation();
+      closeFabMenu();
+      if (!appState.activeUser) return;
+
+      expenseFormSection.classList.add('hidden');
+      ordersSection.classList.add('hidden');
+      managementSection.classList.add('hidden');
+      txHistorySection.classList.remove('hidden');
+
+      txSearchInput.value = '';
+      txDateFilter.value = '';
+      appState.txSearchQuery = '';
+      appState.txDateFilterVal = '';
+      appState.txTypeFilterVal = 'Semua';
+
+      const typeTabs = document.querySelectorAll('#txHistorySection .tx-type-tabs .tx-tab-btn');
+      typeTabs.forEach(t => t.classList.remove('active'));
+      if (typeTabs[0]) typeTabs[0].classList.add('active');
+
+      renderGroupedTxHistory();
+    });
+  }
+
+  if (btnBackFromHistory) {
+    btnBackFromHistory.addEventListener('click', () => {
+      txHistorySection.classList.add('hidden');
+      applyUserSessionUI();
+    });
+  }
+
+  if (txSearchInput) {
+    txSearchInput.addEventListener('input', (e) => {
+      appState.txSearchQuery = e.target.value.toLowerCase().trim();
+      renderGroupedTxHistory();
+    });
+  }
+
+  if (txDateFilter) {
+    txDateFilter.addEventListener('change', (e) => {
+      appState.txDateFilterVal = e.target.value;
+      renderGroupedTxHistory();
+    });
+  }
+
+  if (btnClearTxDateFilter) {
+    btnClearTxDateFilter.addEventListener('click', () => {
+      txDateFilter.value = '';
+      appState.txDateFilterVal = '';
+      renderGroupedTxHistory();
+    });
+  }
+
+  const typeTabs = document.querySelectorAll('#txHistorySection .tx-type-tabs .tx-tab-btn');
+  typeTabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      typeTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      appState.txTypeFilterVal = tab.dataset.txtype;
+      renderGroupedTxHistory();
+    });
+  });
+}
+
+function renderGroupedTxHistory() {
+  txHistoryContainer.innerHTML = '';
+
+  const activeNorm = appState.activeUser ? normString(appState.activeUser.name) : '';
+  const isMgmt = appState.activeUser && (appState.activeUser.jenisAkun || '').toLowerCase() === 'manajemen';
+
+  let myTxs = appState.transactions.filter(t => {
+    if (isMgmt) {
+      if (appState.txSearchQuery) {
+        const q = appState.txSearchQuery;
+        const matchText = `${t.kegiatan} ${t.kategori} ${t.rincian} ${t.akun}`.toLowerCase();
+        if (!matchText.includes(q)) return false;
+      }
+      if (appState.txDateFilterVal) {
+        const txIsoDate = normalizeDateToISO(t.waktu);
+        if (txIsoDate !== appState.txDateFilterVal) return false;
+      }
+      return true;
+    }
+
+    const isSender = normString(t.akun) === activeNorm;
+    const isReceiver = (t.kegiatan && normString(t.kegiatan).includes('transfer ke ' + activeNorm)) || 
+                       (t.rincian && normString(t.rincian).includes(activeNorm)) ||
+                       (t.namaGrup && normString(t.namaGrup) === activeNorm);
+
+    const accMatch = isSender || isReceiver;
+    if (!accMatch) return false;
+
+    if (appState.txSearchQuery) {
+      const q = appState.txSearchQuery;
+      const matchText = `${t.kegiatan} ${t.kategori} ${t.rincian} ${t.akun}`.toLowerCase();
+      if (!matchText.includes(q)) return false;
+    }
+
+    if (appState.txDateFilterVal) {
+      const txIsoDate = normalizeDateToISO(t.waktu);
+      if (txIsoDate !== appState.txDateFilterVal) return false;
+    }
+
+    return true;
+  });
+
+  const categorizedTxs = myTxs.map(t => {
+    let txTypeLabel = 'Uang Keluar';
+    let txBadgeClass = 'badge-tx-out';
+    let isIncome = false;
+    let categoryGroup = 'Uang Keluar';
+
+    if (t.kategori === 'Isi Saldo' || t.kategori === 'Kas Masuk') {
+      txTypeLabel = 'Uang Masuk';
+      txBadgeClass = 'badge-tx-in';
+      isIncome = true;
+      categoryGroup = 'Uang Masuk';
+    } else if (t.kategori === 'Transfer') {
+      if (normString(t.akun) === activeNorm) {
+        txTypeLabel = 'Transfer Out';
+        txBadgeClass = 'badge-tx-trf';
+        isIncome = false;
+        categoryGroup = 'Transfer';
+      } else {
+        txTypeLabel = 'Uang Masuk (Transfer)';
+        txBadgeClass = 'badge-tx-in';
+        isIncome = true;
+        categoryGroup = 'Uang Masuk';
+      }
+    }
+
+    let approvalBadgeClass = 'badge-status-pending';
+    let statusDisplay = t.status || 'Menunggu Persetujuan';
+    if (statusDisplay === 'Disetujui') approvalBadgeClass = 'badge-status-approved';
+    if (statusDisplay === 'Ditolak') approvalBadgeClass = 'badge-status-rejected';
+
+    return {
+      ...t,
+      txTypeLabel,
+      txBadgeClass,
+      isIncome,
+      categoryGroup,
+      approvalBadgeClass,
+      statusDisplay
+    };
+  });
+
+  let filteredTxs = categorizedTxs;
+  if (appState.txTypeFilterVal !== 'Semua') {
+    filteredTxs = categorizedTxs.filter(t => t.categoryGroup === appState.txTypeFilterVal);
+  }
+
+  if (filteredTxs.length === 0) {
+    txHistoryContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: #64748b; font-size: 13px;">
+        <i class="fa-solid fa-receipt" style="font-size: 32px; margin-bottom: 10px; display: block; color: #cbd5e1;"></i>
+        Tidak ada data riwayat transaksi kas untuk filter ini.
+      </div>
+    `;
+    return;
+  }
+
+  filteredTxs.reverse();
+
+  const groupsByDate = {};
+  filteredTxs.forEach(t => {
+    const isoDate = normalizeDateToISO(t.waktu);
+    if (!groupsByDate[isoDate]) {
+      groupsByDate[isoDate] = {
+        displayDate: formatSaudiDateOnly(t.waktu),
+        items: []
+      };
+    }
+    groupsByDate[isoDate].items.push(t);
+  });
+
+  const sortedDateKeys = Object.keys(groupsByDate).sort().reverse();
+
+  sortedDateKeys.forEach(dateKey => {
+    const group = groupsByDate[dateKey];
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'tx-date-group';
+
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'tx-date-group-header';
+    groupHeader.innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${group.displayDate}`;
+    groupDiv.appendChild(groupHeader);
+
+    const itemsWrapper = document.createElement('div');
+    itemsWrapper.className = 'tx-group-items';
+
+    group.items.forEach(t => {
+      const amountSign = t.isIncome ? '+' : '-';
+      const amountClass = t.isIncome ? 'income' : 'expense';
+
+      const card = document.createElement('div');
+      card.className = 'tx-card';
+
+      card.innerHTML = `
+        <div class="tx-card-left">
+          <div class="tx-badge-row">
+            <span class="badge-tx-type ${t.txBadgeClass}">${t.txTypeLabel}</span>
+            <span class="badge-tx-type ${t.approvalBadgeClass}">${t.statusDisplay}</span>
+            <span class="tx-meta">${t.waktu}</span>
+          </div>
+          <div class="tx-title">${t.kegiatan || t.kategori} <small style="color:#64748b">(${t.akun})</small></div>
+          ${t.rincian ? `<div class="tx-keterangan">${t.rincian}</div>` : ''}
+        </div>
+        <div class="tx-amount ${amountClass}">${amountSign} ${formatSAR(t.total)}</div>
+      `;
+
+      itemsWrapper.appendChild(card);
+    });
+
+    groupDiv.appendChild(itemsWrapper);
+    txHistoryContainer.appendChild(groupDiv);
+  });
+}
+
+// PDF Export Modal Setup
+function setupPdfModal() {
+  if (btnOpenPdfModal) {
+    btnOpenPdfModal.addEventListener('click', (e) => {
+      if (e) e.stopPropagation();
+      closeFabMenu();
+      if (!appState.activeUser) return;
+
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const today = now.toISOString().split('T')[0];
+
+      pdfStartDate.value = firstDay;
+      pdfEndDate.value = today;
+      pdfModal.classList.remove('hidden');
+    });
+  }
+
+  if (btnClosePdfModal) {
+    btnClosePdfModal.addEventListener('click', () => {
+      pdfModal.classList.add('hidden');
+    });
+  }
+
+  if (pdfForm) {
+    pdfForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      generatePdfDocument();
+    });
+  }
+}
+
+// Generate Printable PDF Document Function (With Martel Font for "jejak imani")
+function generatePdfDocument() {
+  const docType = pdfDocType.value;
+  const startDate = pdfStartDate.value;
+  const endDate = pdfEndDate.value;
+  const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
+  const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
+  const generatedDate = new Date().toLocaleString('id-ID');
+
+  const filteredOrders = appState.orders.filter(o => {
+    if (normString(o.akun) !== normString(vendorName)) return false;
+    const orderIsoDate = normalizeDateToISO(o.tanggal);
+    if (!orderIsoDate) return true;
+    return orderIsoDate >= startDate && orderIsoDate <= endDate;
+  });
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Pop-up terblokir oleh browser. Izinkan pop-up untuk mencetak PDF.');
+    return;
+  }
+
+  let tableContentHtml = '';
+
+  if (docType === 'Rekapitulasi Pemesanan') {
+    let grandTotalOrders = 0;
+    const rowsHtml = filteredOrders.map((o, idx) => {
+      grandTotalOrders += o.jumlah || 0;
+      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
+      const productsFormatted = parseMultiItemsText(o.itemProduk, o.qty, o.satuan, o.harga);
+
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td><strong>${o.id}</strong><br><small>${cleanTime}</small></td>
+          <td>${o.grup}</td>
+          <td><strong>${o.tujuan}</strong><br><small>Muthowwif: ${o.muthowwif}</small></td>
+          <td>${o.lokasi}</td>
+          <td>${productsFormatted}</td>
+          <td style="text-align:right;"><strong>${formatSAR(o.jumlah)}</strong></td>
+          <td style="text-align:center;"><span class="badge badge-${o.status.toLowerCase().replace(/\s+/g, '-')}">${o.status}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    tableContentHtml = `
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>ID / Waktu</th>
+            <th>Grup</th>
+            <th>Tujuan Kegiatan</th>
+            <th>Lokasi</th>
+            <th>Item Produk & Qty</th>
+            <th style="text-align:right;">Jumlah (SAR)</th>
+            <th style="text-align:center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding: 20px;">Tidak ada data pemesanan pada periode ini</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="6" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PEMESANAN:</td>
+            <td style="text-align:right; font-weight: bold; font-size: 14px;">${formatSAR(grandTotalOrders)}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
+  } else {
+    let totalUangKeluar = 0;
+    const completedOrders = filteredOrders.filter(o => o.status === 'Selesai');
+    
+    const rowsHtml = completedOrders.map((o, idx) => {
+      totalUangKeluar += o.jumlah || 0;
+      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
+      return `
+        <tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${cleanTime}</td>
+          <td><strong>${o.id}</strong> - ${o.tujuan} (${o.grup})</td>
+          <td>Vendor / Selesai</td>
+          <td style="text-align:right;">-</td>
+          <td style="text-align:right; color:#dc2626;"><strong>${formatSAR(o.jumlah)}</strong></td>
+        </tr>
+      `;
+    }).join('');
+
+    tableContentHtml = `
+      <div class="financial-summary-box">
+        <div class="summary-card">
+          <span>Total Pengeluaran (Selesai):</span>
+          <strong>${formatSAR(totalUangKeluar)}</strong>
+        </div>
+        <div class="summary-card">
+          <span>Sisa Saldo Kas Aktif:</span>
+          <strong>${currentSaldo}</strong>
+        </div>
+      </div>
+
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">No</th>
+            <th>Tanggal & Waktu</th>
+            <th>Keterangan Transaksi</th>
+            <th>Kategori</th>
+            <th style="text-align:right;">Kas Masuk (SAR)</th>
+            <th style="text-align:right;">Kas Keluar (SAR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada transaksi keuangan selesai pada periode ini</td></tr>'}
+        </tbody>
+      </table>
+    `;
+  }
+
+  const printDocumentHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${docType} - ${vendorName}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; }
+        .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
+        .doc-title { font-family: 'Martel', serif; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
+        .doc-subtitle { font-size: 14px; font-weight: 600; color: #1e3a8a; margin: 0; }
+        .doc-subtitle .font-martel { font-family: 'Martel', serif; font-weight: 700; color: #0f172a; }
+        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; font-size: 13px; }
+        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 11px; text-transform: uppercase; }
+        .biodata-item strong { color: #0f172a; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        .report-table th, .report-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+        .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; }
+        .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; }
+        .badge-pesanan-baru { background: #fef3c7; color: #b45309; }
+        .badge-proses { background: #dbeafe; color: #1d4ed8; }
+        .badge-selesai { background: #d1fae5; color: #047857; }
+        .financial-summary-box { display: flex; gap: 15px; margin-bottom: 15px; }
+        .summary-card { flex: 1; background: #f1f5f9; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; }
+        .summary-card span { font-size: 11px; color: #64748b; font-weight: 600; display: block; }
+        .summary-card strong { font-family: 'Martel', serif; font-size: 16px; color: #0f172a; }
+        @media print {
+          body { padding: 0; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="doc-header">
+        <h1 class="doc-title">${docType.toUpperCase()}</h1>
+        <p class="doc-subtitle">Tim Khidmat <span class="font-martel">jejak imani</span> Saudi Arabia</p>
+      </div>
+
+      <div class="biodata-grid">
+        <div class="biodata-item">
+          <span>Nama Vendor / Akun:</span>
+          <strong>${vendorName}</strong>
+        </div>
+        <div class="biodata-item">
+          <span>Periode Dokumen:</span>
+          <strong>${startDate} s/d ${endDate}</strong>
+        </div>
+        <div class="biodata-item">
+          <span>Mata Uang:</span>
+          <strong>SAR (Saudi Riyal)</strong>
+        </div>
+        <div class="biodata-item">
+          <span>Tanggal Cetak:</span>
+          <strong>${generatedDate}</strong>
+        </div>
+      </div>
+
+      ${tableContentHtml}
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(printDocumentHtml);
+  printWindow.document.close();
+  pdfModal.classList.add('hidden');
+}
+
+// Vendor Pemesanan System - Strictly Scoped Status Tabs
 function setupStatusFilterTabs() {
-  const tabs = document.querySelectorAll('.status-filter-tabs .tab-btn');
+  const tabs = document.querySelectorAll('#ordersSection .status-filter-tabs .tab-btn');
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', (e) => {
+      e.stopPropagation();
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      appState.selectedStatusFilter = tab.dataset.status;
+      appState.selectedStatusFilter = tab.dataset.status || 'Pesanan Baru';
       renderOrdersList();
     });
   });
