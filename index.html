@@ -92,10 +92,13 @@
               <span id="activeAccountName">Tim Khidmat Operasional</span>
               <span id="activeAccountType" class="account-type-tag">Tim</span>
             </div>
-            <!-- Tombol Reload Data di Paling Kanan -->
-            <button type="button" id="btnAppReload" class="btn-icon-reload" title="Refresh Data Transaksi">
-              <i class="fa-solid fa-rotate-right"></i>
-            </button>
+            <!-- Tombol Reload Data & Sync Status Badge di Paling Kanan -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="syncStatusBadge" class="sync-status-tag"><i class="fa-solid fa-cloud-check"></i> Terhubung</span>
+              <button type="button" id="btnAppReload" class="btn-icon-reload" title="Refresh Data Transaksi">
+                <i class="fa-solid fa-rotate-right"></i>
+              </button>
+            </div>
           </div>
           
           <div class="balance-metrics">
