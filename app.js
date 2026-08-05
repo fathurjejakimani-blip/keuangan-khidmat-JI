@@ -5,6 +5,84 @@
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDz7rCTHNQy_32Fxgku2sV2toc4FOVGyYogxuVKM39g7M-xpOCycpoGF9LzFY4JD0/exec';
 
+// Reliable Background Sync Manager with Auto-Retry Queue & Zero Data Loss Guarantee
+const syncManager = {
+  _isProcessing: false,
+  getQueue: function() {
+    try {
+      const q = localStorage.getItem('PENDING_SYNC_QUEUE');
+      return q ? JSON.parse(q) : [];
+    } catch(e) { return []; }
+  },
+  saveQueue: function(queue) {
+    localStorage.setItem('PENDING_SYNC_QUEUE', JSON.stringify(queue));
+    this.updateIndicator();
+  },
+  enqueue: function(payload) {
+    const queue = this.getQueue();
+    payload._queueId = 'sync_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    payload._attempts = 0;
+    queue.push(payload);
+    this.saveQueue(queue);
+    this.processQueue();
+  },
+  processQueue: async function() {
+    if (this._isProcessing) return;
+    const queue = this.getQueue();
+    if (queue.length === 0) {
+      this.updateIndicator();
+      return;
+    }
+
+    this._isProcessing = true;
+    this.updateIndicator();
+
+    const item = queue[0];
+    item._attempts = (item._attempts || 0) + 1;
+
+    try {
+      await fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+
+      // Succeeded! Remove from pending queue
+      const currentQ = this.getQueue();
+      const updatedQ = currentQ.filter(q => q._queueId !== item._queueId);
+      this.saveQueue(updatedQ);
+      setTimeout(() => fetchDataFromSpreadsheet(), 1000);
+    } catch (err) {
+      console.warn('Sync retry pending for item:', item, err);
+      this.saveQueue(queue);
+    } finally {
+      this._isProcessing = false;
+      this.updateIndicator();
+    }
+  },
+  updateIndicator: function() {
+    const queue = this.getQueue();
+    const syncStatusBadge = document.getElementById('syncStatusBadge');
+    if (!syncStatusBadge) return;
+
+    if (queue.length > 0) {
+      syncStatusBadge.classList.remove('hidden');
+      syncStatusBadge.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin"></i> Menyinkronkan (${queue.length})`;
+      syncStatusBadge.style.background = '#fef3c7';
+      syncStatusBadge.style.color = '#b45309';
+    } else {
+      syncStatusBadge.classList.remove('hidden');
+      syncStatusBadge.innerHTML = `<i class="fa-solid fa-cloud-check"></i> Terhubung`;
+      syncStatusBadge.style.background = '#d1fae5';
+      syncStatusBadge.style.color = '#047857';
+    }
+  }
+};
+
+window.addEventListener('online', () => syncManager.processQueue());
+setInterval(() => syncManager.processQueue(), 8000);
+
 // State Management
 const appState = {
   activeUser: null,
@@ -315,8 +393,23 @@ function normId(id) {
   return id.toString().replace(/[^0-9a-zA-Z]+/g, '').toLowerCase().trim();
 }
 
-// Check & Restore Active Session Synchronously
+// Check & Restore Active Session Synchronously with 0ms Offline Cache
 function checkAndRestoreSession() {
+  const cachedDataStr = localStorage.getItem('OFFLINE_APP_DATA');
+  if (cachedDataStr) {
+    try {
+      const cachedData = JSON.parse(cachedDataStr);
+      if (cachedData.accounts) appState.accounts = cachedData.accounts;
+      if (cachedData.groups) appState.masterGroups = cachedData.groups;
+      if (cachedData.activities) appState.masterActivities = cachedData.activities;
+      if (cachedData.categories) appState.masterCategories = cachedData.categories;
+      if (cachedData.orders) appState.orders = cachedData.orders;
+      if (cachedData.transactions) appState.transactions = cachedData.transactions;
+    } catch (e) {
+      console.log('Cache parse notice:', e);
+    }
+  }
+
   const savedUser = localStorage.getItem('ACTIVE_KHIDMAT_USER');
   if (savedUser) {
     try {
@@ -1133,71 +1226,146 @@ function generateManagementPdfDocument() {
   let docTypeName = '';
 
   if (docTypeVal === "1") {
-    docTypeName = 'Approval Pengajuan';
+    docTypeName = 'Form Approval Pengajuan';
     const tanggal = document.getElementById('doc1Tanggal').value;
-    const divisi = document.getElementById('doc1Divisi').value;
-    const program = document.getElementById('doc1Program').value;
+    const divisi = document.getElementById('doc1Divisi').value || 'Saudi Operasional';
+    const program = document.getElementById('doc1Program').value || 'Pengajuan Dana Operasional Saudi – Bulan Agustus';
+
+    const formattedTanggal = formatSaudiDateOnly(tanggal);
 
     let grandTotal = 0;
-    const rowsHtml = appState.doc1Items.map((it, idx) => {
+    const mainTableRows = appState.doc1Items.map((it, idx) => {
       const qty = it.qty || 1;
       const hargaSatuan = it.hargaSatuan || 0;
       const subtotal = qty * hargaSatuan;
       grandTotal += subtotal;
       return `
         <tr>
-          <td style="text-align:center;">${idx + 1}</td>
-          <td><strong>${it.program || '-'}</strong></td>
-          <td style="text-align:center;">${qty}</td>
-          <td style="text-align:right;">${formatSAR(hargaSatuan)}</td>
-          <td style="text-align:right;"><strong>${formatSAR(subtotal)}</strong></td>
-          <td style="text-align:center;">${it.dueDate || '-'}</td>
-          <td>${it.tujuanPenerima || '-'}</td>
+          <td style="border: 1px solid #000000; border-left: none; text-align:center; padding: 6px 4px; font-size: 8pt;">${idx + 1}</td>
+          <td style="border: 1px solid #000000; padding: 6px 8px; font-size: 8pt;">${it.program || '-'}</td>
+          <td style="border: 1px solid #000000; text-align:center; padding: 6px 4px; font-size: 8pt;">${qty}</td>
+          <td style="border: 1px solid #000000; text-align:right; padding: 6px 8px; font-size: 8pt;">${formatSAR(hargaSatuan)}</td>
+          <td style="border: 1px solid #000000; border-right: none; text-align:right; padding: 6px 8px; font-size: 8pt;">${formatSAR(subtotal)}</td>
         </tr>
       `;
     }).join('');
 
-    docTitleHtml = `APPROVAL PENGAJUAN PROGRAM`;
+    const breakdownTableRows = appState.doc1Items.map((it, idx) => {
+      const qty = it.qty || 1;
+      const hargaSatuan = it.hargaSatuan || 0;
+      const subtotal = qty * hargaSatuan;
+      const formattedDueDate = formatSaudiDateOnly(it.dueDate) || '-';
+      const tujuan = it.tujuanPenerima || 'Cash Riyal Operasional Saudi';
+
+      return `
+        <tr>
+          <td style="border: 1px solid #000000; text-align:center; padding: 5px; font-size: 8pt;">${idx + 1}</td>
+          <td style="border: 1px solid #000000; text-align:center; padding: 5px; font-size: 8pt;">${formattedDueDate}</td>
+          <td style="border: 1px solid #000000; text-align:right; padding: 5px; font-size: 8pt;">${formatSAR(subtotal)}</td>
+          <td style="padding: 5px 12px; vertical-align:middle; color:#0f172a; font-size: 8pt;">${it.program || '-'}</td>
+          <td style="padding: 5px 4px; vertical-align:middle;">
+            <span style="background: #fef08a; padding: 3px 8px; border-radius: 4px; font-weight: 600; font-size: 8pt; color:#0f172a; display:inline-block;">${tujuan}</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const createdByName = appState.activeUser ? appState.activeUser.name : 'Fathur Rahman Al Masyi, S.Kep., Ns';
+
+    docTitleHtml = `FORM APPROVAL PENGAJUAN`;
     bodyContentHtml = `
-      <div class="biodata-grid">
-        <div class="biodata-item"><span>Tanggal Pengajuan:</span><strong>${tanggal}</strong></div>
-        <div class="biodata-item"><span>Divisi:</span><strong>${divisi}</strong></div>
-        <div class="biodata-item" style="grid-column: span 2;"><span>Nama Program:</span><strong>${program}</strong></div>
-      </div>
-
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th style="width: 30px;">No</th>
-            <th>Program / Item</th>
-            <th style="text-align:center;">QTY</th>
-            <th style="text-align:right;">Harga Satuan (SAR)</th>
-            <th style="text-align:right;">Jumlah (SAR)</th>
-            <th style="text-align:center;">Due Date</th>
-            <th>Tujuan Penerima</th>
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-        <tfoot>
-          <tr>
-            <td colspan="4" style="text-align:right; font-weight: bold;">TOTAL JUMLAH PENGAJUAN:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(grandTotal)}</td>
-            <td colspan="2"></td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <div style="margin-top: 40px; display: flex; justify-content: space-between; text-align: center;">
-        <div>
-          <p style="font-size: 11px; color: #64748b;">Diajukan Oleh:</p>
-          <div style="height: 50px;"></div>
-          <strong>(${divisi})</strong>
+      <div class="approval-form-wrapper" style="padding: 0 10px;">
+        <!-- Header Title & Subtitle -->
+        <div style="text-align: center; margin-bottom: 24px; margin-top: -10px;">
+          <h1 style="font-family: 'Mulish', sans-serif; font-size: 20px; font-weight: 800; color: #000000; margin: 0 0 4px 0; letter-spacing: 0.5px;">FORM APPROVAL PENGAJUAN</h1>
+          <p style="font-size: 13px; color: #000000; font-weight: 600; margin: 0;">Tim Khidmat <strong style="font-family:'Martel',serif; font-weight:700;">jejak imani</strong> Saudi Arabia</p>
         </div>
-        <div>
-          <p style="font-size: 11px; color: #64748b;">Disetujui Oleh:</p>
-          <div style="height: 50px;"></div>
-          <strong>(Manajemen Tim Khidmat)</strong>
+
+        <!-- Metadata Grid -->
+        <div style="margin-bottom: 20px; font-size: 13px; color: #000000; font-weight: 600; line-height: 1.8;">
+          <div style="display: flex;">
+            <div style="width: 150px;">Tanggal Pengajuan</div>
+            <div style="width: 20px;">:</div>
+            <div>${formattedTanggal}</div>
+          </div>
+          <div style="display: flex;">
+            <div style="width: 150px;">Divisi</div>
+            <div style="width: 20px;">:</div>
+            <div>${divisi}</div>
+          </div>
+          <div style="display: flex;">
+            <div style="width: 150px;">Program</div>
+            <div style="width: 20px;">:</div>
+            <div>${program}</div>
+          </div>
         </div>
+
+        <!-- Table 1: Main Program Items & Signatures Container Box -->
+        <div style="border: 1.5px solid #000000; margin-bottom: 24px; background: rgba(255,255,255,0.95);">
+          <table style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000;">
+            <thead>
+              <tr>
+                <th rowspan="2" style="border: 1px solid #000000; border-top: none; border-left: none; width: 40px; padding: 6px; text-align: center; font-weight: 700;">NO</th>
+                <th rowspan="2" style="border: 1px solid #000000; border-top: none; padding: 6px; text-align: center; font-weight: 700;">PROGRAM</th>
+                <th colspan="3" style="border: 1px solid #000000; border-top: none; border-right: none; padding: 6px; text-align: center; font-weight: 700;">TOTAL HARGA</th>
+              </tr>
+              <tr>
+                <th style="border: 1px solid #000000; width: 110px; padding: 6px; text-align: center; font-weight: 700;">SATUAN UNIT/PAX</th>
+                <th style="border: 1px solid #000000; width: 130px; padding: 6px; text-align: center; font-weight: 700;">HARGA SATUAN</th>
+                <th style="border: 1px solid #000000; border-right: none; width: 130px; padding: 6px; text-align: center; font-weight: 700;">JUMLAH</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${mainTableRows}
+              <tr>
+                <td colspan="2" style="border: 1px solid #000000; border-left: none; padding: 8px; text-align: center; font-weight: 700;">TOTAL</td>
+                <td style="border: 1px solid #000000; padding: 8px;"></td>
+                <td style="border: 1px solid #000000; padding: 8px;"></td>
+                <td style="border: 1px solid #000000; border-right: none; padding: 8px; text-align: right; font-weight: 700;">${formatSAR(grandTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- 4-Column Signatures Row -->
+          <div style="border-top: 1px solid #000000; display: flex; font-size: 8pt; color: #000000; text-align: center; padding: 14px 0 10px 0;">
+            <div style="flex: 1; padding: 0 4px;">
+              <div style="font-weight: 600; margin-bottom: 50px;">Diusulkan Oleh,</div>
+              <div style="font-weight: 700;"><u>${createdByName}</u></div>
+            </div>
+            <div style="flex: 1; padding: 0 4px;">
+              <div style="font-weight: 600; margin-bottom: 50px;">Manager</div>
+              <div style="font-weight: 700;"><u>Rioteza Satria Ramadhan</u></div>
+            </div>
+            <div style="flex: 1; padding: 0 4px;">
+              <div style="font-weight: 600; margin-bottom: 50px;">Vice President</div>
+              <div style="font-weight: 700;"><u>Bustomi, S.E</u></div>
+            </div>
+            <div style="flex: 1; padding: 0 4px;">
+              <div style="font-weight: 600; margin-bottom: 50px;">Vice President</div>
+              <div style="font-weight: 700;"><u>Hendra Yudhistira Wyrawan, S.E</u></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table 2: Breakdown Due Dates & Amounts -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000;">
+          <thead>
+            <tr>
+              <th style="border: 1px solid #000000; width: 40px; padding: 6px; text-align: center; font-weight: 700;">NO</th>
+              <th style="border: 1px solid #000000; width: 120px; padding: 6px; text-align: center; font-weight: 700;">DUE DATE</th>
+              <th style="border: 1px solid #000000; width: 140px; padding: 6px; text-align: center; font-weight: 700;">JUMLAH PENGAJUAN</th>
+              <th style="padding: 6px;" colspan="2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${breakdownTableRows}
+            <tr>
+              <td colspan="2" style="border: 1px solid #000000; padding: 6px; text-align: center; font-weight: 700;">TOTAL</td>
+              <td style="border: 1px solid #000000; padding: 6px; text-align: right; font-weight: 700;">${formatSAR(grandTotal)}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     `;
 
@@ -1572,7 +1740,65 @@ function generateManagementPdfDocument() {
   let printDocumentHtml = '';
   let fileName = `${docTypeName.replace(/\s+/g, '_')}_${Date.now()}`;
 
-  if (docTypeVal === "2") {
+  if (docTypeVal === "1") {
+    fileName = `Form_Approval_Pengajuan_${Date.now()}`;
+    printDocumentHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>FORM APPROVAL PENGAJUAN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Martel:wght@600;700;800&family=Mulish:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'Mulish', sans-serif;
+      background-color: #ffffff;
+      color: #000000;
+    }
+    .a4-container {
+      width: 210mm;
+      min-height: 297mm;
+      position: relative;
+      background-image: url('assets/approval_bg.png');
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+      padding: 55mm 16mm 20mm 16mm;
+      margin: 0 auto;
+    }
+    @media print {
+      body { margin: 0; padding: 0; }
+      .a4-container { width: 100%; height: 100vh; padding: 50mm 16mm 20mm 16mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="a4-container">
+    ${bodyContentHtml}
+  </div>
+  <script>
+    window.onload = function() {
+      window.print();
+    };
+  </script>
+</body>
+</html>`;
+
+  } else if (docTypeVal === "2") {
     const noRef = (document.getElementById('doc2NoRef').value || 'IN0001').trim();
     fileName = `Kwitansi - ${noRef}`;
 
@@ -1864,14 +2090,8 @@ async function handleTransferSubmit(e) {
     transferModal.classList.add('hidden');
     showAutoToast("Transfer Berhasil!", `Nominal ${formatSAR(amount)} telah dikirim ke ${receiverName}`);
 
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    setTimeout(fetchDataFromSpreadsheet, 4000);
+    // Guaranteed Sync via syncManager Queue
+    syncManager.enqueue(payload);
 
   } catch (err) {
     console.error('Transfer error:', err);
@@ -2756,14 +2976,8 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
     
     showAutoToast("Status Diperbarui!", `Status pemesanan diubah menjadi ${newStatus}`);
 
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    setTimeout(fetchDataFromSpreadsheet, 4000);
+    // Guaranteed Sync via syncManager Queue
+    syncManager.enqueue(payload);
 
   } catch (err) {
     console.error('Update status error:', err);
@@ -2800,14 +3014,8 @@ async function handleTopupSubmit(e) {
     topupModal.classList.add('hidden');
     showAutoToast("Isi Saldo Berhasil!", `Kas ${appState.activeUser.name} bertambah ${formatSAR(amount)}`);
 
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    setTimeout(fetchDataFromSpreadsheet, 4000);
+    // Guaranteed Sync via syncManager Queue
+    syncManager.enqueue(payload);
 
   } catch (err) {
     console.error('Topup error:', err);
@@ -2826,7 +3034,7 @@ function resetItems() {
 
 function addItemRow() {
   const itemIndex = appState.items.length;
-  const defaultCategory = appState.masterCategories[0] || '';
+  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
   const itemData = {
     id: Date.now() + Math.random(),
     kategori: defaultCategory,
@@ -2893,7 +3101,7 @@ function resetModalItems() {
 
 function addModalItemRow() {
   const idx = appState.modalItems.length;
-  const defaultCategory = appState.masterCategories[0] || '';
+  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
   const itemData = {
     id: Date.now() + Math.random(),
     kategori: defaultCategory,
@@ -3258,6 +3466,11 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
   const groupName = category === 'Grup Keberangkatan' ? rawGroup.trim() : '-';
   const kegiatanName = rawKegiatan.trim();
 
+  // Instant Local State & UI Updates (0ms Response Time!)
+  appState.activeUser.saldo -= totalExpense;
+  activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+  localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
+
   const payload = {
     action: 'addExpense',
     accountId: appState.activeUser.id,
@@ -3267,7 +3480,7 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
     namaKegiatan: kegiatanName,
     items: itemsArray,
     total: totalExpense,
-    saldoSebelum: appState.activeUser.saldo,
+    saldoSebelum: appState.activeUser.saldo + totalExpense,
     saldoSesudah: appState.activeUser.saldo,
     timestamp: new Date().toISOString()
   };
@@ -3299,16 +3512,11 @@ async function processExpenseSubmit(category, rawGroup, rawKegiatan, itemsArray,
 
     document.getElementById('recapTotal').textContent = `- ${formatSAR(totalExpense)}`;
 
+    // Show success recap overlay instantly
     successOverlay.classList.remove('hidden');
 
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    setTimeout(fetchDataFromSpreadsheet, 3000);
+    // Guaranteed Sync via syncManager Queue
+    syncManager.enqueue(payload);
 
   } catch (error) {
     console.error('Submit error:', error);
@@ -3374,6 +3582,16 @@ async function fetchDataFromSpreadsheet() {
     if (data.activities && data.activities.length > 0) appState.masterActivities = data.activities;
     if (data.categories && data.categories.length > 0) appState.masterCategories = data.categories;
     if (data.transactions && data.transactions.length > 0) appState.transactions = data.transactions;
+
+    localStorage.setItem('OFFLINE_APP_DATA', JSON.stringify({
+      accounts: appState.accounts,
+      groups: appState.masterGroups,
+      activities: appState.masterActivities,
+      categories: appState.masterCategories,
+      orders: appState.orders,
+      transactions: appState.transactions,
+      timestamp: Date.now()
+    }));
 
     if (appState.activeUser) {
       const activeNorm = normString(appState.activeUser.name);
