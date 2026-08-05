@@ -2826,7 +2826,7 @@ function resetItems() {
 
 function addItemRow() {
   const itemIndex = appState.items.length;
-  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
+  const defaultCategory = appState.masterCategories[0] || '';
   const itemData = {
     id: Date.now() + Math.random(),
     kategori: defaultCategory,
@@ -2893,7 +2893,7 @@ function resetModalItems() {
 
 function addModalItemRow() {
   const idx = appState.modalItems.length;
-  const defaultCategory = appState.masterCategories[0] || 'Konsumsi';
+  const defaultCategory = appState.masterCategories[0] || '';
   const itemData = {
     id: Date.now() + Math.random(),
     kategori: defaultCategory,
