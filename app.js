@@ -1212,11 +1212,12 @@ function generateManagementPdfDocument() {
 
     const formattedTanggal = formatSaudiDateOnly(tanggal);
     const formattedNominal = formatSAR(nominal);
+    const terbilangText = terbilangRiyal(nominal);
 
     docTitleHtml = `KWITANSI PEMBAYARAN`;
     bodyContentHtml = `
-      <div class="kwitansi-card" style="background:#fff; border: 2.5px solid #0f172a; border-radius: 18px; padding: 32px 38px; box-shadow: 0 10px 25px rgba(15,23,42,0.05);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+      <div class="kwitansi-content" style="padding: 10px 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px;">
           <div>
             <h1 style="font-family:'Martel',serif; font-size: 28px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0;">KWITANSI</h1>
             <p style="font-size: 14px; color: #1e293b; margin: 0;">Tim Khidmat <strong style="font-family:'Martel',serif; color:#0f172a;">jejak imani</strong> Saudi Arabia</p>
@@ -1228,28 +1229,28 @@ function generateManagementPdfDocument() {
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 40px;">
           <tr>
-            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Tanggal</td>
-            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
-            <td style="font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">${formattedTanggal}</td>
+            <td style="width: 120px; font-weight: 600; padding: 8px 0; font-size: 14px; color: #0f172a;">Tanggal</td>
+            <td style="width: 24px; font-weight: 700; padding: 8px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-weight: 600; padding: 8px 0; font-size: 14px; color: #0f172a;">${formattedTanggal}</td>
           </tr>
           <tr>
-            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Nominal</td>
-            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
-            <td style="font-family:'Martel',serif; font-weight: 800; font-size: 15px; padding: 6px 0; color: #0f172a;">${formattedNominal}</td>
+            <td style="width: 120px; font-weight: 600; padding: 8px 0; font-size: 14px; color: #0f172a;">Nominal</td>
+            <td style="width: 24px; font-weight: 700; padding: 8px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-family:'Martel',serif; font-weight: 800; font-size: 15px; padding: 8px 0; color: #0f172a;">${formattedNominal}</td>
           </tr>
           <tr>
-            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Terbilang</td>
-            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
-            <td style="font-family:'Martel',serif; font-weight: 800; font-size: 15px; padding: 6px 0; color: #0f172a;">${formattedNominal}</td>
+            <td style="width: 120px; font-weight: 600; padding: 8px 0; font-size: 14px; color: #0f172a;">Terbilang</td>
+            <td style="width: 24px; font-weight: 700; padding: 8px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-weight: 700; font-size: 14px; padding: 8px 0; color: #0f172a; font-style: italic;">${terbilangText}</td>
           </tr>
           <tr>
-            <td style="width: 120px; font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">Keterangan</td>
-            <td style="width: 24px; font-weight: 700; padding: 6px 0; font-size: 14px; color: #0f172a;">:</td>
-            <td style="font-weight: 600; padding: 6px 0; font-size: 14px; color: #0f172a;">${keterangan}</td>
+            <td style="width: 120px; font-weight: 600; padding: 8px 0; font-size: 14px; color: #0f172a;">Keterangan</td>
+            <td style="width: 24px; font-weight: 700; padding: 8px 0; font-size: 14px; color: #0f172a;">:</td>
+            <td style="font-weight: 600; padding: 8px 0; font-size: 14px; color: #0f172a;">${keterangan}</td>
           </tr>
         </table>
 
-        <div style="display: flex; justify-content: space-around; align-items: center; margin-top: 30px;">
+        <div style="display: flex; justify-content: space-around; align-items: center; margin-top: 40px;">
           <div style="text-align: center; min-width: 200px;">
             <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 64px;">Diserahkan Oleh</div>
             <div style="font-size: 14px; font-weight: 700; color: #0f172a;">${pengirim}</div>
@@ -2634,6 +2635,31 @@ function formatSaudiDateOnly(rawDateStr) {
     }
   }
   return rawDateStr || '-';
+}
+
+// Helper: Convert Numeric Amount to Indonesian Words + "Saudi Riyal"
+function terbilangRiyal(nominal) {
+  const num = Math.floor(Math.abs(parseFloat(nominal) || 0));
+  if (num === 0) return "Nol Saudi Riyal";
+
+  const angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+
+  function convert(n) {
+    if (n < 12) return angka[n];
+    if (n < 20) return convert(n - 10) + " Belas";
+    if (n < 100) return convert(Math.floor(n / 10)) + " Puluh " + convert(n % 10);
+    if (n < 200) return "Seratus " + convert(n % 100);
+    if (n < 1000) return convert(Math.floor(n / 100)) + " Ratus " + convert(n % 100);
+    if (n < 2000) return "Seribu " + convert(n % 1000);
+    if (n < 1000000) return convert(Math.floor(n / 1000)) + " Ribu " + convert(n % 1000);
+    if (n < 1000000000) return convert(Math.floor(n / 1000000)) + " Juta " + convert(n % 1000000);
+    if (n < 1000000000000) return convert(Math.floor(n / 1000000000)) + " Miliar " + convert(n % 1000000000);
+    return "";
+  }
+
+  let result = convert(num).replace(/\s+/g, " ").trim();
+  result = result.replace(/^Satu Ratus/g, "Seratus").replace(/\sSatu Ratus/g, " Seratus");
+  return result + " Saudi Riyal";
 }
 
 function formatSaudiDateTime(dateStr, timeStr) {
