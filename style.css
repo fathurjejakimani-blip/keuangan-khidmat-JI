@@ -367,13 +367,27 @@ input, select, textarea, button {
 }
 
 .account-type-tag {
-  background-color: rgba(245, 158, 11, 0.15);
-  color: var(--gold-primary);
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--gold-light);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(212, 175, 55, 0.3);
   text-transform: uppercase;
+}
+
+.sync-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #d1fae5;
+  color: #047857;
+  transition: all 0.2s ease;
 }
 
 .balance-metrics {
