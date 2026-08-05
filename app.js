@@ -1484,105 +1484,93 @@ function generateManagementPdfDocument() {
 
   } else if (docTypeVal === "4") {
     docTypeName = 'Laporan Pengeluaran Grup';
-    const selectedGroup = document.getElementById('doc4GrupInput').value.trim();
+    const selectedGroup = (document.getElementById('doc4GrupInput').value || 'Grup').trim();
     const groupTxs = appState.transactions.filter(t => normString(t.grup) === normString(selectedGroup));
 
-    const categories = {
-      'Operasional Jeddah': [],
-      'Operasional Madinah': [],
-      'Operasional Makkah': [],
-      'Pemesanan Vendor': [],
-      'Lainnya': []
-    };
-
+    // Extract all items individually (dipisah per baris masing-masing item)
+    let allGroupItems = [];
     groupTxs.forEach(t => {
-      const keg = (t.kegiatan || '').toLowerCase();
-      const kat = (t.kategori || '').toLowerCase();
-      if (keg.includes('jeddah')) categories['Operasional Jeddah'].push(t);
-      else if (keg.includes('madinah')) categories['Operasional Madinah'].push(t);
-      else if (keg.includes('makkah') || keg.includes('mecca')) categories['Operasional Makkah'].push(t);
-      else if (kat.includes('vendor')) categories['Pemesanan Vendor'].push(t);
-      else categories['Lainnya'].push(t);
-    });
-
-    let overallGrandTotal = 0;
-    let summaryRowsHtml = '';
-    let categoryTablesHtml = '';
-
-    Object.keys(categories).forEach((catName, idx) => {
-      const txs = categories[catName];
-      const catTotal = txs.reduce((sum, t) => sum + t.total, 0);
-      overallGrandTotal += catTotal;
-
-      summaryRowsHtml += `
-        <tr>
-          <td style="text-align:center;">${idx + 1}</td>
-          <td><strong>${catName}</strong></td>
-          <td style="text-align:center;">${txs.length} Transaksi</td>
-          <td style="text-align:right;"><strong>${formatSAR(catTotal)}</strong></td>
-        </tr>
-      `;
-
-      if (txs.length > 0) {
-        const itemRows = txs.map((t, i) => `
-          <tr>
-            <td style="text-align:center;">${i + 1}</td>
-            <td>${t.waktu}</td>
-            <td>${t.kegiatan} (${t.akun})</td>
-            <td>${t.rincian || '-'}</td>
-            <td style="text-align:right;"><strong>${formatSAR(t.total)}</strong></td>
-          </tr>
-        `).join('');
-
-        categoryTablesHtml += `
-          <div style="margin-top: 24px;">
-            <h3 style="font-size: 13px; font-weight:700; color:#0f172a; margin-bottom: 6px; border-bottom: 2px solid #0f172a; padding-bottom: 4px;">
-              ${idx + 1}. ${catName.toUpperCase()} (Total: ${formatSAR(catTotal)})
-            </h3>
-            <table class="report-table">
-              <thead>
-                <tr>
-                  <th style="width:30px;">No</th>
-                  <th>Waktu</th>
-                  <th>Nama Kegiatan</th>
-                  <th>Rincian Item</th>
-                  <th style="text-align:right;">Jumlah (SAR)</th>
-                </tr>
-              </thead>
-              <tbody>${itemRows}</tbody>
-            </table>
-          </div>
-        `;
+      if (t.rincian && typeof t.rincian === 'string' && t.rincian.includes('\n')) {
+        const lines = t.rincian.split(/\r?\n/).map(s => s.trim()).filter(s => s.length > 0);
+        lines.forEach(line => {
+          const match = line.match(/^(.*?)\s*\((\d+)\s*x\s*SAR\s*([\d\.,]+)\)/i);
+          if (match) {
+            const namaItem = match[1].replace(/^[•\-\*]\s*/, '').trim();
+            const q = parseInt(match[2], 10) || 1;
+            const h = parseFloat(match[3].replace(/,/g, '')) || 0;
+            allGroupItems.push({
+              rincian: `${namaItem} (${t.kegiatan})`,
+              qty: q,
+              hargaSatuan: h,
+              jumlah: q * h
+            });
+          } else {
+            allGroupItems.push({
+              rincian: `${line.replace(/^[•\-\*]\s*/, '')} (${t.kegiatan})`,
+              qty: 1,
+              hargaSatuan: t.total / lines.length,
+              jumlah: t.total / lines.length
+            });
+          }
+        });
+      } else {
+        allGroupItems.push({
+          rincian: `${t.kegiatan}${t.rincian ? ' - ' + t.rincian : ''} (${t.akun || 'Tim'})`,
+          qty: 1,
+          hargaSatuan: t.total,
+          jumlah: t.total
+        });
       }
     });
 
+    let overallGrandTotal = 0;
+    const rowsHtml = allGroupItems.map((item, idx) => {
+      overallGrandTotal += item.jumlah;
+      return `
+        <tr>
+          <td style="border: 1px solid #000000; text-align:center; padding: 6px 4px; font-size: 8pt;">${idx + 1}</td>
+          <td style="border: 1px solid #000000; padding: 6px 8px; font-size: 8pt;">${item.rincian}</td>
+          <td style="border: 1px solid #000000; text-align:center; padding: 6px 4px; font-size: 8pt;">${item.qty}</td>
+          <td style="border: 1px solid #000000; text-align:right; padding: 6px 8px; font-size: 8pt;">${formatSAR(item.hargaSatuan)}</td>
+          <td style="border: 1px solid #000000; text-align:right; padding: 6px 8px; font-size: 8pt; font-weight:600;">${formatSAR(item.jumlah)}</td>
+        </tr>
+      `;
+    }).join('');
+
     docTitleHtml = `LAPORAN PENGELUARAN GRUP: ${selectedGroup.toUpperCase()}`;
     bodyContentHtml = `
-      <div class="biodata-grid">
-        <div class="biodata-item"><span>Nama Grup Keberangkatan:</span><strong>${selectedGroup}</strong></div>
-        <div class="biodata-item"><span>Total Pengeluaran Grup:</span><strong style="color:#d97706; font-size:14px;">${formatSAR(overallGrandTotal)}</strong></div>
+      <div style="padding: 0 10px;">
+        <div style="text-align: center; margin-bottom: 20px; margin-top: -10px;">
+          <h1 style="font-family: 'Martel', serif; font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; text-transform: uppercase;">LAPORAN PENGELUARAN GRUP</h1>
+          <p style="font-size: 13px; color: #1e293b; font-weight: 600; margin: 0;">Tim Khidmat <strong style="font-family:'Martel',serif; font-weight:700;">jejak imani</strong> Saudi Arabia</p>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; background: rgba(248, 250, 252, 0.9); padding: 10px 14px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 16px; font-size: 8pt;">
+          <div><span style="color:#64748b; font-weight:600;">Nama Grup Keberangkatan:</span> <strong style="color:#0f172a;">${selectedGroup}</strong></div>
+          <div><span style="color:#64748b; font-weight:600;">Total Pengeluaran Grup:</span> <strong style="color:#d97706; font-size:9pt;">${formatSAR(overallGrandTotal)}</strong></div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000;">
+          <thead>
+            <tr style="background: #0f172a; color: #ffffff;">
+              <th style="border: 1px solid #000000; width: 40px; padding: 6px; text-align: center; font-weight: 700; font-size: 8pt;">No</th>
+              <th style="border: 1px solid #000000; padding: 6px 8px; text-align: left; font-weight: 700; font-size: 8pt;">Rincian Item</th>
+              <th style="border: 1px solid #000000; width: 60px; padding: 6px; text-align: center; font-weight: 700; font-size: 8pt;">QTY</th>
+              <th style="border: 1px solid #000000; width: 130px; padding: 6px; text-align: right; font-weight: 700; font-size: 8pt;">Harga Satuan (SAR)</th>
+              <th style="border: 1px solid #000000; width: 140px; padding: 6px; text-align: right; font-weight: 700; font-size: 8pt;">Jumlah (SAR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml || '<tr><td colspan="5" style="border: 1px solid #000; text-align:center; padding: 12px; font-size:8pt;">Tidak ada transaksi pengeluaran untuk grup ini</td></tr>'}
+          </tbody>
+          <tfoot>
+            <tr style="background: #f8fafc;">
+              <td colspan="4" style="border: 1px solid #000000; padding: 8px; text-align: right; font-weight: 700; font-size: 8pt;">TOTAL PENGELUARAN GRUP:</td>
+              <td style="border: 1px solid #000000; padding: 8px; text-align: right; font-weight: 800; font-size: 8pt; color: #000000;">${formatSAR(overallGrandTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
-
-      <h3 style="font-size: 13px; font-weight:700; color:#0f172a; margin-top: 15px; margin-bottom: 6px;">RINGKASAN 5 KATEGORI OPERASIONAL</h3>
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th style="width:30px;">No</th>
-            <th>Kategori Operasional</th>
-            <th style="text-align:center;">Jumlah Transaksi</th>
-            <th style="text-align:right;">Subtotal Pengeluaran (SAR)</th>
-          </tr>
-        </thead>
-        <tbody>${summaryRowsHtml}</tbody>
-        <tfoot>
-          <tr>
-            <td colspan="3" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PENGELUARAN GRUP:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(overallGrandTotal)}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      ${categoryTablesHtml}
     `;
 
   } else if (docTypeVal === "5") {
@@ -1798,9 +1786,14 @@ function generateManagementPdfDocument() {
 </body>
 </html>`;
 
-  } else if (docTypeVal === "2") {
-    const noRef = (document.getElementById('doc2NoRef').value || 'IN0001').trim();
-    fileName = `Kwitansi - ${noRef}`;
+  } else if (docTypeVal === "2" || docTypeVal === "4") {
+    if (docTypeVal === "2") {
+      const noRef = (document.getElementById('doc2NoRef').value || 'IN0001').trim();
+      fileName = `Kwitansi - ${noRef}`;
+    } else {
+      const selectedGroup = (document.getElementById('doc4GrupInput').value || 'Grup').trim();
+      fileName = `Laporan_Pengeluaran_Grup_${selectedGroup.replace(/\s+/g, '_')}_${Date.now()}`;
+    }
 
     printDocumentHtml = `<!DOCTYPE html>
 <html lang="id">
@@ -1839,14 +1832,6 @@ function generateManagementPdfDocument() {
       background-repeat: no-repeat;
       padding: 60mm 16mm 20mm 16mm;
       margin: 0 auto;
-    }
-    .kwitansi-card {
-      background: #ffffff;
-      border: 2.5px solid #0f172a;
-      border-radius: 18px;
-      padding: 32px 38px;
-      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
-      position: relative;
     }
     @media print {
       body { margin: 0; padding: 0; }
@@ -2680,7 +2665,7 @@ function renderOrdersList() {
     }
 
     const saudiFormattedTime = formatSaudiDateTime(order.tanggal, order.jam);
-    const multiItemsHtml = renderMultiItemsCard(order.itemProduk, order.qty, order.satuan, order.harga);
+    const multiItemsHtml = renderMultiItemsCard(order.itemProduk, order.satuan, order.harga, order.qty, order.jumlah);
 
     card.innerHTML = `
       <div class="order-card-header">
@@ -2709,7 +2694,7 @@ function renderOrdersList() {
         
         <div class="order-product-box">
           ${multiItemsHtml}
-          <div class="order-product-price">${formatSAR(order.jumlah)}</div>
+          <div class="order-product-price" style="margin-top:8px; border-top:1px solid #cbd5e1; padding-top:6px; font-size:14px;">Total: <strong>${formatSAR(order.jumlah)}</strong></div>
         </div>
 
         ${order.catatan ? `<div class="order-note">Catatan: "${order.catatan}"</div>` : ''}
@@ -2726,55 +2711,87 @@ function renderOrdersList() {
 
 function splitMultiLineCell(val) {
   if (val === null || val === undefined) return [];
-  return val.toString().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(s => s.trim()).filter(s => s !== '');
+  return val.toString().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(s => s.trim());
 }
 
-function renderMultiItemsCard(itemStr, qtyStr, unitStr, priceStr) {
+function renderMultiItemsCard(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
   if (!itemStr) return '<div class="order-product-name">-</div>';
 
-  const items = splitMultiLineCell(itemStr);
-  const qtys = splitMultiLineCell(qtyStr);
-  const units = splitMultiLineCell(unitStr);
-  const prices = splitMultiLineCell(priceStr);
+  const items = splitMultiLineCell(itemStr).filter(s => s !== '');
+  if (items.length === 0) return '<div class="order-product-name">-</div>';
 
-  if (items.length <= 1) {
-    const rawPrice = prices[0] || priceStr || '0';
+  const units = splitMultiLineCell(satuanStr);
+  const prices = splitMultiLineCell(hargaStr);
+  const qtys = splitMultiLineCell(qtyStr);
+  const jumlahs = splitMultiLineCell(jumlahStr);
+
+  if (items.length === 1) {
+    const rawPrice = prices[0] !== undefined ? prices[0] : (hargaStr || '0');
     const numPrice = parseFloat(rawPrice.toString().replace(/[^0-9.-]+/g, '')) || 0;
+    const q = (qtys[0] !== undefined && qtys[0] !== '') ? qtys[0] : (qtyStr || '1');
+    const u = (units[0] !== undefined && units[0] !== '') ? units[0] : (satuanStr || 'Porsi');
     return `
       <div>
-        <div class="order-product-name">${itemStr}</div>
-        <div style="font-size: 11px; color: #64748b;">Rincian: ${qtyStr || 1} ${unitStr || 'Porsi'} @ ${formatSAR(numPrice)}</div>
+        <div class="order-product-name" style="font-weight: 700; color: #0f172a;">${items[0]}</div>
+        <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">Rincian: ${q} ${u} @ ${formatSAR(numPrice)}</div>
       </div>
     `;
   }
 
   const rows = items.map((it, idx) => {
-    const q = qtys[idx] || qtys[0] || '1';
-    const u = units[idx] || units[0] || 'Porsi';
-    const rawPrice = prices[idx] || prices[0] || '0';
-    const numPrice = parseFloat(rawPrice.toString().replace(/[^0-9.-]+/g, '')) || 0;
+    const qStr = (qtys[idx] !== undefined && qtys[idx] !== '') ? qtys[idx] : (qtys[0] || '1');
+    const uStr = (units[idx] !== undefined && units[idx] !== '') ? units[idx] : (units[0] || 'Porsi');
+    const priceRaw = (prices[idx] !== undefined && prices[idx] !== '') ? prices[idx] : (prices[0] || '0');
+    
+    const numPrice = parseFloat(priceRaw.toString().replace(/[^0-9.-]+/g, '')) || 0;
+    const numQ = parseFloat(qStr) || 1;
+    
+    let subtotal = 0;
+    if (jumlahs[idx] !== undefined && jumlahs[idx] !== '') {
+      subtotal = parseFloat(jumlahs[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
+    } else {
+      subtotal = numQ * numPrice;
+    }
 
-    return `<div class="multi-item-row">• <strong>${it}</strong> <small style="color:#64748b">(${q} ${u} @ ${formatSAR(numPrice)})</small></div>`;
+    return `
+      <div class="multi-item-row" style="margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px dashed #cbd5e1;">
+        <div style="font-weight: 700; color: #0f172a; font-size: 12.5px;">• ${it}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #475569; margin-top: 2px;">
+          <span>Rincian: <strong>${qStr} ${uStr}</strong> @ ${formatSAR(numPrice)}</span>
+          <strong style="color: #0f172a;">${formatSAR(subtotal)}</strong>
+        </div>
+      </div>
+    `;
   }).join('');
 
   return `<div class="multi-items-list">${rows}</div>`;
 }
 
-function parseMultiItemsText(itemStr, qtyStr, unitStr, priceStr) {
+function parseMultiItemsText(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
   if (!itemStr) return '-';
-  const items = splitMultiLineCell(itemStr);
+  const items = splitMultiLineCell(itemStr).filter(s => s !== '');
+  if (items.length === 0) return '-';
+
+  const units = splitMultiLineCell(satuanStr);
+  const prices = splitMultiLineCell(hargaStr);
   const qtys = splitMultiLineCell(qtyStr);
-  const units = splitMultiLineCell(unitStr);
-  const prices = splitMultiLineCell(priceStr);
+  const jumlahs = splitMultiLineCell(jumlahStr);
 
   return items.map((it, idx) => {
-    const q = qtys[idx] || qtys[0] || '1';
-    const u = units[idx] || units[0] || 'Porsi';
-    const rawPrice = prices[idx] || prices[0] || '0';
+    const q = (qtys[idx] !== undefined && qtys[idx] !== '') ? qtys[idx] : (qtys[0] || '1');
+    const u = (units[idx] !== undefined && units[idx] !== '') ? units[idx] : (units[0] || 'Porsi');
+    const rawPrice = (prices[idx] !== undefined && prices[idx] !== '') ? prices[idx] : (prices[0] || '0');
     const numPrice = parseFloat(rawPrice.toString().replace(/[^0-9.-]+/g, '')) || 0;
+    
+    let subtotal = 0;
+    if (jumlahs[idx] !== undefined && jumlahs[idx] !== '') {
+      subtotal = parseFloat(jumlahs[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
+    } else {
+      subtotal = (parseFloat(q) || 1) * numPrice;
+    }
 
-    return `• ${it} (${q} ${u} @ ${formatSAR(numPrice)})`;
-  }).join('<br>');
+    return `• ${it} (${q} ${u} @ ${formatSAR(numPrice)} = ${formatSAR(subtotal)})`;
+  }).join('\n');
 }
 
 function normalizeDateToISO(rawDateStr) {
