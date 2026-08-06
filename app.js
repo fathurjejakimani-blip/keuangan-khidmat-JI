@@ -3105,6 +3105,8 @@ window.handleShareCompletedOrder = function(orderId) {
   if (!order) return;
 
   const saudiTime = formatSaudiDateTime(order.tanggal, order.jam);
+  const itemsText = parseMultiItemsText(order.itemProduk, order.satuan, order.harga, order.qty, order.jumlah);
+  const orderTotal = calculateOrderTotalSum(order);
 
   const shareText = `🧾 *PEMESANAN VENDOR SELESAI*\n\n` +
     `📌 *Tujuan Kegiatan:* ${order.tujuan}\n` +
@@ -3112,9 +3114,9 @@ window.handleShareCompletedOrder = function(orderId) {
     `👤 *Vendor:* ${order.akun}\n` +
     `✈️ *Grup:* ${order.grup}\n` +
     `👳 *Muthowwif:* ${order.muthowwif}\n` +
-    `📍 *Lokasi:* ${order.lokasi}\n` +
-    `📦 *Item:* ${order.itemProduk} (${order.qty} ${order.satuan} @ ${formatSAR(order.harga)})\n` +
-    `💰 *TOTAL JUMLAH:* ${formatSAR(order.jumlah)}\n` +
+    `📍 *Lokasi:* ${order.lokasi}\n\n` +
+    `📦 *RINCIAN ITEM:*\n${itemsText}\n\n` +
+    `💰 *TOTAL JUMLAH:* ${formatSAR(orderTotal)}\n` +
     `✅ *Status:* SELESAI\n\n` +
     `_Dicatat via Keuangan Tim Khidmat_`;
 
@@ -3149,7 +3151,7 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       appState.orders[orderIndex]._localOptimistic = true;
       
       if (newStatus === 'Selesai') {
-        const orderAmount = appState.orders[orderIndex].jumlah || 0;
+        const orderAmount = calculateOrderTotalSum(appState.orders[orderIndex]);
         appState.activeUser.saldo -= orderAmount;
         activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
         localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
