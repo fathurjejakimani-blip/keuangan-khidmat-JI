@@ -2347,21 +2347,12 @@ function setupPdfModal() {
 
 // Generate Printable PDF Document Function (With Martel Font for "jejak imani")
 function generatePdfDocument() {
-  const docType = pdfDocType.value;
-  const startDate = pdfStartDate.value;
-  const endDate = pdfEndDate.value;
-  const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
-  const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
-  const generatedDate = new Date().toLocaleString('id-ID');
-
-  const filteredOrders = appState.orders.filter(o => {
-    if (normString(o.akun) !== normString(vendorName)) return false;
-    const orderIsoDate = normalizeDateToISO(o.tanggal);
-    if (!orderIsoDate) return true;
-    return orderIsoDate >= startDate && orderIsoDate <= endDate;
-  });
-
-  let tableContentHtml = '';
+  if (appState.activeUser && (appState.activeUser.jenisAkun || '').toLowerCase() === 'vendor') {
+    generateVendorPdfDocument();
+    return;
+  }
+  generateManagementPdfDocument();
+}
 
 function extractVendorOrderItems(o) {
   const itemStr = o.itemProduk || '';
