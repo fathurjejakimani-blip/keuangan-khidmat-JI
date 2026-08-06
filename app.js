@@ -2363,98 +2363,207 @@ function generatePdfDocument() {
 
   let tableContentHtml = '';
 
+function extractVendorOrderItems(o) {
+  const itemStr = o.itemProduk || '';
+  const items = splitMultiLineCell(itemStr).filter(s => s !== '');
+  if (items.length === 0) {
+    const tot = calculateOrderTotalSum(o);
+    return [{
+      namaItem: o.tujuan || 'Pemesanan',
+      qty: 1,
+      satuan: 'Pcs',
+      hargaSatuan: tot,
+      subtotal: tot
+    }];
+  }
+
+  const totalItems = items.length;
+  let units = splitMultiLineCell(o.satuan);
+  let prices = splitMultiLineCell(o.harga);
+  let qtys = splitMultiLineCell(o.qty);
+  let jumlahs = splitMultiLineCell(o.jumlah);
+
+  if (totalItems > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
+    const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
+    if (cleanQtyDigits.length === totalItems) {
+      qtys = cleanQtyDigits.split('');
+    }
+  }
+
+  if (totalItems > 1 && prices.length === 1 && prices[0]) {
+    const splitRes = smartSplitMergedNumber(prices[0], totalItems);
+    if (splitRes.length === totalItems) prices = splitRes;
+  }
+
+  if (totalItems > 1 && jumlahs.length === 1 && jumlahs[0]) {
+    const splitRes = smartSplitMergedNumber(jumlahs[0], totalItems);
+    if (splitRes.length === totalItems) jumlahs = splitRes;
+  }
+
+  return items.map((it, idx) => {
+    let qStr = '1';
+    if (qtys[idx] !== undefined && qtys[idx] !== '') qStr = qtys[idx];
+    else if (qtys.length === 1 && idx === 0) qStr = qtys[0];
+    const numQ = parseFloat(qStr) || 1;
+
+    let uStr = 'Pcs';
+    if (units[idx] !== undefined && units[idx] !== '') uStr = units[idx];
+    else if (units[0] !== undefined && units[0] !== '') uStr = units[0];
+
+    let subtotal = 0;
+    if (jumlahs[idx] !== undefined && jumlahs[idx] !== '') {
+      subtotal = parseFloat(jumlahs[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
+    }
+
+    let numPrice = 0;
+    if (prices[idx] !== undefined && prices[idx] !== '') {
+      numPrice = parseFloat(prices[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
+    }
+
+    if (subtotal === 0 && numPrice > 0) subtotal = numQ * numPrice;
+    if (numPrice === 0 && subtotal > 0 && numQ > 0) numPrice = subtotal / numQ;
+
+    return {
+      namaItem: it,
+      qty: numQ,
+      satuan: uStr,
+      hargaSatuan: numPrice,
+      subtotal: subtotal
+    };
+  });
+}
+
+function generateVendorPdfDocument() {
+  const docType = pdfDocType.value;
+  const startDate = pdfStartDate.value;
+  const endDate = pdfEndDate.value;
+  const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
+  const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
+  const generatedDate = new Date().toLocaleString('id-ID');
+
+  const filteredOrders = appState.orders.filter(o => {
+    if (normString(o.akun) !== normString(vendorName)) return false;
+    const orderIsoDate = normalizeDateToISO(o.tanggal);
+    if (!orderIsoDate) return true;
+    return orderIsoDate >= startDate && orderIsoDate <= endDate;
+  });
+
+  let tableContentHtml = '';
+
   if (docType === 'Rekapitulasi Pemesanan') {
     let grandTotalOrders = 0;
-    const rowsHtml = filteredOrders.map((o, idx) => {
-      grandTotalOrders += o.jumlah || 0;
-      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
-      const productsFormatted = parseMultiItemsText(o.itemProduk, o.qty, o.satuan, o.harga);
+    let tableRows = [];
+    let globalRowIdx = 1;
 
-      return `
-        <tr>
-          <td style="text-align:center;">${idx + 1}</td>
-          <td><strong>${o.id}</strong><br><small>${cleanTime}</small></td>
-          <td>${o.grup}</td>
-          <td><strong>${o.tujuan}</strong><br><small>Muthowwif: ${o.muthowwif}</small></td>
-          <td>${o.lokasi}</td>
-          <td>${productsFormatted}</td>
-          <td style="text-align:right;"><strong>${formatSAR(o.jumlah)}</strong></td>
-          <td style="text-align:center;"><span class="badge badge-${o.status.toLowerCase().replace(/\s+/g, '-')}">${o.status}</span></td>
-        </tr>
-      `;
-    }).join('');
+    filteredOrders.forEach((o) => {
+      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
+      const parsedItems = extractVendorOrderItems(o);
+
+      parsedItems.forEach((item) => {
+        grandTotalOrders += item.subtotal;
+        tableRows.push(`
+          <tr>
+            <td style="border: 1px solid #000000; text-align:center; font-size: 8pt; padding: 5px;">${globalRowIdx++}</td>
+            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${cleanTime}</td>
+            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${o.grup || '-'}</td>
+            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;"><strong>${o.tujuan || '-'}</strong><br><small style="color:#475569;">Muthowwif: ${o.muthowwif || '-'}</small></td>
+            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${item.namaItem}</td>
+            <td style="border: 1px solid #000000; text-align:center; font-size: 8pt; padding: 5px;">${item.qty} ${item.satuan}</td>
+            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; padding: 5px;">${formatSAR(item.hargaSatuan)}</td>
+            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; font-weight:700; padding: 5px;">${formatSAR(item.subtotal)}</td>
+            <td style="border: 1px solid #000000; text-align:center; font-size: 8pt; padding: 5px;">
+              <span class="badge badge-${(o.status || 'baru').toLowerCase().replace(/\s+/g, '-')}">${o.status}</span>
+            </td>
+          </tr>
+        `);
+      });
+    });
 
     tableContentHtml = `
-      <table class="report-table">
+      <table class="report-table" style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000; margin-top: 10px;">
         <thead>
-          <tr>
-            <th style="width: 30px;">No</th>
-            <th>ID / Waktu</th>
-            <th>Grup</th>
-            <th>Tujuan Kegiatan</th>
-            <th>Lokasi</th>
-            <th>Item Produk & Qty</th>
-            <th style="text-align:right;">Jumlah (SAR)</th>
-            <th style="text-align:center;">Status</th>
+          <tr style="background: #0f172a; color: #ffffff;">
+            <th style="border: 1px solid #000000; width: 30px; font-size: 8pt; padding: 6px; text-align: center;">No</th>
+            <th style="border: 1px solid #000000; width: 110px; font-size: 8pt; padding: 6px; text-align: left;">Waktu</th>
+            <th style="border: 1px solid #000000; width: 100px; font-size: 8pt; padding: 6px; text-align: left;">Grup</th>
+            <th style="border: 1px solid #000000; font-size: 8pt; padding: 6px; text-align: left;">Tujuan Kegiatan</th>
+            <th style="border: 1px solid #000000; font-size: 8pt; padding: 6px; text-align: left;">Rincian Item</th>
+            <th style="border: 1px solid #000000; width: 65px; font-size: 8pt; padding: 6px; text-align: center;">QTY</th>
+            <th style="border: 1px solid #000000; width: 100px; font-size: 8pt; padding: 6px; text-align: right;">Harga Satuan</th>
+            <th style="border: 1px solid #000000; width: 110px; font-size: 8pt; padding: 6px; text-align: right;">Jumlah (SAR)</th>
+            <th style="border: 1px solid #000000; width: 85px; font-size: 8pt; padding: 6px; text-align: center;">Status</th>
           </tr>
         </thead>
         <tbody>
-          ${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding: 20px;">Tidak ada data pemesanan pada periode ini</td></tr>'}
+          ${tableRows.join('') || '<tr><td colspan="9" style="border: 1px solid #000; text-align:center; padding: 15px; font-size: 8pt;">Tidak ada data pemesanan pada periode ini</td></tr>'}
         </tbody>
         <tfoot>
-          <tr>
-            <td colspan="6" style="text-align:right; font-weight: bold;">TOTAL KESELURUHAN PEMESANAN:</td>
-            <td style="text-align:right; font-weight: bold; font-size: 14px; color:#d97706;">${formatSAR(grandTotalOrders)}</td>
-            <td></td>
+          <tr style="background: #f8fafc; font-weight: bold;">
+            <td colspan="7" style="border: 1px solid #000000; text-align:right; font-size: 8pt; padding: 6px;">TOTAL KESELURUHAN PEMESANAN:</td>
+            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; font-weight: 800; color:#d97706; padding: 6px;">${formatSAR(grandTotalOrders)}</td>
+            <td style="border: 1px solid #000000;"></td>
           </tr>
         </tfoot>
       </table>
     `;
   } else {
     let totalUangKeluar = 0;
-    const completedOrders = filteredOrders.filter(o => o.status === 'Selesai');
+    const completedOrders = filteredOrders.filter(o => (o.status || '').toLowerCase() === 'selesai' || (o.status || '').toLowerCase() === 'diproses');
     
-    const rowsHtml = completedOrders.map((o, idx) => {
-      totalUangKeluar += o.jumlah || 0;
+    let tableRows = [];
+    let globalRowIdx = 1;
+
+    completedOrders.forEach((o) => {
       const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
-      return `
-        <tr>
-          <td style="text-align:center;">${idx + 1}</td>
-          <td>${cleanTime}</td>
-          <td><strong>${o.id}</strong> - ${o.tujuan} (${o.grup})</td>
-          <td>Vendor / Selesai</td>
-          <td style="text-align:right;">-</td>
-          <td style="text-align:right; color:#dc2626;"><strong>${formatSAR(o.jumlah)}</strong></td>
-        </tr>
-      `;
-    }).join('');
+      const parsedItems = extractVendorOrderItems(o);
+
+      parsedItems.forEach((item) => {
+        totalUangKeluar += item.subtotal;
+        tableRows.push(`
+          <tr>
+            <td style="border: 1px solid #000000; text-align:center; font-size: 8pt; padding: 5px;">${globalRowIdx++}</td>
+            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${cleanTime}</td>
+            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;"><strong>${o.tujuan || '-'}</strong> - ${item.namaItem} (${item.qty} ${item.satuan} @ ${formatSAR(item.hargaSatuan)})</td>
+            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${o.grup || '-'}</td>
+            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; padding: 5px; color:#047857;">-</td>
+            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; font-weight:700; color:#dc2626; padding: 5px;">${formatSAR(item.subtotal)}</td>
+          </tr>
+        `);
+      });
+    });
 
     tableContentHtml = `
-      <div class="financial-summary-box">
-        <div class="summary-card">
-          <span>Total Pengeluaran (Selesai):</span>
-          <strong>${formatSAR(totalUangKeluar)}</strong>
+      <div class="financial-summary-box" style="display: flex; gap: 15px; margin-bottom: 15px; font-size: 8pt;">
+        <div class="summary-card" style="flex: 1; background: #f1f5f9; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 8pt;">
+          <span style="font-size: 8pt; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">Total Pengeluaran (Selesai):</span>
+          <strong style="font-family: 'Martel', serif; font-size: 13pt; color: #dc2626;">${formatSAR(totalUangKeluar)}</strong>
         </div>
-        <div class="summary-card">
-          <span>Sisa Saldo Kas Aktif:</span>
-          <strong>${currentSaldo}</strong>
+        <div class="summary-card" style="flex: 1; background: #f1f5f9; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 8pt;">
+          <span style="font-size: 8pt; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">Sisa Saldo Kas Aktif:</span>
+          <strong style="font-family: 'Martel', serif; font-size: 13pt; color: #0f172a;">${currentSaldo}</strong>
         </div>
       </div>
 
-      <table class="report-table">
+      <table class="report-table" style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000;">
         <thead>
-          <tr>
-            <th style="width: 30px;">No</th>
-            <th>Tanggal & Waktu</th>
-            <th>Keterangan Transaksi</th>
-            <th>Kategori</th>
-            <th style="text-align:right;">Kas Masuk (SAR)</th>
-            <th style="text-align:right;">Kas Keluar (SAR)</th>
+          <tr style="background: #0f172a; color: #ffffff;">
+            <th style="border: 1px solid #000000; width: 30px; font-size: 8pt; padding: 6px; text-align: center;">No</th>
+            <th style="border: 1px solid #000000; width: 120px; font-size: 8pt; padding: 6px; text-align: left;">Tanggal & Waktu</th>
+            <th style="border: 1px solid #000000; font-size: 8pt; padding: 6px; text-align: left;">Keterangan Transaksi & Item</th>
+            <th style="border: 1px solid #000000; width: 120px; font-size: 8pt; padding: 6px; text-align: left;">Grup</th>
+            <th style="border: 1px solid #000000; width: 110px; font-size: 8pt; padding: 6px; text-align: right;">Kas Masuk (SAR)</th>
+            <th style="border: 1px solid #000000; width: 110px; font-size: 8pt; padding: 6px; text-align: right;">Kas Keluar (SAR)</th>
           </tr>
         </thead>
         <tbody>
-          ${rowsHtml || '<tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada transaksi keuangan selesai pada periode ini</td></tr>'}
+          ${tableRows.join('') || '<tr><td colspan="6" style="border: 1px solid #000; text-align:center; padding: 15px; font-size: 8pt;">Tidak ada transaksi keuangan selesai pada periode ini</td></tr>'}
         </tbody>
+        <tfoot>
+          <tr style="background: #f8fafc; font-weight: bold;">
+            <td colspan="5" style="border: 1px solid #000000; text-align:right; font-size: 8pt; padding: 6px;">TOTAL PENGELUARAN KAS KELUAR:</td>
+            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; font-weight: 800; color:#dc2626; padding: 6px;">${formatSAR(totalUangKeluar)}</td>
+          </tr>
+        </tfoot>
       </table>
     `;
   }
@@ -2466,25 +2575,25 @@ function generatePdfDocument() {
       <title>${docType} - ${vendorName}</title>
       <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
       <style>
-        body { font-family: 'Mulish', sans-serif; padding: 30px; color: #0f172a; margin: 0; background: #fff; }
-        .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-        .doc-title { font-family: 'Martel', serif; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0 0 6px 0; color: #0f172a; }
-        .doc-subtitle { font-size: 14px; font-weight: 600; color: #1e3a8a; margin: 0; }
+        body { font-family: 'Mulish', sans-serif; padding: 25px; color: #0f172a; margin: 0; background: #fff; font-size: 8pt; }
+        .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+        .doc-title { font-family: 'Martel', serif; font-size: 18px; font-weight: 800; text-transform: uppercase; margin: 0 0 4px 0; color: #0f172a; }
+        .doc-subtitle { font-size: 12px; font-weight: 600; color: #1e3a8a; margin: 0; }
         .doc-subtitle .font-martel { font-family: 'Martel', serif; font-weight: 700; color: #0f172a; }
-        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; font-size: 13px; }
-        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 11px; text-transform: uppercase; }
-        .biodata-item strong { color: #0f172a; }
-        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-        .report-table th, .report-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
-        .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; }
-        .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; }
-        .badge-pesanan-baru { background: #fef3c7; color: #b45309; }
-        .badge-proses { background: #dbeafe; color: #1d4ed8; }
+        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 16px; border: 1px solid #e2e8f0; font-size: 8pt; }
+        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 8pt; text-transform: uppercase; }
+        .biodata-item strong { color: #0f172a; font-size: 8pt; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 8pt !important; }
+        .report-table th, .report-table td { border: 1px solid #000000; padding: 5px 6px; text-align: left; font-size: 8pt !important; }
+        .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; font-size: 8pt !important; }
+        .badge { font-size: 8pt !important; font-weight: 700; padding: 2px 6px; border-radius: 8px; text-transform: uppercase; display: inline-block; }
+        .badge-pesanan-baru, .badge-baru { background: #fef3c7; color: #b45309; }
+        .badge-proses, .badge-diproses { background: #dbeafe; color: #1d4ed8; }
         .badge-selesai { background: #d1fae5; color: #047857; }
-        .financial-summary-box { display: flex; gap: 15px; margin-bottom: 15px; }
-        .summary-card { flex: 1; background: #f1f5f9; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; }
-        .summary-card span { font-size: 11px; color: #64748b; font-weight: 600; display: block; }
-        .summary-card strong { font-family: 'Martel', serif; font-size: 16px; color: #0f172a; }
+        .financial-summary-box { display: flex; gap: 15px; margin-bottom: 15px; font-size: 8pt; }
+        .summary-card { flex: 1; background: #f1f5f9; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 8pt; }
+        .summary-card span { font-size: 8pt; color: #64748b; font-weight: 600; display: block; }
+        .summary-card strong { font-family: 'Martel', serif; font-size: 13pt; color: #0f172a; }
         @media print {
           body { padding: 0; }
         }
