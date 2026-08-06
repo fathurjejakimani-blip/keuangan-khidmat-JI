@@ -428,7 +428,7 @@ function applyUserSessionUI() {
   activeAccountName.textContent = appState.activeUser.name;
   const userRole = appState.activeUser.jenisAkun ? appState.activeUser.jenisAkun.toString().trim() : 'Tim';
   activeAccountType.textContent = userRole;
-  activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+  activeBalanceDisplay.textContent = formatSAR(getVendorActualBalance(appState.activeUser));
 
   authSection.classList.add('hidden');
   appFormWrapper.classList.remove('hidden');
@@ -572,7 +572,7 @@ function renderManagementDashboard() {
       card.innerHTML = `
         <div class="acc-card-name">${acc.name}</div>
         <div class="acc-card-type">${acc.jenisAkun || 'Vendor'}</div>
-        <div class="acc-card-balance">${formatSAR(acc.saldo)}</div>
+        <div class="acc-card-balance">${formatSAR(getVendorActualBalance(acc))}</div>
       `;
       vendorBalancesContainer.appendChild(card);
     });
@@ -2666,6 +2666,33 @@ function calculateOrderTotalSum(o) {
   return items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
 }
 
+function getVendorActualBalance(accountObj) {
+  if (!accountObj) return 0;
+  if ((accountObj.jenisAkun || '').toLowerCase() !== 'vendor') {
+    return parseFloat(accountObj.saldo) || 0;
+  }
+
+  const vName = normString(accountObj.name);
+  const completedVendorOrders = appState.orders.filter(o => 
+    normString(o.akun) === vName && 
+    ((o.status || '').toLowerCase() === 'selesai' || (o.status || '').toLowerCase() === 'diproses' || o._localOptimistic)
+  );
+
+  let rawSpreadsheetSum = 0;
+  let calculatedItemsSum = 0;
+
+  completedVendorOrders.forEach(o => {
+    const rawVal = parseFloat((o.jumlah || '0').toString().replace(/[^0-9.-]+/g, '')) || 0;
+    const calcVal = calculateOrderTotalSum(o);
+    
+    rawSpreadsheetSum += rawVal;
+    calculatedItemsSum += calcVal;
+  });
+
+  const correction = rawSpreadsheetSum - calculatedItemsSum;
+  return (parseFloat(accountObj.saldo) || 0) + correction;
+}
+
 // Vendor Pemesanan System - Strictly Scoped Status Tabs
 function setupStatusFilterTabs() {
   const tabs = document.querySelectorAll('#ordersSection .status-filter-tabs .tab-btn');
@@ -3151,9 +3178,7 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       appState.orders[orderIndex]._localOptimistic = true;
       
       if (newStatus === 'Selesai') {
-        const orderAmount = calculateOrderTotalSum(appState.orders[orderIndex]);
-        appState.activeUser.saldo -= orderAmount;
-        activeBalanceDisplay.textContent = formatSAR(appState.activeUser.saldo);
+        activeBalanceDisplay.textContent = formatSAR(getVendorActualBalance(appState.activeUser));
         localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
     }
@@ -3791,7 +3816,7 @@ async function fetchDataFromSpreadsheet() {
 
       if (refreshedAcc && typeof refreshedAcc.saldo === 'number' && !isNaN(refreshedAcc.saldo)) {
         appState.activeUser.saldo = refreshedAcc.saldo;
-        activeBalanceDisplay.textContent = formatSAR(refreshedAcc.saldo);
+        activeBalanceDisplay.textContent = formatSAR(getVendorActualBalance(appState.activeUser));
         localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
 
