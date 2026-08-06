@@ -2718,6 +2718,41 @@ function splitMultiLineCell(val) {
   return val.toString().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(s => s.trim());
 }
 
+function smartSplitMergedNumber(numStr, count) {
+  if (!numStr) return [];
+  const str = numStr.toString().replace(/[^0-9]/g, '');
+  if (!str) return [];
+  if (count <= 1) return [str];
+
+  if (count === 2) {
+    let candidates = [];
+    for (let i = 1; i < str.length; i++) {
+      const p1 = str.substring(0, i);
+      const p2 = str.substring(i);
+      if (p2.length > 1 && p2.startsWith('0')) continue;
+      
+      const n1 = parseInt(p1, 10);
+      const n2 = parseInt(p2, 10);
+      if (!isNaN(n1) && !isNaN(n2) && n1 > 0 && n2 > 0) {
+        let score = 0;
+        if (n1 % 100 === 0) score += 10;
+        if (n2 % 100 === 0) score += 10;
+        if (n1 % 10 === 0) score += 5;
+        if (n2 % 10 === 0) score += 5;
+        if (n1 % 5 === 0) score += 2;
+        if (n2 % 5 === 0) score += 2;
+        candidates.push({ split: [p1, p2], score });
+      }
+    }
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.score - a.score);
+      return candidates[0].split;
+    }
+  }
+
+  return [str];
+}
+
 function renderMultiItemsCard(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
   if (!itemStr) return '<div class="order-product-name">-</div>';
 
@@ -2736,6 +2771,20 @@ function renderMultiItemsCard(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
     const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
     if (cleanQtyDigits.length === totalItems) {
       qtys = cleanQtyDigits.split('');
+    }
+  }
+
+  // Smart Merged Number-Split Fallback for Harga & Jumlah:
+  if (totalItems > 1 && prices.length === 1 && prices[0]) {
+    const splitRes = smartSplitMergedNumber(prices[0], totalItems);
+    if (splitRes.length === totalItems) {
+      prices = splitRes;
+    }
+  }
+  if (totalItems > 1 && jumlahs.length === 1 && jumlahs[0]) {
+    const splitRes = smartSplitMergedNumber(jumlahs[0], totalItems);
+    if (splitRes.length === totalItems) {
+      jumlahs = splitRes;
     }
   }
 
@@ -2822,6 +2871,19 @@ function parseMultiItemsText(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
     const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
     if (cleanQtyDigits.length === totalItems) {
       qtys = cleanQtyDigits.split('');
+    }
+  }
+
+  if (totalItems > 1 && prices.length === 1 && prices[0]) {
+    const splitRes = smartSplitMergedNumber(prices[0], totalItems);
+    if (splitRes.length === totalItems) {
+      prices = splitRes;
+    }
+  }
+  if (totalItems > 1 && jumlahs.length === 1 && jumlahs[0]) {
+    const splitRes = smartSplitMergedNumber(jumlahs[0], totalItems);
+    if (splitRes.length === totalItems) {
+      jumlahs = splitRes;
     }
   }
 
