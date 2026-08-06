@@ -3779,13 +3779,18 @@ async function fetchDataFromSpreadsheet() {
     const data = await res.json();
 
     if (Array.isArray(data.orders)) {
+      const pendingQueue = syncManager.getQueue();
+      const pendingOrderIds = new Set(pendingQueue.filter(q => q.action === 'updateOrderStatus').map(q => normId(q.orderId)));
+
       data.orders.forEach(remoteOrder => {
-        const localOrder = appState.orders.find(o => normId(o.id) === normId(remoteOrder.id));
-        if (localOrder && localOrder._localOptimistic) {
-          if (localOrder.status === 'Selesai' || (localOrder.status === 'Proses' && remoteOrder.status === 'Pesanan Baru')) {
-            remoteOrder.status = localOrder.status;
-            remoteOrder._localOptimistic = true;
-          }
+        const targetId = normId(remoteOrder.id);
+        const localOrder = appState.orders.find(o => normId(o.id) === targetId);
+
+        if (pendingOrderIds.has(targetId) && localOrder) {
+          remoteOrder.status = localOrder.status;
+          remoteOrder._localOptimistic = true;
+        } else {
+          delete remoteOrder._localOptimistic;
         }
       });
       appState.orders = data.orders;
