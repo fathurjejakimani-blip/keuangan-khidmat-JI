@@ -2675,8 +2675,12 @@ function getVendorActualBalance(accountObj) {
   const vName = normString(accountObj.name);
   const completedVendorOrders = appState.orders.filter(o => 
     normString(o.akun) === vName && 
-    ((o.status || '').toLowerCase() === 'selesai' || (o.status || '').toLowerCase() === 'diproses' || o._localOptimistic)
+    (normString(o.status) === 'selesai' || (o._localOptimistic && normString(o.status) === 'selesai'))
   );
+
+  if (completedVendorOrders.length === 0) {
+    return parseFloat(accountObj.saldo) || 0;
+  }
 
   let rawSpreadsheetSum = 0;
   let calculatedItemsSum = 0;
@@ -3776,7 +3780,7 @@ async function fetchDataFromSpreadsheet() {
     const res = await fetch(`${GAS_URL}?action=getData`);
     const data = await res.json();
 
-    if (data.orders && data.orders.length > 0) {
+    if (Array.isArray(data.orders)) {
       data.orders.forEach(remoteOrder => {
         const localOrder = appState.orders.find(o => normId(o.id) === normId(remoteOrder.id));
         if (localOrder && localOrder._localOptimistic) {
@@ -3789,11 +3793,11 @@ async function fetchDataFromSpreadsheet() {
       appState.orders = data.orders;
     }
 
-    if (data.accounts && data.accounts.length > 0) appState.accounts = data.accounts;
-    if (data.groups && data.groups.length > 0) appState.masterGroups = data.groups;
-    if (data.activities && data.activities.length > 0) appState.masterActivities = data.activities;
-    if (data.categories && data.categories.length > 0) appState.masterCategories = data.categories;
-    if (data.transactions && data.transactions.length > 0) appState.transactions = data.transactions;
+    if (Array.isArray(data.accounts)) appState.accounts = data.accounts;
+    if (Array.isArray(data.groups)) appState.masterGroups = data.groups;
+    if (Array.isArray(data.activities)) appState.masterActivities = data.activities;
+    if (Array.isArray(data.categories)) appState.masterCategories = data.categories;
+    if (Array.isArray(data.transactions)) appState.transactions = data.transactions;
 
     localStorage.setItem('OFFLINE_APP_DATA', JSON.stringify({
       accounts: appState.accounts,
