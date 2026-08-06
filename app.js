@@ -491,7 +491,7 @@ function renderManagementDashboard() {
   if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'manajemen') return;
 
   // 1. Total Saldo Kas Tergabung (SEMUA AKUN termasuk Akun Manajemen, Tim, & Vendor)
-  const combinedTotal = appState.accounts.reduce((sum, acc) => sum + (acc.saldo || 0), 0);
+  const combinedTotal = appState.accounts.reduce((sum, acc) => sum + getVendorActualBalance(acc), 0);
   totalCombinedBalance.textContent = formatSAR(combinedTotal);
 
   // 2. Display Admin Account Name and Saldo
