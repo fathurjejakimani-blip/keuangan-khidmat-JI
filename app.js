@@ -2424,13 +2424,48 @@ function extractVendorOrderItems(o) {
   });
 }
 
+function formatVendorOrderItemsSummary(o) {
+  const itemStr = o.itemProduk || '';
+  const items = splitMultiLineCell(itemStr).filter(s => s !== '');
+  if (items.length === 0) return o.tujuan || '-';
+
+  const totalItems = items.length;
+  let units = splitMultiLineCell(o.satuan);
+  let qtys = splitMultiLineCell(o.qty);
+
+  if (totalItems > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
+    const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
+    if (cleanQtyDigits.length === totalItems) {
+      qtys = cleanQtyDigits.split('');
+    }
+  }
+
+  return items.map((it, idx) => {
+    let qStr = '1';
+    if (qtys[idx] !== undefined && qtys[idx] !== '') qStr = qtys[idx];
+    else if (qtys.length === 1 && idx === 0) qStr = qtys[0];
+
+    let uStr = 'Pcs';
+    if (units[idx] !== undefined && units[idx] !== '') uStr = units[idx];
+    else if (units[0] !== undefined && units[0] !== '') uStr = units[0];
+
+    return `${it} (${qStr} ${uStr})`;
+  }).join(',<br>');
+}
+
 function generateVendorPdfDocument() {
   const docType = pdfDocType.value;
   const startDate = pdfStartDate.value;
   const endDate = pdfEndDate.value;
   const vendorName = appState.activeUser ? appState.activeUser.name : 'Vendor';
   const currentSaldo = appState.activeUser ? formatSAR(appState.activeUser.saldo) : 'SAR 0.00';
-  const generatedDate = new Date().toLocaleString('id-ID');
+  const generatedDate = new Date().toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
   const filteredOrders = appState.orders.filter(o => {
     if (normString(o.akun) !== normString(vendorName)) return false;
@@ -2442,59 +2477,68 @@ function generateVendorPdfDocument() {
   let tableContentHtml = '';
 
   if (docType === 'Rekapitulasi Pemesanan') {
-    let grandTotalOrders = 0;
-    let tableRows = [];
-    let globalRowIdx = 1;
+    const rowsHtml = filteredOrders.map((o) => {
+      const dateIso = normalizeDateToISO(o.tanggal);
+      let formattedDateStr = o.tanggal || '-';
+      if (dateIso) {
+        const dObj = new Date(dateIso + 'T00:00:00');
+        formattedDateStr = dObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+      const timeStr = o.jam || '07:00';
+      const waktuHtml = `${formattedDateStr}<br>${timeStr}`;
+      const itemsSummary = formatVendorOrderItemsSummary(o);
 
-    filteredOrders.forEach((o) => {
-      const cleanTime = formatSaudiDateTime(o.tanggal, o.jam);
-      const parsedItems = extractVendorOrderItems(o);
+      return `
+        <tr>
+          <td style="border: 1px solid #000000; font-size: 8pt; padding: 6px 8px; vertical-align: top; text-align: center; width: 110px;">${waktuHtml}</td>
+          <td style="border: 1px solid #000000; font-size: 8pt; padding: 6px 8px; vertical-align: top;">
+            <strong style="font-weight: 700; color: #000000; display: block; margin-bottom: 2px;">${o.tujuan || '-'}</strong>
+            <span style="color: #1e293b;">${o.grup || '-'}</span>
+          </td>
+          <td style="border: 1px solid #000000; font-size: 8pt; padding: 6px 8px; vertical-align: top; width: 170px;">${o.lokasi || '-'}</td>
+          <td style="border: 1px solid #000000; font-size: 8pt; padding: 6px 8px; vertical-align: top; width: 220px;">${itemsSummary}</td>
+          <td style="border: 1px solid #000000; font-size: 8pt; padding: 6px 8px; vertical-align: top; width: 170px;">${o.catatan || '-'}</td>
+        </tr>
+      `;
+    }).join('');
 
-      parsedItems.forEach((item) => {
-        grandTotalOrders += item.subtotal;
-        tableRows.push(`
-          <tr>
-            <td style="border: 1px solid #000000; text-align:center; font-size: 8pt; padding: 5px;">${globalRowIdx++}</td>
-            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${cleanTime}</td>
-            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${o.grup || '-'}</td>
-            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;"><strong>${o.tujuan || '-'}</strong><br><small style="color:#475569;">Muthowwif: ${o.muthowwif || '-'}</small></td>
-            <td style="border: 1px solid #000000; font-size: 8pt; padding: 5px;">${item.namaItem}</td>
-            <td style="border: 1px solid #000000; text-align:center; font-size: 8pt; padding: 5px;">${item.qty} ${item.satuan}</td>
-            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; padding: 5px;">${formatSAR(item.hargaSatuan)}</td>
-            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; font-weight:700; padding: 5px;">${formatSAR(item.subtotal)}</td>
-            <td style="border: 1px solid #000000; text-align:center; font-size: 8pt; padding: 5px;">
-              <span class="badge badge-${(o.status || 'baru').toLowerCase().replace(/\s+/g, '-')}">${o.status}</span>
-            </td>
-          </tr>
-        `);
-      });
-    });
+    const startFormatted = formatSaudiDateOnly(startDate);
+    const endFormatted = formatSaudiDateOnly(endDate);
 
     tableContentHtml = `
-      <table class="report-table" style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000; margin-top: 10px;">
+      <div style="margin-bottom: 16px; font-size: 8.5pt; line-height: 1.6;">
+        <table style="border-collapse: collapse; font-size: 8.5pt;">
+          <tr>
+            <td style="width: 100px; color: #000000;">Periode</td>
+            <td style="width: 15px; text-align: center;">:</td>
+            <td style="font-weight: 600; color: #000000;">${startFormatted} s/d ${endFormatted}</td>
+          </tr>
+          <tr>
+            <td style="color: #000000;">Vendor</td>
+            <td style="text-align: center;">:</td>
+            <td style="font-weight: 600; color: #000000;">${vendorName}</td>
+          </tr>
+          <tr>
+            <td style="color: #000000;">Tanggal Cetak</td>
+            <td style="text-align: center;">:</td>
+            <td style="font-weight: 600; color: #000000;">${generatedDate}</td>
+          </tr>
+        </table>
+      </div>
+
+      <table class="report-table" style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000;">
         <thead>
-          <tr style="background: #0f172a; color: #ffffff;">
-            <th style="border: 1px solid #000000; width: 30px; font-size: 8pt; padding: 6px; text-align: center;">No</th>
-            <th style="border: 1px solid #000000; width: 110px; font-size: 8pt; padding: 6px; text-align: left;">Waktu</th>
-            <th style="border: 1px solid #000000; width: 100px; font-size: 8pt; padding: 6px; text-align: left;">Grup</th>
-            <th style="border: 1px solid #000000; font-size: 8pt; padding: 6px; text-align: left;">Tujuan Kegiatan</th>
-            <th style="border: 1px solid #000000; font-size: 8pt; padding: 6px; text-align: left;">Rincian Item</th>
-            <th style="border: 1px solid #000000; width: 65px; font-size: 8pt; padding: 6px; text-align: center;">QTY</th>
-            <th style="border: 1px solid #000000; width: 100px; font-size: 8pt; padding: 6px; text-align: right;">Harga Satuan</th>
-            <th style="border: 1px solid #000000; width: 110px; font-size: 8pt; padding: 6px; text-align: right;">Jumlah (SAR)</th>
-            <th style="border: 1px solid #000000; width: 85px; font-size: 8pt; padding: 6px; text-align: center;">Status</th>
+          <tr style="background: #ffffff; color: #000000;">
+            <th style="border: 1px solid #000000; width: 110px; font-size: 8.5pt; padding: 7px 8px; text-align: center;">Waktu</th>
+            <th style="border: 1px solid #000000; font-size: 8.5pt; padding: 7px 8px; text-align: center;">Tujuan & Grup</th>
+            <th style="border: 1px solid #000000; width: 170px; font-size: 8.5pt; padding: 7px 8px; text-align: center;">Lokasi</th>
+            <th style="border: 1px solid #000000; width: 220px; font-size: 8.5pt; padding: 7px 8px; text-align: center;">Item</th>
+            <th style="border: 1px solid #000000; width: 170px; font-size: 8.5pt; padding: 7px 8px; text-align: center;">Catatan</th>
           </tr>
         </thead>
         <tbody>
-          ${tableRows.join('') || '<tr><td colspan="9" style="border: 1px solid #000; text-align:center; padding: 15px; font-size: 8pt;">Tidak ada data pemesanan pada periode ini</td></tr>'}
+          ${rowsHtml || '<tr><td colspan="5" style="border: 1px solid #000; text-align:center; padding: 15px; font-size: 8pt;">Tidak ada data pemesanan pada periode ini</td></tr>'}
         </tbody>
-        <tfoot>
-          <tr style="background: #f8fafc; font-weight: bold;">
-            <td colspan="7" style="border: 1px solid #000000; text-align:right; font-size: 8pt; padding: 6px;">TOTAL KESELURUHAN PEMESANAN:</td>
-            <td style="border: 1px solid #000000; text-align:right; font-size: 8pt; font-weight: 800; color:#d97706; padding: 6px;">${formatSAR(grandTotalOrders)}</td>
-            <td style="border: 1px solid #000000;"></td>
-          </tr>
-        </tfoot>
       </table>
     `;
   } else {
@@ -2537,7 +2581,7 @@ function generateVendorPdfDocument() {
 
       <table class="report-table" style="width: 100%; border-collapse: collapse; font-size: 8pt; color: #000000;">
         <thead>
-          <tr style="background: #0f172a; color: #ffffff;">
+          <tr style="background: #ffffff; color: #000000;">
             <th style="border: 1px solid #000000; width: 30px; font-size: 8pt; padding: 6px; text-align: center;">No</th>
             <th style="border: 1px solid #000000; width: 120px; font-size: 8pt; padding: 6px; text-align: left;">Tanggal & Waktu</th>
             <th style="border: 1px solid #000000; font-size: 8pt; padding: 6px; text-align: left;">Keterangan Transaksi & Item</th>
@@ -2566,26 +2610,17 @@ function generateVendorPdfDocument() {
       <title>${docType} - ${vendorName}</title>
       <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Martel:wght@700;800&display=swap" rel="stylesheet">
       <style>
-        body { font-family: 'Mulish', sans-serif; padding: 25px; color: #0f172a; margin: 0; background: #fff; font-size: 8pt; }
-        .doc-header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
-        .doc-title { font-family: 'Martel', serif; font-size: 18px; font-weight: 800; text-transform: uppercase; margin: 0 0 4px 0; color: #0f172a; }
-        .doc-subtitle { font-size: 12px; font-weight: 600; color: #1e3a8a; margin: 0; }
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: 'Mulish', sans-serif; padding: 20px; color: #0f172a; margin: 0; background: #fff; font-size: 8pt; }
+        .doc-header { text-align: center; padding-bottom: 12px; margin-bottom: 16px; }
+        .doc-title { font-family: 'Martel', serif; font-size: 16pt; font-weight: 800; text-transform: uppercase; margin: 0 0 4px 0; color: #0f172a; letter-spacing: 0.5px; }
+        .doc-subtitle { font-size: 11pt; font-weight: 600; color: #1e3a8a; margin: 0; }
         .doc-subtitle .font-martel { font-family: 'Martel', serif; font-weight: 700; color: #0f172a; }
-        .biodata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 16px; border: 1px solid #e2e8f0; font-size: 8pt; }
-        .biodata-item span { color: #64748b; font-weight: 600; display: block; font-size: 8pt; text-transform: uppercase; }
-        .biodata-item strong { color: #0f172a; font-size: 8pt; }
         .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 8pt !important; }
-        .report-table th, .report-table td { border: 1px solid #000000; padding: 5px 6px; text-align: left; font-size: 8pt !important; }
-        .report-table th { background: #0f172a; color: #ffffff; font-weight: 700; font-size: 8pt !important; }
-        .badge { font-size: 8pt !important; font-weight: 700; padding: 2px 6px; border-radius: 8px; text-transform: uppercase; display: inline-block; }
-        .badge-pesanan-baru, .badge-baru { background: #fef3c7; color: #b45309; }
-        .badge-proses, .badge-diproses { background: #dbeafe; color: #1d4ed8; }
-        .badge-selesai { background: #d1fae5; color: #047857; }
-        .financial-summary-box { display: flex; gap: 15px; margin-bottom: 15px; font-size: 8pt; }
-        .summary-card { flex: 1; background: #f1f5f9; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 8pt; }
-        .summary-card span { font-size: 8pt; color: #64748b; font-weight: 600; display: block; }
-        .summary-card strong { font-family: 'Martel', serif; font-size: 13pt; color: #0f172a; }
+        .report-table th, .report-table td { border: 1px solid #000000; padding: 6px 8px; text-align: left; font-size: 8pt !important; }
+        .report-table th { background: #ffffff; color: #000000; font-weight: 700; font-size: 8.5pt !important; text-align: center; }
         @media print {
+          @page { size: A4 landscape; margin: 10mm; }
           body { padding: 0; }
         }
       </style>
@@ -2594,25 +2629,6 @@ function generateVendorPdfDocument() {
       <div class="doc-header">
         <h1 class="doc-title">${docType.toUpperCase()}</h1>
         <p class="doc-subtitle">Tim Khidmat <span class="font-martel">jejak imani</span> Saudi Arabia</p>
-      </div>
-
-      <div class="biodata-grid">
-        <div class="biodata-item">
-          <span>Nama Vendor / Akun:</span>
-          <strong>${vendorName}</strong>
-        </div>
-        <div class="biodata-item">
-          <span>Periode Dokumen:</span>
-          <strong>${startDate} s/d ${endDate}</strong>
-        </div>
-        <div class="biodata-item">
-          <span>Mata Uang:</span>
-          <strong>SAR (Saudi Riyal)</strong>
-        </div>
-        <div class="biodata-item">
-          <span>Tanggal Cetak:</span>
-          <strong>${generatedDate}</strong>
-        </div>
       </div>
 
       ${tableContentHtml}
