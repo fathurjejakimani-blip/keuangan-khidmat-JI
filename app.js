@@ -3164,14 +3164,17 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
   if (!confirm(confirmMsg)) return;
 
   try {
+    const targetNormId = normId(orderId);
+    const orderIndex = appState.orders.findIndex(o => normId(o.id) === targetNormId);
+    const targetOrder = orderIndex !== -1 ? appState.orders[orderIndex] : null;
+    const calcSum = targetOrder ? calculateOrderTotalSum(targetOrder) : 0;
+
     const payload = {
       action: 'updateOrderStatus',
       orderId: orderId,
-      newStatus: newStatus
+      newStatus: newStatus,
+      totalCalculatedSum: calcSum
     };
-
-    const targetNormId = normId(orderId);
-    const orderIndex = appState.orders.findIndex(o => normId(o.id) === targetNormId);
 
     if (orderIndex !== -1) {
       appState.orders[orderIndex].status = newStatus;
