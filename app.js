@@ -2724,67 +2724,86 @@ function renderMultiItemsCard(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
   const items = splitMultiLineCell(itemStr).filter(s => s !== '');
   if (items.length === 0) return '<div class="order-product-name">-</div>';
 
+  const totalItems = items.length;
+
   let units = splitMultiLineCell(satuanStr);
   let prices = splitMultiLineCell(hargaStr);
   let qtys = splitMultiLineCell(qtyStr);
   let jumlahs = splitMultiLineCell(jumlahStr);
 
   // Smart Digit-Split Fallback for QTY:
-  // If QTY column in sheet was typed on multiple lines (e.g. 3 Enter 1) but Google Sheets merged it to number "31":
-  if (items.length > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
+  if (totalItems > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
     const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
-    if (cleanQtyDigits.length === items.length) {
+    if (cleanQtyDigits.length === totalItems) {
       qtys = cleanQtyDigits.split('');
     }
   }
 
-  if (items.length === 1) {
+  if (totalItems === 1) {
     const rawPrice = prices[0] !== undefined ? prices[0] : (hargaStr || '0');
     const numPrice = parseFloat(rawPrice.toString().replace(/[^0-9.-]+/g, '')) || 0;
     const q = (qtys[0] !== undefined && qtys[0] !== '') ? qtys[0] : (qtyStr || '1');
-    const u = (units[0] !== undefined && units[0] !== '') ? units[0] : (satuanStr || 'Porsi');
+    const u = (units[0] !== undefined && units[0] !== '') ? units[0] : (satuanStr || 'Pcs');
     return `
       <div>
-        <div class="order-product-name" style="font-weight: 700; color: #0f172a;">${items[0]}</div>
-        <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">Rincian: ${q} ${u} @ ${formatSAR(numPrice)}</div>
+        <div class="order-product-name" style="font-weight: 700; color: #0f172a; font-size: 13.5px;">${items[0]}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 12px; color: #64748b; margin-top: 3px;">
+          <span>Rincian: ${q} ${u} @ ${formatSAR(numPrice)}</span>
+        </div>
       </div>
     `;
   }
 
   const rows = items.map((it, idx) => {
-    const qStr = (qtys[idx] !== undefined && qtys[idx] !== '') ? qtys[idx] : (qtys[0] || '1');
-    const uStr = (units[idx] !== undefined && units[idx] !== '') ? units[idx] : (units[0] || 'Porsi');
+    // Determine QTY for item idx without improper fallback to items[0] for idx > 0
+    let qStr = '1';
+    if (qtys[idx] !== undefined && qtys[idx] !== '') {
+      qStr = qtys[idx];
+    } else if (qtys.length === 1 && idx === 0) {
+      qStr = qtys[0];
+    }
     const numQ = parseFloat(qStr) || 1;
-    
+
+    // Determine Unit (Satuan) for item idx
+    let uStr = 'Pcs';
+    if (units[idx] !== undefined && units[idx] !== '') {
+      uStr = units[idx];
+    } else if (units[0] !== undefined && units[0] !== '') {
+      uStr = units[0];
+    }
+
+    // Determine Subtotal (Jumlah) for item idx
     let subtotal = 0;
     if (jumlahs[idx] !== undefined && jumlahs[idx] !== '') {
       subtotal = parseFloat(jumlahs[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
-    } else {
-      const priceRaw = (prices[idx] !== undefined && prices[idx] !== '') ? prices[idx] : (prices[0] || '0');
-      const numPrice = parseFloat(priceRaw.toString().replace(/[^0-9.-]+/g, '')) || 0;
-      subtotal = numQ * numPrice;
     }
 
-    // Smart Price Back-Calculation if price was 1 value or missing:
+    // Determine Unit Price (Harga Satuan) for item idx
     let numPrice = 0;
     if (prices[idx] !== undefined && prices[idx] !== '') {
       numPrice = parseFloat(prices[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
-    } else if (subtotal > 0 && numQ > 0) {
+    }
+
+    // Smart reconciliation if values were missing on specific lines
+    if (subtotal === 0 && numPrice > 0) {
+      subtotal = numQ * numPrice;
+    }
+    if (numPrice === 0 && subtotal > 0 && numQ > 0) {
       numPrice = subtotal / numQ;
     }
 
     return `
-      <div class="multi-item-row" style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed #cbd5e1;">
-        <div style="font-weight: 700; color: #0f172a; font-size: 12.5px;">• ${it}</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #475569; margin-top: 3px;">
-          <span>Rincian: <strong>${qStr} ${uStr}</strong> @ ${formatSAR(numPrice)}</span>
-          <strong style="color: #0f172a;">${formatSAR(subtotal)}</strong>
+      <div class="multi-item-row" style="margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed #cbd5e1;">
+        <div style="font-weight: 700; color: #0f172a; font-size: 13px; margin-bottom: 2px;">• ${it}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 11.5px;">
+          <span style="color: #64748b;">Rincian: <strong style="color: #334155;">${qStr} ${uStr}</strong> @ ${formatSAR(numPrice)}</span>
+          <strong style="color: #0f172a; font-family: 'Martel', serif; font-size: 12.5px; text-align: right; margin-left: auto; padding-left: 12px;">${formatSAR(subtotal)}</strong>
         </div>
       </div>
     `;
   }).join('');
 
-  return `<div class="multi-items-list">${rows}</div>`;
+  return `<div class="multi-items-list" style="width: 100%;">${rows}</div>`;
 }
 
 function parseMultiItemsText(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
@@ -2792,36 +2811,50 @@ function parseMultiItemsText(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
   const items = splitMultiLineCell(itemStr).filter(s => s !== '');
   if (items.length === 0) return '-';
 
+  const totalItems = items.length;
+
   let units = splitMultiLineCell(satuanStr);
   let prices = splitMultiLineCell(hargaStr);
   let qtys = splitMultiLineCell(qtyStr);
   let jumlahs = splitMultiLineCell(jumlahStr);
 
-  if (items.length > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
+  if (totalItems > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
     const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
-    if (cleanQtyDigits.length === items.length) {
+    if (cleanQtyDigits.length === totalItems) {
       qtys = cleanQtyDigits.split('');
     }
   }
 
   return items.map((it, idx) => {
-    const qStr = (qtys[idx] !== undefined && qtys[idx] !== '') ? qtys[idx] : (qtys[0] || '1');
-    const uStr = (units[idx] !== undefined && units[idx] !== '') ? units[idx] : (units[0] || 'Porsi');
+    let qStr = '1';
+    if (qtys[idx] !== undefined && qtys[idx] !== '') {
+      qStr = qtys[idx];
+    } else if (qtys.length === 1 && idx === 0) {
+      qStr = qtys[0];
+    }
     const numQ = parseFloat(qStr) || 1;
+
+    let uStr = 'Pcs';
+    if (units[idx] !== undefined && units[idx] !== '') {
+      uStr = units[idx];
+    } else if (units[0] !== undefined && units[0] !== '') {
+      uStr = units[0];
+    }
 
     let subtotal = 0;
     if (jumlahs[idx] !== undefined && jumlahs[idx] !== '') {
       subtotal = parseFloat(jumlahs[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
-    } else {
-      const priceRaw = (prices[idx] !== undefined && prices[idx] !== '') ? prices[idx] : (prices[0] || '0');
-      const numPrice = parseFloat(priceRaw.toString().replace(/[^0-9.-]+/g, '')) || 0;
-      subtotal = numQ * numPrice;
     }
 
     let numPrice = 0;
     if (prices[idx] !== undefined && prices[idx] !== '') {
       numPrice = parseFloat(prices[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
-    } else if (subtotal > 0 && numQ > 0) {
+    }
+
+    if (subtotal === 0 && numPrice > 0) {
+      subtotal = numQ * numPrice;
+    }
+    if (numPrice === 0 && subtotal > 0 && numQ > 0) {
       numPrice = subtotal / numQ;
     }
 
