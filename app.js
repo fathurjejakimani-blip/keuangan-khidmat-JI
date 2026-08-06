@@ -2650,6 +2650,19 @@ function setupStatusFilterTabs() {
   });
 }
 
+window.toggleOrderCardBody = function(orderId) {
+  const bodyEl = document.getElementById(`cardBody_${orderId}`);
+  const btnEl = document.getElementById(`btnToggle_${orderId}`);
+  if (!bodyEl) return;
+
+  const isHidden = bodyEl.classList.toggle('hidden');
+  if (btnEl) {
+    btnEl.innerHTML = isHidden 
+      ? `<i class="fa-solid fa-chevron-down"></i> Buka`
+      : `<i class="fa-solid fa-chevron-up"></i> Tutup`;
+  }
+};
+
 function renderOrdersList() {
   const ordersContainer = document.getElementById('ordersContainer');
   if (!ordersContainer) return;
@@ -2662,9 +2675,23 @@ function renderOrdersList() {
   }
 
   const vendorName = normString(appState.activeUser.name);
+  const selectedTab = (appState.selectedStatusFilter || 'Pesanan Baru').toLowerCase();
+
   const filteredOrders = appState.orders.filter(o => {
     const isVendorMatch = normString(o.akun) === vendorName;
-    const isStatusMatch = (o.status || 'Pesanan Baru').toLowerCase() === (appState.selectedStatusFilter || 'Pesanan Baru').toLowerCase();
+    const orderStat = (o.status || 'Pesanan Baru').trim().toLowerCase();
+
+    let isStatusMatch = false;
+    if (selectedTab.includes('proses')) {
+      isStatusMatch = orderStat.includes('proses');
+    } else if (selectedTab.includes('baru')) {
+      isStatusMatch = orderStat.includes('baru');
+    } else if (selectedTab.includes('selesai')) {
+      isStatusMatch = orderStat.includes('selesai');
+    } else {
+      isStatusMatch = orderStat === selectedTab;
+    }
+
     return isVendorMatch && isStatusMatch;
   });
 
@@ -2682,23 +2709,29 @@ function renderOrdersList() {
     const card = document.createElement('div');
     card.className = 'order-card';
 
-    let statusClass = 'status-baru';
+    let statusClass = 'pesanan-baru';
+    let statusLabel = order.status || 'Pesanan Baru';
     let actionBtnHtml = '';
 
-    if (order.status === 'Pesanan Baru') {
-      statusClass = 'status-baru';
-      actionBtnHtml = `<button type="button" class="btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Diproses')"><i class="fa-solid fa-check-double"></i> Konfirmasi Pemesanan</button>`;
-    } else if (order.status === 'Diproses') {
-      statusClass = 'status-diproses';
-      actionBtnHtml = `<button type="button" class="btn-confirm-order btn-finish-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')"><i class="fa-solid fa-flag-checkered"></i> Selesaikan Pemesanan</button>`;
-    } else if (order.status === 'Selesai') {
-      statusClass = 'status-selesai';
+    const normStat = (order.status || 'Pesanan Baru').trim().toLowerCase();
+
+    if (normStat.includes('proses')) {
+      statusClass = 'proses';
+      statusLabel = 'Proses';
+      actionBtnHtml = `<button type="button" class="btn-confirm-order btn-finish-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')">Selesaikan Pemesanan</button>`;
+    } else if (normStat.includes('selesai')) {
+      statusClass = 'selesai';
+      statusLabel = 'Selesai';
       actionBtnHtml = `
-        <span style="font-size: 12px; font-weight: 700; color: #047857;"><i class="fa-solid fa-circle-check"></i> Selesai</span>
+        <span style="font-size: 12px; font-weight: 700; color: #047857; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check"></i> Selesai</span>
         <button type="button" class="btn-icon-only btn-share-completed" title="Bagikan Ringkasan Transaksi" onclick="handleShareCompletedOrder('${order.id}')">
           <i class="fa-solid fa-share-nodes"></i>
         </button>
       `;
+    } else {
+      statusClass = 'pesanan-baru';
+      statusLabel = 'Pesanan Baru';
+      actionBtnHtml = `<button type="button" class="btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Diproses')">Konfirmasi Pemesanan</button>`;
     }
 
     const saudiFormattedTime = formatSaudiDateTime(order.tanggal, order.jam);
@@ -2706,44 +2739,51 @@ function renderOrdersList() {
     const orderCalculatedTotal = calculateOrderTotalSum(order);
 
     card.innerHTML = `
-      <div class="order-card-header">
+      <div class="order-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
         <div>
-          <h3 class="order-title">${order.tujuan}</h3>
-          <div class="order-time-sub">
+          <h3 class="order-title" style="margin: 0 0 2px 0;">${order.tujuan}</h3>
+          <div class="order-time-sub" style="font-size: 11px; color: #64748b;">
             <i class="fa-solid fa-clock"></i> ${saudiFormattedTime}
           </div>
         </div>
-        <span class="order-status-badge ${statusClass}">${order.status}</span>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+          <span class="order-status-badge ${statusClass}">${statusLabel}</span>
+          <button type="button" class="btn-toggle-details" onclick="toggleOrderCardBody('${order.id}')" id="btnToggle_${order.id}" style="background: transparent; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 11px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fa-solid fa-chevron-up"></i> Tutup
+          </button>
+        </div>
       </div>
 
-      <div class="order-details-grid">
-        <div class="order-detail-item">
-          <span class="order-detail-label">Grup</span>
-          <span class="order-detail-value">${order.grup || '-'}</span>
-        </div>
-        <div class="order-detail-item">
-          <span class="order-detail-label">Muthowwif</span>
-          <span class="order-detail-value">${order.muthowwif || '-'}</span>
-        </div>
-        <div class="order-detail-item">
-          <span class="order-detail-label">Lokasi</span>
-          <span class="order-detail-value">${order.lokasi || '-'}</span>
-        </div>
-        
-        <div class="order-product-box" style="grid-column: span 2; background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid #cbd5e1; margin-top: 6px;">
-          ${multiItemsHtml}
+      <div class="order-card-body" id="cardBody_${order.id}">
+        <div class="order-details-grid" style="margin-top: 10px;">
+          <div class="order-detail-item">
+            <span class="order-detail-label">Grup</span>
+            <span class="order-detail-value">${order.grup || '-'}</span>
+          </div>
+          <div class="order-detail-item">
+            <span class="order-detail-label">Muthowwif</span>
+            <span class="order-detail-value">${order.muthowwif || '-'}</span>
+          </div>
+          <div class="order-detail-item" style="grid-column: span 2;">
+            <span class="order-detail-label">Lokasi</span>
+            <span class="order-detail-value">${order.lokasi || '-'}</span>
+          </div>
+          
+          <div class="order-product-box" style="grid-column: span 2; background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid #cbd5e1; margin-top: 6px;">
+            ${multiItemsHtml}
+          </div>
+
+          <div class="order-total-summary-row" style="grid-column: span 2; margin-top: 8px; padding: 10px 14px; background: #fff8f0; border-radius: 8px; border: 1.5px solid #fde68a; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Pemesanan:</span>
+            <strong style="font-family: 'Martel', serif; font-size: 15px; font-weight: 800; color: #d97706;">${formatSAR(orderCalculatedTotal)}</strong>
+          </div>
+
+          ${order.catatan ? `<div class="order-note" style="grid-column: span 2; margin-top: 6px;">Catatan: "${order.catatan}"</div>` : ''}
         </div>
 
-        <div class="order-total-summary-row" style="grid-column: span 2; margin-top: 8px; padding: 10px 14px; background: #fff8f0; border-radius: 8px; border: 1.5px solid #fde68a; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Pemesanan:</span>
-          <strong style="font-family: 'Martel', serif; font-size: 15px; font-weight: 800; color: #d97706;">${formatSAR(orderCalculatedTotal)}</strong>
+        <div class="order-card-actions" style="margin-top: 12px;">
+          ${actionBtnHtml}
         </div>
-
-        ${order.catatan ? `<div class="order-note" style="grid-column: span 2; margin-top: 6px;">Catatan: "${order.catatan}"</div>` : ''}
-      </div>
-
-      <div class="order-card-actions">
-        ${actionBtnHtml}
       </div>
     `;
 
