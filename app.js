@@ -2561,10 +2561,79 @@ function calculateVendorEstimates() {
 
   const vendorName = normString(appState.activeUser.name);
   const pendingOrders = appState.orders.filter(o => normString(o.akun) === vendorName && o.status !== 'Selesai');
-  const totalEstimate = pendingOrders.reduce((sum, o) => sum + (o.jumlah || 0), 0);
+  const totalEstimate = pendingOrders.reduce((sum, o) => sum + calculateOrderTotalSum(o), 0);
 
   estimatesAmountDisplay.textContent = formatSAR(totalEstimate);
   if (estimatesBox) estimatesBox.classList.remove('hidden');
+}
+
+function calculateOrderTotalSum(o) {
+  if (!o) return 0;
+  
+  const itemStr = o.itemProduk || '';
+  const items = splitMultiLineCell(itemStr).filter(s => s !== '');
+  if (items.length <= 1) {
+    return parseFloat((o.jumlah || '0').toString().replace(/[^0-9.-]+/g, '')) || 0;
+  }
+
+  const totalItems = items.length;
+  let units = splitMultiLineCell(o.satuan);
+  let prices = splitMultiLineCell(o.harga);
+  let qtys = splitMultiLineCell(o.qty);
+  let jumlahs = splitMultiLineCell(o.jumlah);
+
+  if (totalItems > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
+    const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
+    if (cleanQtyDigits.length === totalItems) {
+      qtys = cleanQtyDigits.split('');
+    }
+  }
+
+  if (totalItems > 1 && prices.length === 1 && prices[0]) {
+    const splitRes = smartSplitMergedNumber(prices[0], totalItems);
+    if (splitRes.length === totalItems) {
+      prices = splitRes;
+    }
+  }
+
+  if (totalItems > 1 && jumlahs.length === 1 && jumlahs[0]) {
+    const splitRes = smartSplitMergedNumber(jumlahs[0], totalItems);
+    if (splitRes.length === totalItems) {
+      jumlahs = splitRes;
+    }
+  }
+
+  let grandTotal = 0;
+  items.forEach((it, idx) => {
+    let qStr = '1';
+    if (qtys[idx] !== undefined && qtys[idx] !== '') {
+      qStr = qtys[idx];
+    } else if (qtys.length === 1 && idx === 0) {
+      qStr = qtys[0];
+    }
+    const numQ = parseFloat(qStr) || 1;
+
+    let subtotal = 0;
+    if (jumlahs[idx] !== undefined && jumlahs[idx] !== '') {
+      subtotal = parseFloat(jumlahs[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
+    }
+
+    let numPrice = 0;
+    if (prices[idx] !== undefined && prices[idx] !== '') {
+      numPrice = parseFloat(prices[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
+    }
+
+    if (subtotal === 0 && numPrice > 0) {
+      subtotal = numQ * numPrice;
+    }
+    if (numPrice === 0 && subtotal > 0 && numQ > 0) {
+      numPrice = subtotal / numQ;
+    }
+
+    grandTotal += subtotal;
+  });
+
+  return grandTotal > 0 ? grandTotal : (parseFloat((o.jumlah || '0').toString().replace(/[^0-9.-]+/g, '')) || 0);
 }
 
 // Vendor Pemesanan System - Strictly Scoped Status Tabs
@@ -2582,80 +2651,48 @@ function setupStatusFilterTabs() {
 }
 
 function renderOrdersList() {
-  if (!appState.activeUser) return;
+  const ordersContainer = document.getElementById('ordersContainer');
+  if (!ordersContainer) return;
 
   ordersContainer.innerHTML = '';
-  
-  const userNorm = normString(appState.activeUser.name);
-  let vendorOrders = appState.orders.filter(o => normString(o.akun) === userNorm);
 
-  if (appState.selectedStatusFilter) {
-    vendorOrders = vendorOrders.filter(o => o.status === appState.selectedStatusFilter);
+  if (!appState.activeUser || (appState.activeUser.jenisAkun || '').toLowerCase() !== 'vendor') {
+    ordersContainer.innerHTML = '<div style="text-align:center; padding: 20px; color:#64748b;">Hanya akun vendor yang dapat melihat pesanan ini.</div>';
+    return;
   }
 
-  if (appState.selectedDateFilter) {
-    vendorOrders = vendorOrders.filter(o => {
-      const orderIsoDate = normalizeDateToISO(o.tanggal);
-      return orderIsoDate === appState.selectedDateFilter;
-    });
-  }
+  const vendorName = normString(appState.activeUser.name);
+  const filteredOrders = appState.orders.filter(o => {
+    const isVendorMatch = normString(o.akun) === vendorName;
+    const isStatusMatch = (o.status || 'Pesanan Baru').toLowerCase() === (appState.selectedStatusFilter || 'Pesanan Baru').toLowerCase();
+    return isVendorMatch && isStatusMatch;
+  });
 
-  const todayMs = new Date().setHours(0, 0, 0, 0);
-
-  if (appState.selectedStatusFilter === 'Selesai') {
-    vendorOrders.sort((a, b) => {
-      const dateAStr = normalizeDateToISO(a.tanggal);
-      const dateBStr = normalizeDateToISO(b.tanggal);
-      const dateAMs = dateAStr ? new Date(dateAStr).getTime() : 0;
-      const dateBMs = dateBStr ? new Date(dateBStr).getTime() : 0;
-
-      if (dateBMs !== dateAMs) {
-        return dateBMs - dateAMs;
-      }
-      return b.id.localeCompare(a.id);
-    });
-  } else {
-    vendorOrders.sort((a, b) => {
-      const dateAStr = normalizeDateToISO(a.tanggal);
-      const dateBStr = normalizeDateToISO(b.tanggal);
-
-      const dateAMs = dateAStr ? new Date(dateAStr).getTime() : todayMs;
-      const dateBMs = dateBStr ? new Date(dateBStr).getTime() : todayMs;
-
-      const diffA = Math.abs(dateAMs - todayMs);
-      const diffB = Math.abs(dateBMs - todayMs);
-
-      if (diffA !== diffB) {
-        return diffA - diffB;
-      }
-      return a.id.localeCompare(b.id);
-    });
-  }
-
-  if (vendorOrders.length === 0) {
+  if (filteredOrders.length === 0) {
     ordersContainer.innerHTML = `
-      <div style="text-align: center; padding: 24px; color: #64748b; font-size: 13px;">
-        <i class="fa-solid fa-box-open" style="font-size: 24px; margin-bottom: 8px; display: block;"></i>
-        Tidak ada pemesanan untuk status "${appState.selectedStatusFilter}"
+      <div style="text-align:center; padding: 40px 20px; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+        <i class="fa-solid fa-clipboard-list" style="font-size: 32px; color: #cbd5e1; margin-bottom: 10px;"></i>
+        <p style="color: #64748b; font-size: 13px; font-weight: 600; margin: 0;">Tidak ada pemesanan dengan status "${appState.selectedStatusFilter}"</p>
       </div>
     `;
     return;
   }
 
-  vendorOrders.forEach(order => {
+  filteredOrders.forEach(order => {
     const card = document.createElement('div');
     card.className = 'order-card';
 
-    let statusClass = 'pesanan-baru';
-    if (order.status === 'Proses') statusClass = 'proses';
-    if (order.status === 'Selesai') statusClass = 'selesai';
-
+    let statusClass = 'status-baru';
     let actionBtnHtml = '';
+
     if (order.status === 'Pesanan Baru') {
-      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Proses')">Konfirmasi Pemesanan</button>`;
-    } else if (order.status === 'Proses') {
-      actionBtnHtml = `<button type="button" class="btn-navy btn-order-action btn-complete-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')">Selesaikan Pemesanan</button>`;
-    } else {
+      statusClass = 'status-baru';
+      actionBtnHtml = `<button type="button" class="btn-confirm-order" onclick="handleUpdateOrderStatus('${order.id}', 'Diproses')"><i class="fa-solid fa-check-double"></i> Konfirmasi Pemesanan</button>`;
+    } else if (order.status === 'Diproses') {
+      statusClass = 'status-diproses';
+      actionBtnHtml = `<button type="button" class="btn-confirm-order btn-finish-order" onclick="handleUpdateOrderStatus('${order.id}', 'Selesai')"><i class="fa-solid fa-flag-checkered"></i> Selesaikan Pemesanan</button>`;
+    } else if (order.status === 'Selesai') {
+      statusClass = 'status-selesai';
       actionBtnHtml = `
         <span style="font-size: 12px; font-weight: 700; color: #047857;"><i class="fa-solid fa-circle-check"></i> Selesai</span>
         <button type="button" class="btn-icon-only btn-share-completed" title="Bagikan Ringkasan Transaksi" onclick="handleShareCompletedOrder('${order.id}')">
@@ -2666,6 +2703,7 @@ function renderOrdersList() {
 
     const saudiFormattedTime = formatSaudiDateTime(order.tanggal, order.jam);
     const multiItemsHtml = renderMultiItemsCard(order.itemProduk, order.satuan, order.harga, order.qty, order.jumlah);
+    const orderCalculatedTotal = calculateOrderTotalSum(order);
 
     card.innerHTML = `
       <div class="order-card-header">
@@ -2698,7 +2736,7 @@ function renderOrdersList() {
 
         <div class="order-total-summary-row" style="grid-column: span 2; margin-top: 8px; padding: 10px 14px; background: #fff8f0; border-radius: 8px; border: 1.5px solid #fde68a; display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Pemesanan:</span>
-          <strong style="font-family: 'Martel', serif; font-size: 15px; font-weight: 800; color: #d97706;">${formatSAR(order.jumlah)}</strong>
+          <strong style="font-family: 'Martel', serif; font-size: 15px; font-weight: 800; color: #d97706;">${formatSAR(orderCalculatedTotal)}</strong>
         </div>
 
         ${order.catatan ? `<div class="order-note" style="grid-column: span 2; margin-top: 6px;">Catatan: "${order.catatan}"</div>` : ''}
