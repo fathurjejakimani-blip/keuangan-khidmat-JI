@@ -2674,26 +2674,22 @@ function getVendorActualBalance(accountObj) {
 
   const vName = normString(accountObj.name);
   const completedVendorOrders = appState.orders.filter(o => 
-    normString(o.akun) === vName && 
-    (normString(o.status) === 'selesai' || (o._localOptimistic && normString(o.status) === 'selesai'))
+    normString(o.akun) === vName && normString(o.status) === 'selesai'
   );
 
   if (completedVendorOrders.length === 0) {
     return parseFloat(accountObj.saldo) || 0;
   }
 
-  let rawSpreadsheetSum = 0;
-  let calculatedItemsSum = 0;
-
+  let correction = 0;
   completedVendorOrders.forEach(o => {
-    const rawVal = parseFloat((o.jumlah || '0').toString().replace(/[^0-9.-]+/g, '')) || 0;
-    const calcVal = calculateOrderTotalSum(o);
-    
-    rawSpreadsheetSum += rawVal;
-    calculatedItemsSum += calcVal;
+    if (!o._localOptimistic) {
+      const rawVal = parseFloat((o.jumlah || '0').toString().replace(/[^0-9.-]+/g, '')) || 0;
+      const calcVal = calculateOrderTotalSum(o);
+      correction += (rawVal - calcVal);
+    }
   });
 
-  const correction = rawSpreadsheetSum - calculatedItemsSum;
   return (parseFloat(accountObj.saldo) || 0) + correction;
 }
 
@@ -3182,6 +3178,8 @@ window.handleUpdateOrderStatus = async function(orderId, newStatus) {
       appState.orders[orderIndex]._localOptimistic = true;
       
       if (newStatus === 'Selesai') {
+        const orderAmount = calculateOrderTotalSum(appState.orders[orderIndex]);
+        appState.activeUser.saldo -= orderAmount;
         activeBalanceDisplay.textContent = formatSAR(getVendorActualBalance(appState.activeUser));
         localStorage.setItem('ACTIVE_KHIDMAT_USER', JSON.stringify(appState.activeUser));
       }
