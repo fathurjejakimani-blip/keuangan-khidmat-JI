@@ -2658,8 +2658,8 @@ window.toggleOrderCardBody = function(orderId) {
   const isHidden = bodyEl.classList.toggle('hidden');
   if (btnEl) {
     btnEl.innerHTML = isHidden 
-      ? `<i class="fa-solid fa-chevron-down"></i> Buka`
-      : `<i class="fa-solid fa-chevron-up"></i> Tutup`;
+      ? `<i class="fa-solid fa-chevron-down"></i>`
+      : `<i class="fa-solid fa-chevron-up"></i>`;
   }
 };
 
@@ -2739,22 +2739,22 @@ function renderOrdersList() {
     const orderCalculatedTotal = calculateOrderTotalSum(order);
 
     card.innerHTML = `
-      <div class="order-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+      <div class="order-card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%;">
         <div>
           <h3 class="order-title" style="margin: 0 0 2px 0;">${order.tujuan}</h3>
           <div class="order-time-sub" style="font-size: 11px; color: #64748b;">
             <i class="fa-solid fa-clock"></i> ${saudiFormattedTime}
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
           <span class="order-status-badge ${statusClass}">${statusLabel}</span>
-          <button type="button" class="btn-toggle-details" onclick="toggleOrderCardBody('${order.id}')" id="btnToggle_${order.id}" style="background: transparent; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 11px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-            <i class="fa-solid fa-chevron-up"></i> Tutup
+          <button type="button" class="btn-toggle-details-icon" onclick="toggleOrderCardBody('${order.id}')" id="btnToggle_${order.id}" title="Buka/Tutup Detail" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #475569; cursor: pointer; transition: all 0.15s ease;">
+            <i class="fa-solid fa-chevron-down"></i>
           </button>
         </div>
       </div>
 
-      <div class="order-card-body" id="cardBody_${order.id}">
+      <div class="order-card-body hidden" id="cardBody_${order.id}">
         <div class="order-details-grid" style="margin-top: 10px;">
           <div class="order-detail-item">
             <span class="order-detail-label">Grup</span>
