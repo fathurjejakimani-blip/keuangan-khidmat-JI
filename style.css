@@ -847,26 +847,31 @@ input, select, textarea, button {
 }
 
 .order-status-badge {
-  font-size: 10px;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: inline-block;
 }
 
-.order-status-badge.pesanan-baru {
-  background: #fef3c7;
-  color: #b45309;
+.order-status-badge.pesanan-baru, .order-status-badge.status-baru {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a;
 }
 
-.order-status-badge.proses {
-  background: #e0f2fe;
-  color: #0369a1;
+.order-status-badge.proses, .order-status-badge.status-diproses {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #bae6fd;
 }
 
-.order-status-badge.selesai {
-  background: #d1fae5;
-  color: #047857;
+.order-status-badge.selesai, .order-status-badge.status-selesai {
+  background: #d1fae5 !important;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0;
 }
 
 .order-details-grid {
@@ -930,42 +935,42 @@ input, select, textarea, button {
 
 .btn-confirm-order {
   width: 100%;
-  padding: 11px 16px;
-  background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+  padding: 10px 16px;
+  background: #16a34a;
   color: #ffffff;
   border: none;
-  border-radius: var(--radius-md, 10px);
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  letter-spacing: 0.2px;
+  box-shadow: none !important;
+  text-align: center;
+  transition: background 0.15s ease;
 }
 
 .btn-confirm-order:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
-  transform: translateY(-1.5px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+  background: #15803d;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .btn-confirm-order:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  background: #166534;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .btn-confirm-order.btn-finish-order {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  box-shadow: none !important;
 }
 
 .btn-confirm-order.btn-finish-order:hover {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+  background: #0369a1;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .btn-order-action {
