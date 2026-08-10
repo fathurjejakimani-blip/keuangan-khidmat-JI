@@ -2354,6 +2354,30 @@ function generatePdfDocument() {
   generateManagementPdfDocument();
 }
 
+function splitMultiValueCell(val, targetCount) {
+  if (val === null || val === undefined) return [];
+  const str = val.toString().trim();
+  if (!str) return [];
+
+  // 1. Try splitting by newlines (\n or \r\n)
+  let items = str.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(s => s.trim()).filter(s => s !== '');
+  if (items.length >= targetCount) return items;
+
+  // 2. Try splitting by comma, slash, semicolon, or pipe (e.g. "12, 15" or "12 / 15")
+  if (items.length < targetCount && /[,\/;|]/.test(str)) {
+    const altSplit = str.split(/[,\/;|]/).map(s => s.trim()).filter(s => s !== '');
+    if (altSplit.length >= targetCount) return altSplit;
+  }
+
+  // 3. Try splitting by spaces (e.g. "12 15")
+  if (items.length < targetCount && /\s+/.test(str)) {
+    const spaceSplit = str.split(/\s+/).map(s => s.trim()).filter(s => s !== '');
+    if (spaceSplit.length >= targetCount) return spaceSplit;
+  }
+
+  return items;
+}
+
 function extractVendorOrderItems(o) {
   if (!o) return [];
   
@@ -2366,21 +2390,34 @@ function extractVendorOrderItems(o) {
 
   const maxCount = Math.max(items.length, units.length, prices.length, qtys.length, jumlahs.length, 1);
 
-  if (maxCount > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
-    const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
-    if (cleanQtyDigits.length === maxCount) {
-      qtys = cleanQtyDigits.split('');
-    }
+  if (maxCount > 1 && qtys.length <= 1 && o.qty) {
+    const altQtys = splitMultiValueCell(o.qty, maxCount);
+    if (altQtys.length > 1) qtys = altQtys;
+  }
+
+  if (maxCount > 1 && units.length <= 1 && o.satuan) {
+    const altUnits = splitMultiValueCell(o.satuan, maxCount);
+    if (altUnits.length > 1) units = altUnits;
   }
 
   if (maxCount > 1 && prices.length === 1 && prices[0]) {
-    const splitRes = smartSplitMergedNumber(prices[0], maxCount);
-    if (splitRes.length === maxCount) prices = splitRes;
+    const altPrices = splitMultiValueCell(o.harga, maxCount);
+    if (altPrices.length === maxCount) {
+      prices = altPrices;
+    } else {
+      const splitRes = smartSplitMergedNumber(prices[0], maxCount);
+      if (splitRes.length === maxCount) prices = splitRes;
+    }
   }
 
   if (maxCount > 1 && jumlahs.length === 1 && jumlahs[0]) {
-    const splitRes = smartSplitMergedNumber(jumlahs[0], maxCount);
-    if (splitRes.length === maxCount) jumlahs = splitRes;
+    const altJumlahs = splitMultiValueCell(o.jumlah, maxCount);
+    if (altJumlahs.length === maxCount) {
+      jumlahs = altJumlahs;
+    } else {
+      const splitRes = smartSplitMergedNumber(jumlahs[0], maxCount);
+      if (splitRes.length === maxCount) jumlahs = splitRes;
+    }
   }
 
   let result = [];
@@ -2389,7 +2426,7 @@ function extractVendorOrderItems(o) {
 
     let qStr = '1';
     if (qtys[idx] !== undefined && qtys[idx] !== '') qStr = qtys[idx];
-    else if (qtys.length === 1 && idx === 0) qStr = qtys[0];
+    else if (qtys.length === 1) qStr = qtys[0];
     const numQ = parseFloat(qStr) || 1;
 
     let uStr = 'Pcs';
@@ -2921,72 +2958,11 @@ function renderMultiItemsCard(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
 }
 
 function parseMultiItemsText(itemStr, satuanStr, hargaStr, qtyStr, jumlahStr) {
-  if (!itemStr) return '-';
-  const items = splitMultiLineCell(itemStr).filter(s => s !== '');
-  if (items.length === 0) return '-';
+  const dummyOrder = { itemProduk: itemStr, satuan: satuanStr, harga: hargaStr, qty: qtyStr, jumlah: jumlahStr };
+  const items = extractVendorOrderItems(dummyOrder);
+  if (!items || items.length === 0) return '-';
 
-  const totalItems = items.length;
-
-  let units = splitMultiLineCell(satuanStr);
-  let prices = splitMultiLineCell(hargaStr);
-  let qtys = splitMultiLineCell(qtyStr);
-  let jumlahs = splitMultiLineCell(jumlahStr);
-
-  if (totalItems > 1 && qtys.length === 1 && typeof qtys[0] === 'string') {
-    const cleanQtyDigits = qtys[0].replace(/[^0-9]/g, '');
-    if (cleanQtyDigits.length === totalItems) {
-      qtys = cleanQtyDigits.split('');
-    }
-  }
-
-  if (totalItems > 1 && prices.length === 1 && prices[0]) {
-    const splitRes = smartSplitMergedNumber(prices[0], totalItems);
-    if (splitRes.length === totalItems) {
-      prices = splitRes;
-    }
-  }
-  if (totalItems > 1 && jumlahs.length === 1 && jumlahs[0]) {
-    const splitRes = smartSplitMergedNumber(jumlahs[0], totalItems);
-    if (splitRes.length === totalItems) {
-      jumlahs = splitRes;
-    }
-  }
-
-  return items.map((it, idx) => {
-    let qStr = '1';
-    if (qtys[idx] !== undefined && qtys[idx] !== '') {
-      qStr = qtys[idx];
-    } else if (qtys.length === 1 && idx === 0) {
-      qStr = qtys[0];
-    }
-    const numQ = parseFloat(qStr) || 1;
-
-    let uStr = 'Pcs';
-    if (units[idx] !== undefined && units[idx] !== '') {
-      uStr = units[idx];
-    } else if (units[0] !== undefined && units[0] !== '') {
-      uStr = units[0];
-    }
-
-    let subtotal = 0;
-    if (jumlahs[idx] !== undefined && jumlahs[idx] !== '') {
-      subtotal = parseFloat(jumlahs[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
-    }
-
-    let numPrice = 0;
-    if (prices[idx] !== undefined && prices[idx] !== '') {
-      numPrice = parseFloat(prices[idx].toString().replace(/[^0-9.-]+/g, '')) || 0;
-    }
-
-    if (subtotal === 0 && numPrice > 0) {
-      subtotal = numQ * numPrice;
-    }
-    if (numPrice === 0 && subtotal > 0 && numQ > 0) {
-      numPrice = subtotal / numQ;
-    }
-
-    return `• ${it} (${qStr} ${uStr} @ ${formatSAR(numPrice)} = ${formatSAR(subtotal)})`;
-  }).join('\n');
+  return items.map(it => `• ${it.namaItem} (${it.qty} ${it.satuan} @ ${formatSAR(it.hargaSatuan)} = ${formatSAR(it.subtotal)})`).join('\n');
 }
 
 function normalizeDateToISO(rawDateStr) {
