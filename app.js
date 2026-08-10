@@ -2910,6 +2910,8 @@ function smartSplitMergedNumber(numStr, count) {
 
   if (count === 2) {
     let candidates = [];
+    const midPoint = str.length / 2;
+
     for (let i = 1; i < str.length; i++) {
       const p1 = str.substring(0, i);
       const p2 = str.substring(i);
@@ -2919,12 +2921,17 @@ function smartSplitMergedNumber(numStr, count) {
       const n2 = parseInt(p2, 10);
       if (!isNaN(n1) && !isNaN(n2) && n1 > 0 && n2 > 0) {
         let score = 0;
-        if (n1 % 100 === 0) score += 10;
-        if (n2 % 100 === 0) score += 10;
-        if (n1 % 10 === 0) score += 5;
-        if (n2 % 10 === 0) score += 5;
-        if (n1 % 5 === 0) score += 2;
-        if (n2 % 5 === 0) score += 2;
+        if (n1 % 100 === 0) score += 20;
+        if (n2 % 100 === 0) score += 20;
+        if (n1 % 10 === 0) score += 10;
+        if (n2 % 10 === 0) score += 10;
+        if (n1 % 5 === 0) score += 4;
+        if (n2 % 5 === 0) score += 4;
+
+        // Reward candidates closest to equal digit lengths (e.g. 12 & 18 over 1 & 218)
+        const distFromMid = Math.abs(i - midPoint);
+        score += (10 - distFromMid);
+
         candidates.push({ split: [p1, p2], score });
       }
     }
