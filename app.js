@@ -2382,7 +2382,12 @@ function extractVendorOrderItems(o) {
   if (!o) return [];
   
   const itemStr = o.itemProduk || '';
-  const items = splitMultiLineCell(itemStr).filter(s => s !== '');
+  let items = splitMultiLineCell(itemStr).filter(s => s !== '');
+  if (items.length <= 1 && /[,\/;|]/.test(itemStr)) {
+    const altItems = itemStr.split(/[,\/;|]/).map(s => s.trim()).filter(s => s !== '');
+    if (altItems.length > 1) items = altItems;
+  }
+
   let units = splitMultiLineCell(o.satuan);
   let prices = splitMultiLineCell(o.harga);
   let qtys = splitMultiLineCell(o.qty);
@@ -2392,7 +2397,14 @@ function extractVendorOrderItems(o) {
 
   if (maxCount > 1 && qtys.length <= 1 && o.qty) {
     const altQtys = splitMultiValueCell(o.qty, maxCount);
-    if (altQtys.length > 1) qtys = altQtys;
+    if (altQtys.length === maxCount) {
+      qtys = altQtys;
+    } else if (qtys[0]) {
+      const mergedRes = smartSplitMergedNumber(qtys[0], maxCount);
+      if (mergedRes.length === maxCount) {
+        qtys = mergedRes;
+      }
+    }
   }
 
   if (maxCount > 1 && units.length <= 1 && o.satuan) {
