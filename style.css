@@ -1566,31 +1566,27 @@ input, select, textarea, button {
 
 /* Animated Checkmark inside Success Card & Toast */
 .checkmark-wrapper, .toast-checkmark-wrapper {
-  width: 56px !important;
-  height: 56px !important;
-  margin: 0 auto 6px auto !important;
+  width: 60px !important;
+  height: 60px !important;
+  margin: 0 auto 10px auto !important;
   display: block !important;
 }
 
 .checkmark, .toast-checkmark {
-  width: 56px !important;
-  height: 56px !important;
+  width: 60px !important;
+  height: 60px !important;
   border-radius: 50% !important;
   display: block !important;
-  stroke-width: 3.5 !important;
-  stroke: #10b981 !important;
-  stroke-miterlimit: 10 !important;
-  box-shadow: inset 0px 0px 0px #10b981 !important;
+  animation: springPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
 }
 
 .checkmark-circle, .toast-checkmark-circle {
   stroke-dasharray: 166 !important;
   stroke-dashoffset: 166 !important;
   stroke-width: 3.5 !important;
-  stroke-miterlimit: 10 !important;
   stroke: #10b981 !important;
   fill: none !important;
-  animation: strokeCircle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards !important;
+  animation: strokeCircle 0.5s ease-in-out forwards !important;
 }
 
 .checkmark-check, .toast-checkmark-check {
@@ -1602,7 +1598,13 @@ input, select, textarea, button {
   fill: none !important;
   stroke-linecap: round !important;
   stroke-linejoin: round !important;
-  animation: strokeCheck 0.4s cubic-bezier(0.65, 0, 0.45, 1) 0.4s forwards !important;
+  animation: strokeCheck 0.35s ease-in-out 0.25s forwards !important;
+}
+
+@keyframes springPop {
+  0% { transform: scale(0); opacity: 0; }
+  75% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes strokeCircle {
