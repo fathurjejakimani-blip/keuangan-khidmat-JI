@@ -1564,41 +1564,55 @@ input, select, textarea, button {
   animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Animated Checkmark inside Success Card */
-.checkmark-wrapper {
+/* Animated Checkmark inside Success Card & Toast */
+.checkmark-wrapper, .toast-checkmark-wrapper {
   width: 56px !important;
   height: 56px !important;
   margin: 0 auto 6px auto !important;
   display: block !important;
 }
 
-.checkmark {
+.checkmark, .toast-checkmark {
   width: 56px !important;
   height: 56px !important;
   border-radius: 50% !important;
   display: block !important;
-  stroke-width: 3 !important;
+  stroke-width: 3.5 !important;
   stroke: #10b981 !important;
   stroke-miterlimit: 10 !important;
   box-shadow: inset 0px 0px 0px #10b981 !important;
-  animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
 }
 
-.checkmark-circle {
+.checkmark-circle, .toast-checkmark-circle {
   stroke-dasharray: 166 !important;
   stroke-dashoffset: 166 !important;
-  stroke-width: 3 !important;
+  stroke-width: 3.5 !important;
   stroke-miterlimit: 10 !important;
   stroke: #10b981 !important;
   fill: none !important;
-  animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards !important;
+  animation: strokeCircle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards !important;
 }
 
-.checkmark-check {
+.checkmark-check, .toast-checkmark-check {
   transform-origin: 50% 50% !important;
   stroke-dasharray: 48 !important;
   stroke-dashoffset: 48 !important;
-  animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards !important;
+  stroke-width: 4 !important;
+  stroke: #10b981 !important;
+  fill: none !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  animation: strokeCheck 0.4s cubic-bezier(0.65, 0, 0.45, 1) 0.4s forwards !important;
+}
+
+@keyframes strokeCircle {
+  0% { stroke-dashoffset: 166; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes strokeCheck {
+  0% { stroke-dashoffset: 48; }
+  100% { stroke-dashoffset: 0; }
 }
 
 @keyframes modalPopIn {
