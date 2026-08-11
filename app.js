@@ -331,6 +331,7 @@ function setupEventListeners() {
     btnNewTransaction.addEventListener('click', () => {
       successOverlay.classList.add('hidden');
       resetForm();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
 
