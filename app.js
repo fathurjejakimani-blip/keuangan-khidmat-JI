@@ -657,6 +657,13 @@ window.handleRejectExpense = async function(txId) {
 function showAutoToast(titleText, subtitleText) {
   toastTitle.textContent = titleText;
   toastSubtitle.textContent = subtitleText;
+
+  const checkSvg = toastOverlay.querySelector('.toast-checkmark');
+  if (checkSvg) {
+    const clone = checkSvg.cloneNode(true);
+    checkSvg.parentNode.replaceChild(clone, checkSvg);
+  }
+
   toastOverlay.classList.remove('hidden');
 
   setTimeout(() => {
